@@ -1,0 +1,45 @@
+# Demo Mosquitto - Quick Evaluation
+# Minimal configuration for testing and demos
+
+resourcePreset: edge-broker
+
+mqtt:
+  # No authentication for demo
+  authentication:
+    enabled: false
+    allowAnonymous: true
+  
+  # No persistence for demo
+  persistence:
+    enabled: false
+  
+  # Plain MQTT only
+  ports:
+    mqtt:
+      enabled: true
+    mqtts:
+      enabled: false
+    websockets:
+      enabled: true
+  
+  # Simple logging
+  logging:
+    level: notice
+  
+  # No TLS
+  tls:
+    enabled: false
+
+# Enable monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+
+# No backups for demo
+backup:
+  enabled: false
+
+# NodePort service for external access (optional)
+service:
+  type: ClusterIP

@@ -1,0 +1,72 @@
+# .gitignore for Mosquitto MQTT Helm Chart
+
+# Helm
+*.tgz
+.helm/
+
+# Values overrides with secrets
+values-*.yaml
+!values-example.yaml
+secrets.yaml
+secret-*.yaml
+
+# Kubernetes
+*.kubeconfig
+kubeconfig
+
+# Test artifacts
+test-results/
+*.log
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Generated certificates
+*.pem
+*.crt
+*.key
+*.csr
+ca/
+
+# Password files
+passwd
+passwd.*
+*.passwd
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Archives
+*.zip
+*.tar.gz
+*.tar

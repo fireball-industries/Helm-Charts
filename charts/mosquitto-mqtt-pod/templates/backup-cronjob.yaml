@@ -1,0 +1,96 @@
+{{- if .Values.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "mosquitto.fullname" . }}-backup
+  namespace: {{ include "mosquitto.namespace" . }}
+  labels:
+    {{- include "mosquitto.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.backup.retention }}
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    metadata:
+      labels:
+        {{- include "mosquitto.labels" . | nindent 8 }}
+        app.kubernetes.io/component: backup
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "mosquitto.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: {{ include "mosquitto.serviceAccountName" . }}
+          containers:
+            - name: backup
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  #!/bin/sh
+                  set -e
+                  
+                  echo "🦟 Mosquitto Backup Started - $(date)"
+                  BACKUP_DIR="/backup/mosquitto-$(date +%Y%m%d-%H%M%S)"
+                  mkdir -p "$BACKUP_DIR"
+                  
+                  # Backup persistence data
+                  if [ -d "{{ .Values.mqtt.persistence.location }}" ]; then
+                    echo "📦 Backing up persistence data..."
+                    cp -r {{ .Values.mqtt.persistence.location }}/* "$BACKUP_DIR/data/" || true
+                  fi
+                  
+                  # Backup configuration
+                  echo "⚙️  Backing up configuration..."
+                  mkdir -p "$BACKUP_DIR/config"
+                  cp /mosquitto/config/mosquitto.conf "$BACKUP_DIR/config/" || true
+                  cp /mosquitto/config/acl.conf "$BACKUP_DIR/config/" || true
+                  cp /mosquitto/config/passwd "$BACKUP_DIR/config/" || true
+                  
+                  # Cleanup old backups
+                  echo "🧹 Cleaning up old backups (keeping last {{ .Values.backup.retention }})..."
+                  cd /backup
+                  ls -t | tail -n +{{ add .Values.backup.retention 1 }} | xargs -r rm -rf
+                  
+                  echo "✅ Backup completed: $BACKUP_DIR"
+                  du -sh "$BACKUP_DIR"
+              
+              resources:
+                {{- toYaml .Values.backup.resources | nindent 16 }}
+              
+              volumeMounts:
+                - name: config
+                  mountPath: /mosquitto/config
+                  readOnly: true
+                {{- if .Values.mqtt.persistence.enabled }}
+                - name: data
+                  mountPath: {{ .Values.mqtt.persistence.location }}
+                  readOnly: true
+                {{- end }}
+                {{- if eq .Values.backup.destination "pvc" }}
+                - name: backup
+                  mountPath: /backup
+                {{- end }}
+          
+          volumes:
+            - name: config
+              configMap:
+                name: {{ include "mosquitto.fullname" . }}
+            {{- if .Values.mqtt.persistence.enabled }}
+            - name: data
+              persistentVolumeClaim:
+                claimName: data-{{ include "mosquitto.fullname" . }}-0
+            {{- end }}
+            {{- if eq .Values.backup.destination "pvc" }}
+            - name: backup
+              persistentVolumeClaim:
+                claimName: {{ include "mosquitto.fullname" . }}-backup
+            {{- end }}
+{{- end }}

@@ -1,0 +1,78 @@
+# .helmignore - Patterns to ignore when building Helm packages
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Documentation (except essential)
+docs/
+*.md
+!README.md
+!NOTES.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+tests/
+test/
+*_test.yaml
+*_test.yml
+
+# Scripts (include in chart but not needed for packaging)
+scripts/*.ps1
+scripts/*.sh
+scripts/*.py
+
+# Examples (users should get these from repo)
+examples/
+example-*.yaml
+
+# Templates (users should get these from repo)
+acl-templates/
+bridge-templates/
+integration-examples/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+*~
+
+# Build artifacts
+*.tgz
+dist/
+build/
+
+# Secrets and sensitive data
+secrets.yaml
+values-*.yaml
+!values.yaml
+*.pem
+*.crt
+*.key
+passwd
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+
+# Node
+node_modules/

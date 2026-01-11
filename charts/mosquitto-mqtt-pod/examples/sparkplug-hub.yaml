@@ -1,0 +1,207 @@
+# Sparkplug B Central Hub
+# Enterprise configuration optimized for Sparkplug B protocol
+
+resourcePreset: enterprise-broker
+
+mqtt:
+  # Authentication required
+  authentication:
+    enabled: true
+    allowAnonymous: false
+    passwordFile:
+      enabled: true
+      users:
+        - username: admin
+          password: ChangeMeInProduction!
+        - username: primary_app
+          password: PrimaryApp123!
+        - username: edge_node_01
+          password: EdgeNode01Password!
+        - username: edge_node_02
+          password: EdgeNode02Password!
+        - username: historian
+          password: Historian123!
+  
+  # High-performance persistence
+  persistence:
+    enabled: true
+    size: 100Gi
+    autosaveInterval: 60
+    autosaveOnChanges: false
+    storageClass: "fast-ssd"  # Use fast storage
+  
+  # All ports enabled
+  ports:
+    mqtt:
+      enabled: true
+    mqtts:
+      enabled: true
+    websockets:
+      enabled: true
+  
+  # High connection limits
+  maxConnections: 10000
+  maxQueuedMessages: 5000
+  maxInflightMessages: 50
+  maxQoS: 2
+  
+  # Sparkplug B configuration
+  sparkplug:
+    enabled: true
+    namespace: "spBv1.0"
+    aclEnabled: true
+    groupIds:
+      - "Factory"
+      - "Warehouse"
+      - "Utilities"
+  
+  # Sparkplug B ACL
+  acl:
+    enabled: true
+    content: |
+      # =============================================================
+      # Admin - Full Access
+      # =============================================================
+      user admin
+      topic readwrite #
+      
+      # =============================================================
+      # Primary Application - SCADA/Ignition
+      # =============================================================
+      user primary_app
+      # Read all Sparkplug messages
+      topic read spBv1.0/#
+      topic read STATE/#
+      # Write commands to edge nodes
+      topic write spBv1.0/+/NCMD/#
+      topic write spBv1.0/+/DCMD/#
+      # Write STATE messages
+      topic write STATE/#
+      
+      # =============================================================
+      # Edge Node 01
+      # =============================================================
+      user edge_node_01
+      # Publish birth/death/data for node and devices
+      topic write spBv1.0/Factory/NBIRTH/edge_node_01
+      topic write spBv1.0/Factory/NDEATH/edge_node_01
+      topic write spBv1.0/Factory/NDATA/edge_node_01
+      topic write spBv1.0/Factory/DBIRTH/edge_node_01/#
+      topic write spBv1.0/Factory/DDEATH/edge_node_01/#
+      topic write spBv1.0/Factory/DDATA/edge_node_01/#
+      # Read commands
+      topic read spBv1.0/Factory/NCMD/edge_node_01
+      topic read spBv1.0/Factory/DCMD/edge_node_01/#
+      # Read STATE
+      topic read STATE/#
+      
+      # =============================================================
+      # Edge Node 02
+      # =============================================================
+      user edge_node_02
+      topic write spBv1.0/Warehouse/NBIRTH/edge_node_02
+      topic write spBv1.0/Warehouse/NDEATH/edge_node_02
+      topic write spBv1.0/Warehouse/NDATA/edge_node_02
+      topic write spBv1.0/Warehouse/DBIRTH/edge_node_02/#
+      topic write spBv1.0/Warehouse/DDEATH/edge_node_02/#
+      topic write spBv1.0/Warehouse/DDATA/edge_node_02/#
+      topic read spBv1.0/Warehouse/NCMD/edge_node_02
+      topic read spBv1.0/Warehouse/DCMD/edge_node_02/#
+      topic read STATE/#
+      
+      # =============================================================
+      # Historian - Read-Only Access
+      # =============================================================
+      user historian
+      topic read spBv1.0/#
+      topic read STATE/#
+  
+  # TLS enabled
+  tls:
+    enabled: true
+    autoGenerate: false
+    existingSecret: mosquitto-tls
+    version: tlsv1.3
+  
+  # Detailed logging
+  logging:
+    level: information
+    connectionLogs: true
+  
+  # Bridge to cloud (optional)
+  bridge:
+    enabled: false
+    # connections:
+    #   - name: aws-iot
+    #     address: xxxxx.iot.us-east-1.amazonaws.com:8883
+    #     topics:
+    #       - pattern: "spBv1.0/# out 1"
+    #     tls: true
+
+# Prometheus monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 15s  # More frequent for enterprise
+
+# Automated backups
+backup:
+  enabled: true
+  schedule: "0 */6 * * *"  # Every 6 hours
+  retention: 14
+
+# Service configuration
+service:
+  type: LoadBalancer  # External access
+  sessionAffinity: ClientIP
+  annotations:
+    metallb.universe.tf/address-pool: mqtt-pool
+
+# Ingress for WebSockets
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: mqtt.factory.local
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 9001
+  tls:
+    - secretName: mqtt-websocket-tls
+      hosts:
+        - mqtt.factory.local
+
+# Network policy for Sparkplug
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              sparkplug: "true"
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: scada
+
+# Pod configuration
+nodeSelector:
+  workload: mqtt-critical
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: mosquitto-mqtt
+          topologyKey: kubernetes.io/hostname
+
+priorityClassName: high-priority

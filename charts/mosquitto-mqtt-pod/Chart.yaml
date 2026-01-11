@@ -1,0 +1,88 @@
+apiVersion: v2
+name: mosquitto-mqtt
+description: Production-ready Eclipse Mosquitto MQTT Broker with Prometheus monitoring, Sparkplug B support, and industrial IoT optimization. Because your factory floor deserves better than a sketchy WiFi network.
+version: 1.0.0
+appVersion: "2.0.18"
+type: application
+icon: https://mosquitto.org/images/mosquitto-text-side-28.png
+home: https://github.com/fireball-industries/mosquitto-mqtt-helm
+sources:
+  - https://github.com/eclipse/mosquitto
+  - https://github.com/sapcc/mosquitto-exporter
+keywords:
+  - mqtt
+  - mosquitto
+  - iot
+  - sparkplug
+  - scada
+  - industrial-iot
+  - messaging
+  - broker
+  - prometheus
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireball.industries
+    url: https://fireball.industries
+annotations:
+  # Rancher Apps & Marketplace
+  catalog.cattle.io/certified: partner
+  catalog.cattle.io/release-name: mosquitto-mqtt
+  catalog.cattle.io/display-name: "Mosquitto MQTT Broker"
+  catalog.cattle.io/namespace: iot
+  catalog.cattle.io/os: linux
+  catalog.cattle.io/kube-version: ">=1.19.0-0"
+  catalog.cattle.io/rancher-version: ">=2.5.0-0"
+  
+  # Category and UI hints
+  catalog.cattle.io/category: "Messaging,IoT,Monitoring"
+  catalog.cattle.io/ui-component: "mosquitto"
+  
+  # Description
+  catalog.cattle.io/description: "Eclipse Mosquitto MQTT broker with Prometheus metrics, Sparkplug B support, and industrial automation focus. Includes authentication, TLS, ACLs, cloud bridges, and high availability configurations."
+  
+  # GitHub release compatibility
+  catalog.cattle.io/upstream-version: "2.0.18"
+  
+  # Questions for Rancher UI (basic configuration)
+  catalog.cattle.io/questions: |
+    - variable: resourcePreset
+      label: "Resource Preset"
+      description: "Pre-configured resource allocation based on deployment size"
+      type: enum
+      default: "standard-broker"
+      options:
+        - "edge-broker"
+        - "standard-broker"
+        - "enterprise-broker"
+        - "ha-cluster"
+      group: "Resources"
+    - variable: mqtt.authentication.enabled
+      label: "Enable Authentication"
+      description: "Require username/password for MQTT connections (recommended for production)"
+      type: boolean
+      default: false
+      group: "Security"
+    - variable: mqtt.tls.enabled
+      label: "Enable TLS/SSL"
+      description: "Enable encrypted MQTT connections on port 8883"
+      type: boolean
+      default: false
+      group: "Security"
+    - variable: mqtt.persistence.enabled
+      label: "Enable Message Persistence"
+      description: "Store messages and sessions to disk for reliability"
+      type: boolean
+      default: true
+      group: "Storage"
+    - variable: mqtt.sparkplug.enabled
+      label: "Enable Sparkplug B Support"
+      description: "Pre-configure ACLs and topics for Sparkplug B protocol"
+      type: boolean
+      default: false
+      group: "Features"
+    - variable: monitoring.enabled
+      label: "Enable Prometheus Monitoring"
+      description: "Deploy mosquitto-exporter sidecar for metrics collection"
+      type: boolean
+      default: true
+      group: "Monitoring"

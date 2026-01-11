@@ -1,0 +1,545 @@
+categories:
+  - Messaging
+  - IoT
+  - MQTT
+questions:
+  # ============================================================================
+  # Deployment Configuration
+  # ============================================================================
+  - variable: resourcePreset
+    label: "Resource Preset"
+    description: "Pre-configured resource allocation based on deployment size and use case"
+    type: enum
+    required: true
+    default: "standard-broker"
+    group: "Deployment"
+    options:
+      - "edge-broker"
+      - "standard-broker"
+      - "enterprise-broker"
+      - "ha-cluster"
+      - "custom"
+
+  - variable: replicaCount
+    label: "Number of Replicas"
+    description: "Number of Mosquitto broker replicas (overridden by ha-cluster preset)"
+    type: int
+    required: true
+    default: 1
+    min: 1
+    max: 10
+    group: "Deployment"
+    show_if: "resourcePreset=custom"
+
+  # ============================================================================
+  # Image Configuration
+  # ============================================================================
+  - variable: image.repository
+    label: "Image Repository"
+    description: "Eclipse Mosquitto container image repository"
+    type: string
+    required: true
+    default: "eclipse-mosquitto"
+    group: "Image"
+
+  - variable: image.tag
+    label: "Image Tag"
+    description: "Mosquitto version (e.g., '2.0.18', '2.0-latest')"
+    type: string
+    required: true
+    default: "2.0.18"
+    group: "Image"
+
+  - variable: image.pullPolicy
+    label: "Image Pull Policy"
+    description: "Image pull policy for the Mosquitto container"
+    type: enum
+    required: true
+    default: "IfNotPresent"
+    group: "Image"
+    options:
+      - "Always"
+      - "IfNotPresent"
+      - "Never"
+
+  # ============================================================================
+  # MQTT Protocol Configuration
+  # ============================================================================
+  - variable: mqtt.protocol.mqtt5
+    label: "Enable MQTT 5.0"
+    description: "Enable MQTT 5.0 protocol support (MQTT 3.1.1 always enabled)"
+    type: boolean
+    required: true
+    default: true
+    group: "MQTT Protocol"
+
+  - variable: mqtt.ports.mqtt.enabled
+    label: "Enable Plain MQTT (TCP)"
+    description: "Enable plain MQTT on port 1883 (unencrypted)"
+    type: boolean
+    required: true
+    default: true
+    group: "MQTT Protocol"
+
+  - variable: mqtt.ports.mqtt.port
+    label: "MQTT Port"
+    description: "Port for plain MQTT connections"
+    type: int
+    required: false
+    default: 1883
+    min: 1
+    max: 65535
+    group: "MQTT Protocol"
+    show_if: "mqtt.ports.mqtt.enabled=true"
+
+  - variable: mqtt.ports.mqtts.enabled
+    label: "Enable MQTT over TLS (MQTTS)"
+    description: "Enable encrypted MQTT on port 8883"
+    type: boolean
+    required: true
+    default: false
+    group: "MQTT Protocol"
+
+  - variable: mqtt.ports.mqtts.port
+    label: "MQTTS Port"
+    description: "Port for encrypted MQTT connections"
+    type: int
+    required: false
+    default: 8883
+    min: 1
+    max: 65535
+    group: "MQTT Protocol"
+    show_if: "mqtt.ports.mqtts.enabled=true"
+
+  - variable: mqtt.ports.websockets.enabled
+    label: "Enable MQTT over WebSockets"
+    description: "Enable MQTT over WebSockets on port 9001 (for web browsers)"
+    type: boolean
+    required: true
+    default: true
+    group: "MQTT Protocol"
+
+  - variable: mqtt.maxConnections
+    label: "Maximum Client Connections"
+    description: "Maximum simultaneous MQTT client connections (overridden by preset)"
+    type: int
+    required: true
+    default: 1000
+    min: 10
+    max: 100000
+    group: "MQTT Protocol"
+    show_if: "resourcePreset=custom"
+
+  # ============================================================================
+  # Authentication & Security
+  # ============================================================================
+  - variable: mqtt.authentication.enabled
+    label: "Enable Authentication"
+    description: "Require username/password for MQTT connections (recommended for production)"
+    type: boolean
+    required: true
+    default: false
+    group: "Security"
+
+  - variable: mqtt.authentication.allowAnonymous
+    label: "Allow Anonymous Connections"
+    description: "⚠️ Allow connections without authentication (disable for production)"
+    type: boolean
+    required: true
+    default: true
+    group: "Security"
+
+  - variable: mqtt.authentication.passwordFile.enabled
+    label: "Enable Password File"
+    description: "Create password file from user list (disable to manage passwords manually)"
+    type: boolean
+    required: false
+    default: false
+    group: "Security"
+    show_if: "mqtt.authentication.enabled=true"
+
+  - variable: mqtt.acl.enabled
+    label: "Enable Access Control Lists (ACL)"
+    description: "Restrict which topics users can read/write (recommended for multi-tenant)"
+    type: boolean
+    required: true
+    default: false
+    group: "Security"
+
+  - variable: mqtt.tls.enabled
+    label: "Enable TLS/SSL Encryption"
+    description: "Enable TLS for encrypted MQTT connections (MQTTS on port 8883)"
+    type: boolean
+    required: true
+    default: false
+    group: "Security"
+
+  - variable: mqtt.tls.version
+    label: "TLS Version"
+    description: "Minimum TLS version to accept"
+    type: enum
+    required: false
+    default: "tlsv1.3"
+    group: "Security"
+    show_if: "mqtt.tls.enabled=true"
+    options:
+      - "tlsv1.2"
+      - "tlsv1.3"
+
+  - variable: mqtt.tls.autoGenerate
+    label: "Auto-Generate Self-Signed Certificate"
+    description: "Automatically create self-signed TLS certificate (for testing only)"
+    type: boolean
+    required: false
+    default: true
+    group: "Security"
+    show_if: "mqtt.tls.enabled=true"
+
+  - variable: mqtt.tls.requireCertificate
+    label: "Require Client Certificates"
+    description: "Require clients to present valid certificates (mutual TLS)"
+    type: boolean
+    required: false
+    default: false
+    group: "Security"
+    show_if: "mqtt.tls.enabled=true"
+
+  # ============================================================================
+  # Persistence Configuration
+  # ============================================================================
+  - variable: mqtt.persistence.enabled
+    label: "Enable Message Persistence"
+    description: "Store messages and sessions to disk for reliability (recommended)"
+    type: boolean
+    required: true
+    default: true
+    group: "Storage"
+
+  - variable: mqtt.persistence.size
+    label: "Persistent Storage Size"
+    description: "Size of persistent volume for message storage (overridden by preset)"
+    type: string
+    required: true
+    default: "20Gi"
+    group: "Storage"
+    show_if: "mqtt.persistence.enabled=true&&resourcePreset=custom"
+
+  - variable: mqtt.persistence.storageClass
+    label: "Storage Class"
+    description: "Storage class for persistent volume (leave empty for cluster default)"
+    type: storageclass
+    required: false
+    default: ""
+    group: "Storage"
+    show_if: "mqtt.persistence.enabled=true"
+
+  - variable: mqtt.persistence.autosaveInterval
+    label: "Autosave Interval (seconds)"
+    description: "How often to save in-memory data to disk (0 = disabled, save on exit only)"
+    type: int
+    required: true
+    default: 60
+    min: 0
+    max: 3600
+    group: "Storage"
+    show_if: "mqtt.persistence.enabled=true"
+
+  - variable: mqtt.persistence.retainedMessages
+    label: "Enable Retained Messages"
+    description: "Allow clients to publish retained messages (last message stored for subscribers)"
+    type: boolean
+    required: true
+    default: true
+    group: "Storage"
+
+  # ============================================================================
+  # Sparkplug B Configuration
+  # ============================================================================
+  - variable: mqtt.sparkplug.enabled
+    label: "Enable Sparkplug B Support"
+    description: "Pre-configure topics and ACLs for Sparkplug B industrial IoT protocol"
+    type: boolean
+    required: true
+    default: false
+    group: "Sparkplug B"
+
+  - variable: mqtt.sparkplug.namespace
+    label: "Sparkplug Namespace"
+    description: "Sparkplug B namespace prefix (standard is 'spBv1.0')"
+    type: string
+    required: false
+    default: "spBv1.0"
+    group: "Sparkplug B"
+    show_if: "mqtt.sparkplug.enabled=true"
+
+  - variable: mqtt.sparkplug.aclEnabled
+    label: "Auto-Configure Sparkplug ACLs"
+    description: "Automatically create ACL rules for Sparkplug B topic structure"
+    type: boolean
+    required: false
+    default: false
+    group: "Sparkplug B"
+    show_if: "mqtt.sparkplug.enabled=true"
+
+  # ============================================================================
+  # MQTT Bridge Configuration
+  # ============================================================================
+  - variable: mqtt.bridge.enabled
+    label: "Enable MQTT Bridge"
+    description: "Bridge to other MQTT brokers (AWS IoT, Azure IoT Hub, Google Cloud IoT, or private brokers)"
+    type: boolean
+    required: true
+    default: false
+    group: "Bridge"
+
+  # ============================================================================
+  # Logging Configuration
+  # ============================================================================
+  - variable: mqtt.logging.level
+    label: "Log Level"
+    description: "Mosquitto logging verbosity"
+    type: enum
+    required: true
+    default: "notice"
+    group: "Logging"
+    options:
+      - "error"
+      - "warning"
+      - "notice"
+      - "information"
+      - "debug"
+      - "all"
+
+  - variable: mqtt.logging.connectionLogs
+    label: "Enable Connection Logging"
+    description: "Log client connections and disconnections (useful for debugging, verbose)"
+    type: boolean
+    required: true
+    default: true
+    group: "Logging"
+
+  # ============================================================================
+  # Monitoring Configuration
+  # ============================================================================
+  - variable: monitoring.enabled
+    label: "Enable Prometheus Monitoring"
+    description: "Deploy mosquitto-exporter sidecar for metrics collection"
+    type: boolean
+    required: true
+    default: true
+    group: "Monitoring"
+
+  - variable: monitoring.serviceMonitor.enabled
+    label: "Enable Prometheus ServiceMonitor"
+    description: "Create ServiceMonitor for Prometheus Operator (requires Prometheus Operator)"
+    type: boolean
+    required: true
+    default: false
+    group: "Monitoring"
+    show_if: "monitoring.enabled=true"
+
+  - variable: monitoring.serviceMonitor.interval
+    label: "Metrics Scrape Interval"
+    description: "How often Prometheus should scrape MQTT metrics"
+    type: string
+    required: false
+    default: "30s"
+    group: "Monitoring"
+    show_if: "monitoring.serviceMonitor.enabled=true"
+
+  # ============================================================================
+  # Service Configuration
+  # ============================================================================
+  - variable: service.type
+    label: "Service Type"
+    description: "Kubernetes service type for MQTT broker"
+    type: enum
+    required: true
+    default: "ClusterIP"
+    group: "Service"
+    options:
+      - "ClusterIP"
+      - "NodePort"
+      - "LoadBalancer"
+
+  - variable: service.sessionAffinity
+    label: "Session Affinity"
+    description: "Route clients to same broker instance (important for HA mode)"
+    type: enum
+    required: true
+    default: "ClientIP"
+    group: "Service"
+    options:
+      - "None"
+      - "ClientIP"
+
+  # ============================================================================
+  # Ingress Configuration
+  # ============================================================================
+  - variable: ingress.enabled
+    label: "Enable Ingress"
+    description: "Enable ingress for external WebSocket connections (MQTT over WebSockets)"
+    type: boolean
+    required: true
+    default: false
+    group: "Ingress"
+
+  - variable: ingress.className
+    label: "Ingress Class Name"
+    description: "Ingress class to use (nginx, traefik, etc.)"
+    type: string
+    required: false
+    default: "nginx"
+    group: "Ingress"
+    show_if: "ingress.enabled=true"
+
+  - variable: ingress.hosts[0].host
+    label: "Ingress Hostname"
+    description: "Hostname for WebSocket ingress (e.g., mqtt.example.com)"
+    type: hostname
+    required: false
+    default: "mosquitto.local"
+    group: "Ingress"
+    show_if: "ingress.enabled=true"
+
+  # ============================================================================
+  # Network Policy
+  # ============================================================================
+  - variable: networkPolicy.enabled
+    label: "Enable Network Policy"
+    description: "Restrict network traffic to MQTT broker (requires NetworkPolicy support)"
+    type: boolean
+    required: true
+    default: false
+    group: "Security"
+
+  # ============================================================================
+  # Backup Configuration
+  # ============================================================================
+  - variable: backup.enabled
+    label: "Enable Automated Backups"
+    description: "Automatically backup broker configuration and persistence data"
+    type: boolean
+    required: true
+    default: false
+    group: "Backup"
+
+  - variable: backup.schedule
+    label: "Backup Schedule"
+    description: "Cron schedule for automated backups (default: 2 AM daily)"
+    type: string
+    required: false
+    default: "0 2 * * *"
+    group: "Backup"
+    show_if: "backup.enabled=true"
+
+  - variable: backup.retention
+    label: "Backup Retention Count"
+    description: "Number of backup copies to retain"
+    type: int
+    required: false
+    default: 7
+    min: 1
+    max: 365
+    group: "Backup"
+    show_if: "backup.enabled=true"
+
+  - variable: backup.destination
+    label: "Backup Destination"
+    description: "Where to store backups"
+    type: enum
+    required: false
+    default: "pvc"
+    group: "Backup"
+    show_if: "backup.enabled=true"
+    options:
+      - "pvc"
+      - "s3"
+
+  # ============================================================================
+  # High Availability Configuration
+  # ============================================================================
+  - variable: highAvailability.enabled
+    label: "Enable High Availability"
+    description: "Deploy HA cluster with multiple replicas and shared storage (3 replicas)"
+    type: boolean
+    required: true
+    default: false
+    group: "High Availability"
+
+  - variable: highAvailability.replicas
+    label: "HA Replica Count"
+    description: "Number of broker replicas for HA cluster (minimum 3 recommended)"
+    type: int
+    required: false
+    default: 3
+    min: 2
+    max: 10
+    group: "High Availability"
+    show_if: "highAvailability.enabled=true"
+
+  - variable: highAvailability.sharedStorage.enabled
+    label: "Enable Shared Storage"
+    description: "Use shared storage (NFS/Cloud) for HA cluster (required for session persistence)"
+    type: boolean
+    required: false
+    default: true
+    group: "High Availability"
+    show_if: "highAvailability.enabled=true"
+
+  - variable: highAvailability.sharedStorage.storageClass
+    label: "Shared Storage Class"
+    description: "Storage class supporting ReadWriteMany (e.g., nfs-client, efs, azure-file)"
+    type: storageclass
+    required: false
+    default: "nfs-client"
+    group: "High Availability"
+    show_if: "highAvailability.sharedStorage.enabled=true"
+
+  - variable: highAvailability.sharedStorage.size
+    label: "Shared Storage Size"
+    description: "Size of shared storage for HA cluster"
+    type: string
+    required: false
+    default: "100Gi"
+    group: "High Availability"
+    show_if: "highAvailability.sharedStorage.enabled=true"
+
+  # ============================================================================
+  # Custom Resources (Advanced)
+  # ============================================================================
+  - variable: resources.requests.cpu
+    label: "CPU Request"
+    description: "CPU request (overridden by preset)"
+    type: string
+    required: true
+    default: "1000m"
+    group: "Resources"
+    show_if: "resourcePreset=custom"
+
+  - variable: resources.requests.memory
+    label: "Memory Request"
+    description: "Memory request (overridden by preset)"
+    type: string
+    required: true
+    default: "1Gi"
+    group: "Resources"
+    show_if: "resourcePreset=custom"
+
+  - variable: resources.limits.cpu
+    label: "CPU Limit"
+    description: "CPU limit (overridden by preset)"
+    type: string
+    required: true
+    default: "2000m"
+    group: "Resources"
+    show_if: "resourcePreset=custom"
+
+  - variable: resources.limits.memory
+    label: "Memory Limit"
+    description: "Memory limit (overridden by preset)"
+    type: string
+    required: true
+    default: "2Gi"
+    group: "Resources"
+    show_if: "resourcePreset=custom"

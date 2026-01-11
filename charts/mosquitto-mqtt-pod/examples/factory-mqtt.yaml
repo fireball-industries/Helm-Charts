@@ -1,0 +1,115 @@
+# Factory MQTT Broker
+# Production-ready configuration for factory floor deployments
+
+resourcePreset: standard-broker
+
+mqtt:
+  # Enable authentication
+  authentication:
+    enabled: true
+    allowAnonymous: false
+    passwordFile:
+      enabled: true
+      users:
+        - username: admin
+          password: ChangeMeInProduction!
+        - username: scada
+          password: ScadaPassword123!
+        - username: plc01
+          password: PlcPassword123!
+        - username: sensor_gateway
+          password: SensorGateway123!
+  
+  # Enable persistence
+  persistence:
+    enabled: true
+    size: 20Gi
+    autosaveInterval: 300  # 5 minutes
+    storageClass: ""  # Use default
+  
+  # Ports configuration
+  ports:
+    mqtt:
+      enabled: true
+    mqtts:
+      enabled: false  # Enable TLS in production
+    websockets:
+      enabled: true
+  
+  # Connection limits
+  maxConnections: 1000
+  maxQueuedMessages: 1000
+  maxInflightMessages: 20
+  
+  # ACL for factory floor
+  acl:
+    enabled: true
+    content: |
+      # Admin - Full access
+      user admin
+      topic readwrite #
+      
+      # SCADA - Read all sensors, write commands
+      user scada
+      topic read factory/#
+      topic read sensors/#
+      topic write commands/#
+      
+      # PLCs - Publish data, receive commands
+      user plc01
+      topic write factory/plc01/#
+      topic read commands/plc01/#
+      
+      # Sensor Gateway - Publish sensor data
+      user sensor_gateway
+      topic write sensors/#
+  
+  # Logging
+  logging:
+    level: notice
+    connectionLogs: true
+  
+  # No TLS yet (set up TLS for production)
+  tls:
+    enabled: false
+
+# Enable Prometheus monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+
+# Automated backups
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # 2 AM daily
+  retention: 7
+
+# Service configuration
+service:
+  type: ClusterIP
+  sessionAffinity: ClientIP
+
+# Resource limits (from preset)
+resources:
+  requests:
+    cpu: 1000m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+# Pod placement (optional - uncomment for production)
+# nodeSelector:
+#   workload: iot
+
+# affinity:
+#   podAntiAffinity:
+#     preferredDuringSchedulingIgnoredDuringExecution:
+#       - weight: 100
+#         podAffinityTerm:
+#           labelSelector:
+#             matchLabels:
+#               app.kubernetes.io/name: mosquitto-mqtt
+#           topologyKey: kubernetes.io/hostname
