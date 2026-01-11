@@ -1,0 +1,161 @@
+## Kubernetes Monitoring - Full Cluster Observability
+## Fireball Industries - Maximum Coverage Edition
+
+deploymentMode: daemonset
+resourcePreset: large
+
+## Run on all nodes (including control plane)
+tolerations:
+  - operator: Exists
+    effect: NoSchedule
+  - operator: Exists
+    effect: NoExecute
+
+## Enable host-level metrics
+hostNetwork: true
+hostVolumes:
+  enabled: true
+  paths:
+    - name: docker-socket
+      hostPath: /var/run/docker.sock
+      mountPath: /var/run/docker.sock
+      readOnly: true
+    - name: sys
+      hostPath: /sys
+      mountPath: /host/sys
+      readOnly: true
+    - name: proc
+      hostPath: /proc
+      mountPath: /host/proc
+      readOnly: true
+
+## Full RBAC for cluster-wide metrics
+rbac:
+  create: true
+  clusterRole: true
+
+## Persistence for buffering
+persistence:
+  enabled: true
+  size: 5Gi
+
+## Environment variables for secrets
+env:
+  - name: HOSTNAME
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
+  - name: INFLUX_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: telegraf-secrets
+        key: influx-token
+
+## Configuration
+config:
+  agent:
+    interval: "10s"
+    flush_interval: "10s"
+    metric_buffer_limit: 50000
+
+  outputs:
+    influxdb_v2:
+      enabled: true
+      urls:
+        - "http://influxdb.monitoring.svc:8086"
+      token: "${INFLUX_TOKEN}"
+      organization: "fireball"
+      bucket: "kubernetes"
+      
+    prometheus_client:
+      enabled: true
+      listen: ":8080"
+      path: "/metrics"
+
+  inputs:
+    internal:
+      enabled: true
+      collect_memstats: true
+      
+    cpu:
+      enabled: true
+      percpu: true
+      totalcpu: true
+      report_active: true
+      
+    mem:
+      enabled: true
+      
+    disk:
+      enabled: true
+      ignore_fs:
+        - "tmpfs"
+        - "devtmpfs"
+        - "devfs"
+        - "iso9660"
+        - "overlay"
+        - "aufs"
+        - "squashfs"
+      
+    diskio:
+      enabled: true
+      
+    kernel:
+      enabled: true
+      
+    net:
+      enabled: true
+      
+    processes:
+      enabled: true
+      
+    swap:
+      enabled: true
+      
+    system:
+      enabled: true
+      
+    docker:
+      enabled: true
+      endpoint: "unix:///var/run/docker.sock"
+      gather_services: false
+      perdevice: true
+      total: true
+      
+    kubernetes:
+      enabled: true
+      url: "https://$HOSTNAME:10250"
+      bearer_token: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      insecure_skip_verify: true
+      
+    kube_inventory:
+      enabled: true
+      url: "https://kubernetes.default.svc"
+      bearer_token: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      insecure_skip_verify: true
+      namespace: ""
+      resource_include:
+        - deployments
+        - pods
+        - nodes
+        - services
+        - daemonsets
+        - statefulsets
+        - replicasets
+        - persistentvolumes
+        - persistentvolumeclaims
+        - ingresses
+        - jobs
+        - cronjobs
+
+## ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  labels:
+    prometheus: kube-prometheus
+
+## Branding
+fireball:
+  slogan: "We Play With Fire So You Don't Have To™"
+  humor: "excessive"

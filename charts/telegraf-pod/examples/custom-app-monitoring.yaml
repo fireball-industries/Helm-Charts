@@ -1,0 +1,90 @@
+## Custom Application Monitoring
+## Fireball Industries - Bespoke Metrics Edition
+
+deploymentMode: deployment
+resourcePreset: small
+replicaCount: 1
+
+env:
+  - name: APP_ENV
+    value: "production"
+  - name: REGION
+    value: "us-west-2"
+  - name: API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: app-secrets
+        key: monitoring-api-key
+
+config:
+  agent:
+    interval: "10s"
+    flush_interval: "10s"
+
+  outputs:
+    prometheus_client:
+      enabled: true
+      listen: ":8080"
+      
+    influxdb_v2:
+      enabled: false
+
+  inputs:
+    ## Scrape application Prometheus endpoints
+    prometheus:
+      enabled: true
+      urls:
+        - "http://my-app.default.svc:9090/metrics"
+        - "http://my-api.default.svc:8080/metrics"
+        - "http://my-worker.default.svc:9091/metrics"
+      metric_version: 2
+      
+    ## HTTP endpoint monitoring
+    http_response:
+      enabled: true
+      urls:
+        - "http://my-app.default.svc:8080/health"
+        - "http://my-api.default.svc:8080/health"
+      response_timeout: "5s"
+      response_string_match: "OK"
+      
+    ## StatsD receiver (for application metrics)
+    statsd:
+      enabled: true
+      protocol: "udp"
+      service_address: ":8125"
+      delete_gauges: true
+      delete_counters: true
+      delete_sets: true
+      delete_timings: true
+      percentiles: [50, 90, 99]
+      metric_separator: "_"
+      
+    ## Custom exec plugin
+    exec:
+      enabled: true
+      commands:
+        - "/usr/local/bin/custom-metrics-collector"
+      timeout: "5s"
+      data_format: "influx"
+
+## Expose StatsD port
+service:
+  enabled: true
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+    - name: statsd
+      port: 8125
+      targetPort: 8125
+      protocol: UDP
+
+podLabels:
+  app: "custom-monitoring"
+  tier: "observability"
+
+fireball:
+  slogan: "We Play With Fire So You Don't Have To™"

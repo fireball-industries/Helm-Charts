@@ -1,0 +1,115 @@
+## High Availability Deployment
+## Fireball Industries - Zero Downtime Edition
+
+deploymentMode: deployment
+resourcePreset: large
+replicaCount: 3
+
+## Pod anti-affinity (spread across nodes)
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: telegraf
+        topologyKey: kubernetes.io/hostname
+
+## Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+## Persistence with shared storage
+persistence:
+  enabled: true
+  storageClass: "nfs-client"
+  size: 10Gi
+  accessMode: ReadWriteMany
+
+## Priority class for critical workloads
+priorityClassName: "system-cluster-critical"
+
+## Environment variables
+env:
+  - name: INFLUX_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: telegraf-secrets
+        key: influx-token
+
+config:
+  agent:
+    interval: "5s"
+    flush_interval: "5s"
+    metric_buffer_limit: 100000
+
+  outputs:
+    influxdb_v2:
+      enabled: true
+      urls:
+        - "http://influxdb-0.influxdb.monitoring.svc:8086"
+        - "http://influxdb-1.influxdb.monitoring.svc:8086"
+      token: "${INFLUX_TOKEN}"
+      organization: "fireball"
+      bucket: "ha-metrics"
+      timeout: "10s"
+      max_parallel_writes: 10
+      
+    prometheus_client:
+      enabled: true
+      listen: ":8080"
+
+  inputs:
+    ## Scrape multiple endpoints
+    prometheus:
+      enabled: true
+      urls:
+        - "http://service-1.default.svc:9090/metrics"
+        - "http://service-2.default.svc:9090/metrics"
+        - "http://service-3.default.svc:9090/metrics"
+        
+    http_response:
+      enabled: true
+      urls:
+        - "https://api.production.com/health"
+        - "https://api-backup.production.com/health"
+        
+    cpu:
+      enabled: true
+      
+    mem:
+      enabled: true
+
+## ServiceMonitor
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  labels:
+    prometheus: kube-prometheus
+
+## Network policy
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8086
+        - protocol: TCP
+          port: 443
+
+fireball:
+  slogan: "We Play With Fire So You Don't Have To™"
+  humor: "professional"

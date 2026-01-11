@@ -1,0 +1,135 @@
+{{- if .Values.rbac.create -}}
+{{- if .Values.rbac.clusterRole -}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "telegraf.fullname" . }}
+  labels:
+    {{- include "telegraf.labels" . | nindent 4 }}
+  annotations:
+    fireball.industries/purpose: "Metrics collection without triggering security alerts"
+    fireball.industries/paranoia-level: "healthy"
+rules:
+  ## Read-only access to nodes for node metrics
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/proxy
+      - nodes/stats
+    verbs: ["get", "list", "watch"]
+  
+  ## Read-only access to pods for pod metrics
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+    verbs: ["get", "list", "watch"]
+  
+  ## Read-only access to services
+  - apiGroups: [""]
+    resources:
+      - services
+      - endpoints
+    verbs: ["get", "list", "watch"]
+  
+  ## Read-only access to namespaces
+  - apiGroups: [""]
+    resources:
+      - namespaces
+    verbs: ["get", "list", "watch"]
+  
+  ## Read-only access to deployments, daemonsets, statefulsets
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - daemonsets
+      - statefulsets
+      - replicasets
+    verbs: ["get", "list", "watch"]
+  
+  ## Read-only access to jobs and cronjobs
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - cronjobs
+    verbs: ["get", "list", "watch"]
+  
+  ## Read-only access to persistent volumes and claims
+  - apiGroups: [""]
+    resources:
+      - persistentvolumes
+      - persistentvolumeclaims
+    verbs: ["get", "list", "watch"]
+  
+  ## Read-only access to ingresses
+  - apiGroups: ["networking.k8s.io", "extensions"]
+    resources:
+      - ingresses
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "telegraf.fullname" . }}
+  labels:
+    {{- include "telegraf.labels" . | nindent 4 }}
+  annotations:
+    fireball.industries/binding-strength: "unbreakable"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "telegraf.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "telegraf.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+
+{{- else }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "telegraf.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "telegraf.labels" . | nindent 4 }}
+  annotations:
+    fireball.industries/scope: "namespace-only"
+rules:
+  ## Namespace-scoped permissions
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - services
+      - endpoints
+    verbs: ["get", "list", "watch"]
+  
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - daemonsets
+      - statefulsets
+      - replicasets
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "telegraf.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "telegraf.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "telegraf.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "telegraf.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,43 @@
+apiVersion: v2
+name: telegraf-pod
+description: |
+  Telegraf Metrics Collection Pod by Fireball Industries
+  
+  Because somebody has to collect all those metrics before they disappear into the void.
+  We Play With Fire So You Don't Have To™
+  
+  Deploy Telegraf as either a single instance collector or per-node DaemonSet.
+  Pre-configured with sensible defaults that actually work in production.
+  Now with 87% more snark than competing solutions.
+
+type: application
+version: 1.0.0
+appVersion: "1.29.0"
+keywords:
+  - telegraf
+  - metrics
+  - monitoring
+  - influxdb
+  - prometheus
+  - fireball
+  - podstore
+home: https://fireball.industries
+sources:
+  - https://github.com/influxdata/telegraf
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireball.industries
+  - name: Fireball Industries
+    email: ops@fireball.industries
+icon: https://raw.githubusercontent.com/influxdata/telegraf/master/assets/telegraf.png
+annotations:
+  category: Monitoring
+  catalog.cattle.io/certified: partner
+  catalog.cattle.io/display-name: "Telegraf Metrics Collector"
+  catalog.cattle.io/release-name: telegraf
+  catalog.cattle.io/namespace: telegraf
+  catalog.cattle.io/os: linux
+  catalog.cattle.io/provides-gvr: apps/v1/deployment
+  fireball.industries/product: "telegraf-pod"
+  fireball.industries/version: "1.0.0"
+  fireball.industries/warning: "May contain traces of competence"

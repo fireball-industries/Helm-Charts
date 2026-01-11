@@ -1,0 +1,48 @@
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Backup files
+*.bak
+backup/
+backups/
+
+# Secrets (NEVER COMMIT)
+*.secret
+*.key
+*.pem
+secrets/
+.env
+.env.*
+
+# Test files
+test-values.yaml
+*.test.yaml
+
+# Build artifacts
+*.tar.gz
+*.tgz
+charts/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Helm
+charts/
+Chart.lock
+
+# Logs
+*.log
+logs/
+
+# Temporary
+tmp/
+temp/
+.tmp/

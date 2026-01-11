@@ -1,0 +1,461 @@
+# ============================================================================
+# Rancher Questions - Telegraf Pod Configuration Wizard
+# Fireball Industries - "We Play With Fire So You Don't Have To"™
+# ============================================================================
+# Because YAML archaeology is a skill nobody should need for metrics collection.
+# ============================================================================
+
+categories:
+  - Monitoring
+  - Metrics
+  - Observability
+
+questions:
+# ============================================================================
+# Deployment Configuration
+# ============================================================================
+- variable: deploymentMode
+  label: Deployment Mode
+  description: "Single centralized collector (Deployment) or per-node collection (DaemonSet). Choose wisely, or choose poorly and learn."
+  type: enum
+  required: true
+  default: "deployment"
+  group: "Deployment"
+  options:
+    - "deployment"
+    - "daemonset"
+
+- variable: replicaCount
+  label: Number of Replicas
+  description: "How many collector pods to run. More than 1 is showing off, but we won't judge. Only applies to Deployment mode."
+  type: int
+  required: false
+  default: 1
+  group: "Deployment"
+  show_if: "deploymentMode=deployment"
+  min: 1
+  max: 10
+
+- variable: resourcePreset
+  label: Resource Preset
+  description: "Pre-configured profiles based on collection frequency. Or 'custom' because you know your workload better than we do."
+  type: enum
+  required: true
+  default: "medium"
+  group: "Deployment"
+  options:
+    - "small"
+    - "medium"
+    - "large"
+    - "custom"
+
+# ============================================================================
+# Custom Resources (only shown when resourcePreset=custom)
+# ============================================================================
+- variable: customResources.requests.memory
+  label: Memory Request
+  description: "Minimum memory allocated to Telegraf pod. 128Mi is usually enough, but your mileage may vary."
+  type: string
+  required: false
+  default: "128Mi"
+  group: "Resources"
+  show_if: "resourcePreset=custom"
+
+- variable: customResources.requests.cpu
+  label: CPU Request
+  description: "Minimum CPU allocated to Telegraf pod."
+  type: string
+  required: false
+  default: "100m"
+  group: "Resources"
+  show_if: "resourcePreset=custom"
+
+- variable: customResources.limits.memory
+  label: Memory Limit
+  description: "Maximum memory allowed for Telegraf pod. Go too low and enjoy OOMKilled events."
+  type: string
+  required: false
+  default: "512Mi"
+  group: "Resources"
+  show_if: "resourcePreset=custom"
+
+- variable: customResources.limits.cpu
+  label: CPU Limit
+  description: "Maximum CPU allowed for Telegraf pod."
+  type: string
+  required: false
+  default: "500m"
+  group: "Resources"
+  show_if: "resourcePreset=custom"
+
+# ============================================================================
+# Collection Configuration
+# ============================================================================
+- variable: config.agent.interval
+  label: Collection Interval
+  description: "How often to collect metrics (format: 1s, 10s, 60s). More frequent = more data = more resources."
+  type: string
+  required: true
+  default: "10s"
+  group: "Collection"
+
+- variable: config.agent.flush_interval
+  label: Flush Interval
+  description: "How often to send metrics to outputs. Should match collection interval."
+  type: string
+  required: true
+  default: "10s"
+  group: "Collection"
+
+- variable: config.agent.metric_buffer_limit
+  label: Metric Buffer Limit
+  description: "Maximum metrics to buffer before dropping. Higher = more memory usage, lower = more data loss during output failures."
+  type: int
+  required: true
+  default: 10000
+  group: "Collection"
+  min: 1000
+  max: 1000000
+
+# ============================================================================
+# Output Configuration
+# ============================================================================
+- variable: config.outputs.prometheus_client.enabled
+  label: Enable Prometheus Output
+  description: "Expose metrics endpoint for Prometheus scraping. Recommended for Kubernetes environments."
+  type: boolean
+  required: true
+  default: true
+  group: "Outputs"
+
+- variable: config.outputs.prometheus_client.listen
+  label: Prometheus Listen Address
+  description: "Address and port for Prometheus endpoint."
+  type: string
+  required: false
+  default: ":8080"
+  group: "Outputs"
+  show_if: "config.outputs.prometheus_client.enabled=true"
+
+- variable: config.outputs.influxdb_v2.enabled
+  label: Enable InfluxDB v2 Output
+  description: "Send metrics to InfluxDB v2 (or InfluxDB Cloud). Requires token authentication."
+  type: boolean
+  required: true
+  default: false
+  group: "Outputs"
+
+- variable: config.outputs.influxdb_v2.urls[0]
+  label: InfluxDB URL
+  description: "InfluxDB server URL (e.g., http://influxdb:8086)."
+  type: string
+  required: false
+  default: "http://influxdb:8086"
+  group: "Outputs"
+  show_if: "config.outputs.influxdb_v2.enabled=true"
+
+- variable: config.outputs.influxdb_v2.organization
+  label: InfluxDB Organization
+  description: "InfluxDB organization name."
+  type: string
+  required: false
+  default: "fireball"
+  group: "Outputs"
+  show_if: "config.outputs.influxdb_v2.enabled=true"
+
+- variable: config.outputs.influxdb_v2.bucket
+  label: InfluxDB Bucket
+  description: "InfluxDB bucket name for storing metrics."
+  type: string
+  required: false
+  default: "telegraf"
+  group: "Outputs"
+  show_if: "config.outputs.influxdb_v2.enabled=true"
+
+- variable: config.outputs.influxdb_v1.enabled
+  label: Enable InfluxDB v1 Output
+  description: "Send metrics to InfluxDB v1.x (legacy). Uses username/password authentication."
+  type: boolean
+  required: true
+  default: false
+  group: "Outputs"
+
+- variable: config.outputs.influxdb_v1.urls[0]
+  label: InfluxDB v1 URL
+  description: "InfluxDB v1 server URL (e.g., http://influxdb:8086)."
+  type: string
+  required: false
+  default: "http://influxdb:8086"
+  group: "Outputs"
+  show_if: "config.outputs.influxdb_v1.enabled=true"
+
+- variable: config.outputs.influxdb_v1.database
+  label: InfluxDB Database
+  description: "InfluxDB database name."
+  type: string
+  required: false
+  default: "telegraf"
+  group: "Outputs"
+  show_if: "config.outputs.influxdb_v1.enabled=true"
+
+- variable: config.outputs.file.enabled
+  label: Enable File Output
+  description: "Write metrics to file for debugging or backup. Useful when everything else is on fire."
+  type: boolean
+  required: true
+  default: false
+  group: "Outputs"
+
+# ============================================================================
+# Input Plugins - System Metrics
+# ============================================================================
+- variable: config.inputs.cpu.enabled
+  label: Enable CPU Metrics
+  description: "Collect CPU usage metrics (per-core and total)."
+  type: boolean
+  required: true
+  default: true
+  group: "Input Plugins - System"
+
+- variable: config.inputs.mem.enabled
+  label: Enable Memory Metrics
+  description: "Collect memory usage metrics."
+  type: boolean
+  required: true
+  default: true
+  group: "Input Plugins - System"
+
+- variable: config.inputs.disk.enabled
+  label: Enable Disk Metrics
+  description: "Collect disk usage metrics."
+  type: boolean
+  required: true
+  default: true
+  group: "Input Plugins - System"
+
+- variable: config.inputs.diskio.enabled
+  label: Enable Disk I/O Metrics
+  description: "Collect disk read/write metrics."
+  type: boolean
+  required: true
+  default: true
+  group: "Input Plugins - System"
+
+- variable: config.inputs.net.enabled
+  label: Enable Network Metrics
+  description: "Collect network interface metrics."
+  type: boolean
+  required: true
+  default: true
+  group: "Input Plugins - System"
+
+- variable: config.inputs.processes.enabled
+  label: Enable Process Metrics
+  description: "Collect process count and state metrics."
+  type: boolean
+  required: true
+  default: true
+  group: "Input Plugins - System"
+
+- variable: config.inputs.system.enabled
+  label: Enable System Metrics
+  description: "Collect system load, uptime, and other system-level metrics."
+  type: boolean
+  required: true
+  default: true
+  group: "Input Plugins - System"
+
+# ============================================================================
+# Input Plugins - Container/Kubernetes
+# ============================================================================
+- variable: config.inputs.docker.enabled
+  label: Enable Docker Metrics
+  description: "Collect Docker container metrics. Requires access to Docker socket (enable Host Volumes)."
+  type: boolean
+  required: true
+  default: true
+  group: "Input Plugins - Containers"
+
+- variable: config.inputs.kubernetes.enabled
+  label: Enable Kubernetes Node Metrics
+  description: "Collect metrics from kubelet on each node. Best used with DaemonSet mode."
+  type: boolean
+  required: true
+  default: true
+  group: "Input Plugins - Containers"
+
+- variable: config.inputs.kube_inventory.enabled
+  label: Enable Kubernetes Inventory Metrics
+  description: "Collect cluster-level Kubernetes metrics (pods, deployments, services, etc.). Requires RBAC cluster role."
+  type: boolean
+  required: true
+  default: true
+  group: "Input Plugins - Containers"
+
+# ============================================================================
+# Advanced Configuration
+# ============================================================================
+- variable: hostNetwork
+  label: Enable Host Networking
+  description: "Run pod with host network. Required for accessing host-level metrics. ⚠️ Warning: Dragons ahead."
+  type: boolean
+  required: true
+  default: false
+  group: "Advanced"
+
+- variable: hostVolumes.enabled
+  label: Enable Host Volumes
+  description: "Mount host paths (Docker socket, /proc, /sys) for deep system metrics. Abandon all hope, ye who enable this."
+  type: boolean
+  required: true
+  default: false
+  group: "Advanced"
+
+- variable: rbac.create
+  label: Create RBAC Resources
+  description: "Create ServiceAccount, ClusterRole, and ClusterRoleBinding. Required for Kubernetes metrics collection."
+  type: boolean
+  required: true
+  default: true
+  group: "Advanced"
+
+- variable: rbac.clusterRole
+  label: Use Cluster Role
+  description: "Grant cluster-wide read access for Kubernetes inventory metrics. Disable if you only need namespace-scoped access."
+  type: boolean
+  required: false
+  default: true
+  group: "Advanced"
+  show_if: "rbac.create=true"
+
+# ============================================================================
+# Storage Configuration
+# ============================================================================
+- variable: persistence.enabled
+  label: Enable Persistent Storage
+  description: "Buffer metrics locally when outputs are down. Because network failures happen to good people too."
+  type: boolean
+  required: true
+  default: true
+  group: "Storage"
+
+- variable: persistence.storageClass
+  label: Storage Class
+  description: "Storage class for PersistentVolumeClaim. Empty uses cluster default."
+  type: storageclass
+  required: false
+  group: "Storage"
+  show_if: "persistence.enabled=true"
+
+- variable: persistence.size
+  label: Storage Size
+  description: "PVC size for metric buffering. 1Gi is usually sufficient unless you have frequent, prolonged output failures."
+  type: string
+  required: false
+  default: "1Gi"
+  group: "Storage"
+  show_if: "persistence.enabled=true"
+
+# ============================================================================
+# Service Configuration
+# ============================================================================
+- variable: service.enabled
+  label: Enable Service
+  description: "Create Kubernetes Service for Telegraf. Required for Prometheus scraping."
+  type: boolean
+  required: true
+  default: true
+  group: "Service"
+
+- variable: service.type
+  label: Service Type
+  description: "How to expose Telegraf service. ClusterIP is recommended for Prometheus scraping."
+  type: enum
+  required: false
+  default: "ClusterIP"
+  group: "Service"
+  show_if: "service.enabled=true"
+  options:
+    - "ClusterIP"
+    - "LoadBalancer"
+    - "NodePort"
+
+# ============================================================================
+# Monitoring
+# ============================================================================
+- variable: serviceMonitor.enabled
+  label: Enable ServiceMonitor
+  description: "Create ServiceMonitor resource for Prometheus Operator auto-discovery. Requires Prometheus Operator installed."
+  type: boolean
+  required: true
+  default: false
+  group: "Monitoring"
+
+- variable: serviceMonitor.interval
+  label: ServiceMonitor Scrape Interval
+  description: "How often Prometheus should scrape Telegraf metrics."
+  type: string
+  required: false
+  default: "30s"
+  group: "Monitoring"
+  show_if: "serviceMonitor.enabled=true"
+
+# ============================================================================
+# Health Checks
+# ============================================================================
+- variable: livenessProbe.enabled
+  label: Enable Liveness Probe
+  description: "Kubernetes liveness check. Restart pod if unhealthy."
+  type: boolean
+  required: true
+  default: true
+  group: "Health Checks"
+
+- variable: readinessProbe.enabled
+  label: Enable Readiness Probe
+  description: "Kubernetes readiness check. Remove from service endpoints if not ready."
+  type: boolean
+  required: true
+  default: true
+  group: "Health Checks"
+
+# ============================================================================
+# High Availability
+# ============================================================================
+- variable: podDisruptionBudget.enabled
+  label: Enable Pod Disruption Budget
+  description: "Prevent all Telegraf pods from being evicted at once. Recommended for DaemonSet deployments."
+  type: boolean
+  required: true
+  default: false
+  group: "High Availability"
+
+- variable: podDisruptionBudget.minAvailable
+  label: Minimum Available Pods
+  description: "Minimum number of pods that must stay running during disruptions."
+  type: int
+  required: false
+  default: 1
+  group: "High Availability"
+  show_if: "podDisruptionBudget.enabled=true"
+  min: 1
+  max: 100
+
+# ============================================================================
+# Security
+# ============================================================================
+- variable: networkPolicy.enabled
+  label: Enable Network Policy
+  description: "Restrict network traffic to/from Telegraf pod. Requires a CNI that supports NetworkPolicy (Calico, Cilium, etc.)."
+  type: boolean
+  required: true
+  default: false
+  group: "Security"
+
+- variable: serviceAccount.create
+  label: Create Service Account
+  description: "Create ServiceAccount for Telegraf pod. Disable if using an existing ServiceAccount."
+  type: boolean
+  required: true
+  default: true
+  group: "Security"

@@ -1,0 +1,64 @@
+## InfluxDB + Grafana Stack Monitoring
+## Fireball Industries - Meta Monitoring Edition
+
+deploymentMode: deployment
+resourcePreset: small
+replicaCount: 1
+
+env:
+  - name: INFLUX_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: telegraf-secrets
+        key: influx-token
+
+config:
+  agent:
+    interval: "60s"
+    flush_interval: "60s"
+
+  outputs:
+    influxdb_v2:
+      enabled: true
+      urls:
+        - "http://influxdb.monitoring.svc:8086"
+      token: "${INFLUX_TOKEN}"
+      organization: "fireball"
+      bucket: "monitoring"
+
+  inputs:
+    ## Monitor InfluxDB itself
+    influxdb:
+      enabled: true
+      urls:
+        - "http://influxdb.monitoring.svc:8086/metrics"
+      
+    ## Monitor Grafana
+    prometheus:
+      enabled: true
+      urls:
+        - "http://grafana.monitoring.svc:3000/metrics"
+        
+    ## HTTP Response Time monitoring
+    http_response:
+      enabled: true
+      urls:
+        - "http://influxdb.monitoring.svc:8086/health"
+        - "http://grafana.monitoring.svc:3000/api/health"
+      response_timeout: "5s"
+      method: "GET"
+      follow_redirects: true
+      
+    ## System metrics from monitoring stack
+    cpu:
+      enabled: true
+      
+    mem:
+      enabled: true
+      
+    disk:
+      enabled: true
+
+fireball:
+  slogan: "We Play With Fire So You Don't Have To™"
+  humor: "minimal"

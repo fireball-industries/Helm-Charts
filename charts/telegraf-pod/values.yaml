@@ -1,0 +1,495 @@
+## Telegraf Pod Configuration
+## Fireball Industries - We Play With Fire So You Don't Have To™
+##
+## Because configuring metrics collection shouldn't require a PhD in YAML-ology
+## Though it helps if you've made poor life decisions
+
+## Deployment Mode
+## Choose your adventure: single collector or per-node chaos
+deploymentMode: deployment  # Options: deployment, daemonset
+
+## Resource Preset
+## Because not all clusters are created equal, and neither are budgets
+resourcePreset: medium  # Options: small, medium, large, custom
+
+## Custom Resources (only used if resourcePreset is 'custom')
+## For when you think you know better than us (you probably don't)
+customResources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+## Replica Count (only applies to deployment mode)
+## More than 1 is just showing off, but we won't judge
+replicaCount: 1
+
+## Image Configuration
+## Official Telegraf image because we're professionals (mostly)
+image:
+  repository: telegraf
+  tag: "1.29.0-alpine"
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+## ServiceAccount Configuration
+## RBAC is like vegetables - nobody wants it but it's good for you
+serviceAccount:
+  create: true
+  name: ""  # Auto-generated if empty
+  annotations: {}
+
+## RBAC Configuration
+## For collecting Kubernetes metrics without getting yelled at by security
+rbac:
+  create: true
+  clusterRole: true  # Need cluster-wide access for full K8s metrics
+
+## Security Context
+## Because running as root is so 2015
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 999
+  fsGroup: 999
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+
+## Pod Security Context
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+## Node Selector
+## For when you want to run on specific nodes (or avoid the cursed ones)
+nodeSelector: {}
+
+## Tolerations
+## For running on tainted nodes (we don't judge your infrastructure choices)
+tolerations: []
+
+## Affinity Rules
+## Advanced scheduling for advanced users (or masochists)
+affinity: {}
+
+## Priority Class
+## For when your metrics are more important than someone else's workload
+priorityClassName: ""
+
+## Host Networking
+## Enable if you need access to host-level metrics
+## Warning: Dragons ahead
+hostNetwork: false
+
+## Host Volumes
+## Mount host paths for deep system metrics collection
+## Abandon all hope, ye who enable this
+hostVolumes:
+  enabled: false
+  paths:
+    - name: docker-socket
+      hostPath: /var/run/docker.sock
+      mountPath: /var/run/docker.sock
+      readOnly: true
+    - name: sys
+      hostPath: /sys
+      mountPath: /host/sys
+      readOnly: true
+    - name: proc
+      hostPath: /proc
+      mountPath: /host/proc
+      readOnly: true
+
+## Persistent Storage
+## Buffer metrics locally when outputs are down
+## Because network failures happen to good people too
+persistence:
+  enabled: true
+  storageClass: ""  # Uses cluster default if empty
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  mountPath: /var/lib/telegraf
+  annotations: {}
+
+## Environment Variables
+## For secrets that shouldn't be in git (looking at you, intern)
+env:
+  - name: HOSTNAME
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
+  # Add your secrets here:
+  # - name: INFLUX_TOKEN
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: telegraf-secrets
+  #       key: influx-token
+
+## Extra Environment Variables from ConfigMaps/Secrets
+envFrom: []
+# - secretRef:
+#     name: telegraf-secrets
+# - configMapRef:
+#     name: telegraf-config
+
+## Service Configuration
+## Expose Telegraf for scraping or receiving metrics
+service:
+  enabled: true
+  type: ClusterIP
+  annotations: {}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+
+## ServiceMonitor for Prometheus Operator
+## Auto-discovery because manual configuration is for suckers
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+  annotations: {}
+
+## Health Check Configuration
+## So Kubernetes knows when to give up and restart
+livenessProbe:
+  enabled: true
+  httpGet:
+    path: /
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  httpGet:
+    path: /
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+## Resource Presets
+## Predefined configurations because we've done this rodeo before
+resourcePresets:
+  small:
+    description: "Low-frequency collection (60s intervals)"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    collectionInterval: "60s"
+    flushInterval: "60s"
+    metricBufferLimit: 1000
+  
+  medium:
+    description: "Standard collection (10s intervals)"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    collectionInterval: "10s"
+    flushInterval: "10s"
+    metricBufferLimit: 10000
+  
+  large:
+    description: "High-frequency collection (1s intervals)"
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    collectionInterval: "1s"
+    flushInterval: "1s"
+    metricBufferLimit: 100000
+
+## Telegraf Configuration
+## The actual important bits (finally)
+config:
+  ## Global Agent Configuration
+  agent:
+    interval: "10s"
+    round_interval: true
+    metric_batch_size: 1000
+    metric_buffer_limit: 10000
+    collection_jitter: "0s"
+    flush_interval: "10s"
+    flush_jitter: "0s"
+    precision: ""
+    hostname: ""
+    omit_hostname: false
+
+  ## Output Plugins Configuration
+  ## Where your metrics go to live (or die, depending on your infrastructure)
+  outputs:
+    ## InfluxDB v2 Output
+    influxdb_v2:
+      enabled: false
+      urls:
+        - "http://influxdb:8086"
+      token: "${INFLUX_TOKEN}"  # Set via environment variable
+      organization: "fireball"
+      bucket: "telegraf"
+      timeout: "5s"
+      
+    ## InfluxDB v1 Output
+    influxdb_v1:
+      enabled: false
+      urls:
+        - "http://influxdb:8086"
+      database: "telegraf"
+      username: "${INFLUX_USER}"
+      password: "${INFLUX_PASSWORD}"
+      retention_policy: ""
+      
+    ## Prometheus Output
+    ## Expose metrics for Prometheus to scrape
+    prometheus_client:
+      enabled: true
+      listen: ":8080"
+      path: "/metrics"
+      expiration_interval: "60s"
+      collectors_exclude:
+        - "gocollector"
+        - "process"
+      
+    ## File Output
+    ## For debugging or when everything else is on fire
+    file:
+      enabled: false
+      files:
+        - "/var/lib/telegraf/metrics.out"
+      rotation_max_size: "100MB"
+      rotation_max_archives: 5
+      data_format: "influx"
+
+  ## Input Plugins Configuration
+  ## What metrics to collect (spoiler: all of them)
+  inputs:
+    ## Internal Telegraf Metrics
+    ## So you can monitor the thing monitoring your things
+    internal:
+      enabled: true
+      collect_memstats: true
+      
+    ## CPU Metrics
+    cpu:
+      enabled: true
+      percpu: true
+      totalcpu: true
+      collect_cpu_time: false
+      report_active: true
+      
+    ## Disk Metrics
+    disk:
+      enabled: true
+      ignore_fs:
+        - "tmpfs"
+        - "devtmpfs"
+        - "devfs"
+        - "iso9660"
+        - "overlay"
+        - "aufs"
+        - "squashfs"
+      
+    ## Disk I/O Metrics
+    diskio:
+      enabled: true
+      
+    ## Kernel Metrics
+    kernel:
+      enabled: true
+      
+    ## Memory Metrics
+    mem:
+      enabled: true
+      
+    ## Network Metrics
+    net:
+      enabled: true
+      interfaces: []  # Empty = all interfaces
+      
+    ## Process Metrics
+    processes:
+      enabled: true
+      
+    ## Swap Metrics
+    swap:
+      enabled: true
+      
+    ## System Metrics
+    system:
+      enabled: true
+      
+    ## Docker Metrics
+    ## For when you're containerizing your container metrics
+    docker:
+      enabled: true
+      endpoint: "unix:///var/run/docker.sock"
+      gather_services: false
+      timeout: "5s"
+      perdevice: true
+      total: true
+      
+    ## Kubernetes Metrics
+    ## The full nine yards of K8s observability
+    kubernetes:
+      enabled: true
+      url: "https://$HOSTNAME:10250"
+      bearer_token: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      insecure_skip_verify: true
+      
+    ## kube_inventory Plugin
+    ## For cluster-level Kubernetes metrics
+    kube_inventory:
+      enabled: true
+      url: "https://kubernetes.default.svc"
+      bearer_token: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      insecure_skip_verify: true
+      namespace: ""  # Empty = all namespaces
+      resource_include:
+        - "deployments"
+        - "pods"
+        - "nodes"
+        - "services"
+        - "daemonsets"
+        - "statefulsets"
+        
+    ## Prometheus Input
+    ## Scrape other Prometheus endpoints (yo dawg)
+    prometheus:
+      enabled: false
+      urls: []
+      # - http://my-service:9090/metrics
+
+## Extra ConfigMaps
+## For when you need even more configuration
+extraConfigMaps: []
+
+## Extra Secrets
+## Because security theater is important
+extraSecrets: []
+
+## Pod Annotations
+## Tag your pods like you tag your Instagram posts
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
+  fireball.industries/managed-by: "telegraf-pod"
+  fireball.industries/humor-level: "excessive"
+
+## Pod Labels
+podLabels:
+  app.kubernetes.io/name: telegraf
+  app.kubernetes.io/component: metrics-collector
+  fireball.industries/product: telegraf-pod
+
+## Update Strategy
+## For when you need to roll out changes without burning everything down
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 1
+
+## Pod Disruption Budget
+## Because high availability is a thing
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+## Extra Volumes
+## For the data hoarders
+extraVolumes: []
+
+## Extra Volume Mounts
+extraVolumeMounts: []
+
+## Init Containers
+## Run stuff before the main show
+initContainers: []
+
+## Sidecar Containers
+## For when one container just isn't enough drama
+sidecars: []
+
+## DNS Configuration
+## For when your cluster's DNS is "special"
+dnsPolicy: ClusterFirst
+dnsConfig: {}
+
+## Termination Grace Period
+## How long to wait before murder
+terminationGracePeriodSeconds: 30
+
+## Host Aliases
+## For when DNS doesn't do what you want
+hostAliases: []
+
+## Network Policy
+## Because firewalls are your friends
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
+    - to:
+        - namespaceSelector: {}
+
+## Monitoring Configuration
+monitoring:
+  enabled: true
+  grafanaDashboard:
+    enabled: false
+    namespace: monitoring
+    labels:
+      grafana_dashboard: "1"
+
+## Backup Configuration
+## For the paranoid (but justified)
+backup:
+  enabled: false
+  schedule: "0 2 * * *"
+  retention: 7
+
+## Fireball Industries Branding
+fireball:
+  slogan: "We Play With Fire So You Don't Have To™"
+  humor: "excessive"
+  warranty: "void"
+  support:
+    email: "support@fireball.industries"
+    hours: "When we feel like it"
+    sla: "Best effort (no promises)"
+  legal:
+    disclaimer: "Not responsible for data loss, infrastructure fires, or existential dread"
+    license: "MIT (Make It Terrible)"

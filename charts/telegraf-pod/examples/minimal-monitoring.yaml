@@ -1,0 +1,58 @@
+## Minimal Monitoring - Just The Basics
+## Fireball Industries - Minimalist Edition
+
+deploymentMode: deployment
+resourcePreset: small
+replicaCount: 1
+
+config:
+  agent:
+    interval: "60s"
+    flush_interval: "60s"
+    metric_buffer_limit: 1000
+
+  outputs:
+    prometheus_client:
+      enabled: true
+      listen: ":8080"
+
+  inputs:
+    internal:
+      enabled: true
+      
+    cpu:
+      enabled: true
+      percpu: false
+      totalcpu: true
+      
+    mem:
+      enabled: true
+      
+    disk:
+      enabled: true
+
+## Minimal resources
+customResources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+## No persistence needed
+persistence:
+  enabled: false
+
+## No RBAC needed
+rbac:
+  create: false
+
+serviceAccount:
+  create: false
+  name: default
+
+fireball:
+  slogan: "We Play With Fire So You Don't Have To™"
+  humor: "minimal"
+  warranty: "extremely void"
