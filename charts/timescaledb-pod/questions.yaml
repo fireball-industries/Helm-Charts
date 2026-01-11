@@ -1,0 +1,687 @@
+categories:
+  - Database
+  - Time-Series
+  - Industrial IoT
+questions:
+  # ============================================================================
+  # Deployment Configuration
+  # ============================================================================
+  - variable: preset
+    label: "Resource Preset"
+    description: "Select a pre-configured resource profile. Choose 'custom' to manually configure resources."
+    type: enum
+    required: true
+    default: "medium"
+    group: "Deployment"
+    options:
+      - "edge"
+      - "small"
+      - "medium"
+      - "large"
+      - "xlarge"
+      - "custom"
+
+  - variable: mode
+    label: "Deployment Mode"
+    description: "Standalone for single instance, HA for high-availability with streaming replication"
+    type: enum
+    required: true
+    default: "standalone"
+    group: "Deployment"
+    options:
+      - "standalone"
+      - "ha"
+
+  - variable: replicaCount
+    label: "Number of Replicas (HA Mode)"
+    description: "Number of TimescaleDB replicas for high availability (3 minimum recommended)"
+    type: int
+    required: false
+    default: 3
+    min: 1
+    max: 9
+    group: "Deployment"
+    show_if: "mode=ha"
+
+  - variable: synchronousCommit
+    label: "Synchronous Commit Mode (HA)"
+    description: "off=async (fastest), local=sync to one replica (balanced), remote_write=sync write (safest)"
+    type: enum
+    required: false
+    default: "local"
+    group: "Deployment"
+    show_if: "mode=ha"
+    options:
+      - "off"
+      - "local"
+      - "remote_write"
+
+  # ============================================================================
+  # Image Configuration
+  # ============================================================================
+  - variable: image.repository
+    label: "Image Repository"
+    description: "TimescaleDB container image repository"
+    type: string
+    required: true
+    default: "timescale/timescaledb-ha"
+    group: "Image"
+
+  - variable: image.tag
+    label: "Image Tag"
+    description: "TimescaleDB image tag (leave empty to use Chart appVersion)"
+    type: string
+    required: false
+    default: "pg15-latest"
+    group: "Image"
+
+  - variable: image.pullPolicy
+    label: "Image Pull Policy"
+    description: "Image pull policy for the TimescaleDB container"
+    type: enum
+    required: true
+    default: "IfNotPresent"
+    group: "Image"
+    options:
+      - "Always"
+      - "IfNotPresent"
+      - "Never"
+
+  # ============================================================================
+  # Database Configuration
+  # ============================================================================
+  - variable: postgresql.database
+    label: "Database Name"
+    description: "Default database name to create"
+    type: string
+    required: true
+    default: "tsdb"
+    group: "Database"
+
+  - variable: postgresql.username
+    label: "Database Username"
+    description: "Default database username"
+    type: string
+    required: true
+    default: "tsadmin"
+    group: "Database"
+
+  - variable: postgresql.password
+    label: "Database Password"
+    description: "Database password (leave empty to auto-generate a secure password)"
+    type: password
+    required: false
+    default: ""
+    group: "Database"
+
+  - variable: postgresql.maxConnections
+    label: "Maximum Connections"
+    description: "Maximum number of concurrent connections (overridden by preset)"
+    type: int
+    required: true
+    default: 300
+    min: 50
+    max: 2000
+    group: "Database"
+    show_if: "preset=custom"
+
+  # ============================================================================
+  # TimescaleDB Configuration
+  # ============================================================================
+  - variable: timescaledb.enabled
+    label: "Enable TimescaleDB Extension"
+    description: "Enable TimescaleDB time-series database extension"
+    type: boolean
+    required: true
+    default: true
+    group: "TimescaleDB"
+
+  - variable: timescaledb.maxBackgroundWorkers
+    label: "Max Background Workers"
+    description: "Maximum number of TimescaleDB background workers for compression, retention, etc."
+    type: int
+    required: true
+    default: 16
+    min: 1
+    max: 32
+    group: "TimescaleDB"
+
+  - variable: timescaledb.chunk.defaultTimeInterval
+    label: "Default Chunk Time Interval"
+    description: "Default time interval for hypertable chunks (e.g., '1 hour', '1 day')"
+    type: string
+    required: true
+    default: "1 hour"
+    group: "TimescaleDB"
+
+  - variable: timescaledb.compression.enabled
+    label: "Enable Automatic Compression"
+    description: "Automatically compress chunks older than the specified age"
+    type: boolean
+    required: true
+    default: true
+    group: "TimescaleDB"
+
+  - variable: timescaledb.compression.compressAfter
+    label: "Compress Chunks After"
+    description: "Compress chunks older than this (e.g., '7 days', '1 month')"
+    type: string
+    required: false
+    default: "7 days"
+    group: "TimescaleDB"
+    show_if: "timescaledb.compression.enabled=true"
+
+  - variable: timescaledb.compression.algorithm
+    label: "Compression Algorithm"
+    description: "Compression algorithm (auto selects best based on data type)"
+    type: enum
+    required: true
+    default: "auto"
+    group: "TimescaleDB"
+    show_if: "timescaledb.compression.enabled=true"
+    options:
+      - "auto"
+      - "lz4"
+      - "zstd"
+
+  - variable: timescaledb.retention.enabled
+    label: "Enable Automatic Retention Policies"
+    description: "Automatically drop old data based on retention policies"
+    type: boolean
+    required: true
+    default: true
+    group: "TimescaleDB"
+
+  - variable: timescaledb.retention.rawData
+    label: "Raw Data Retention"
+    description: "How long to keep raw sensor data (e.g., '90 days', '1 year')"
+    type: string
+    required: false
+    default: "90 days"
+    group: "TimescaleDB"
+    show_if: "timescaledb.retention.enabled=true"
+
+  - variable: timescaledb.retention.hourlyAggregates
+    label: "Hourly Aggregates Retention"
+    description: "How long to keep hourly aggregated data"
+    type: string
+    required: false
+    default: "1 year"
+    group: "TimescaleDB"
+    show_if: "timescaledb.retention.enabled=true"
+
+  - variable: timescaledb.retention.dailyAggregates
+    label: "Daily Aggregates Retention"
+    description: "How long to keep daily aggregated data"
+    type: string
+    required: false
+    default: "5 years"
+    group: "TimescaleDB"
+    show_if: "timescaledb.retention.enabled=true"
+
+  - variable: timescaledb.continuousAggregates.enabled
+    label: "Enable Continuous Aggregates"
+    description: "Automatically create and maintain pre-aggregated rollup tables"
+    type: boolean
+    required: true
+    default: true
+    group: "TimescaleDB"
+
+  - variable: timescaledb.continuousAggregates.refreshInterval
+    label: "Aggregate Refresh Interval"
+    description: "How often to refresh continuous aggregates (e.g., '1 hour', '6 hours')"
+    type: string
+    required: false
+    default: "1 hour"
+    group: "TimescaleDB"
+    show_if: "timescaledb.continuousAggregates.enabled=true"
+
+  # ============================================================================
+  # Pre-configured Hypertables
+  # ============================================================================
+  - variable: timescaledb.hypertables.sensorData.enabled
+    label: "Create Sensor Data Hypertable"
+    description: "Pre-create hypertable for high-frequency sensor data (scada_historian.sensor_data)"
+    type: boolean
+    required: true
+    default: true
+    group: "Hypertables"
+
+  - variable: timescaledb.hypertables.machineMetrics.enabled
+    label: "Create Machine Metrics Hypertable"
+    description: "Pre-create hypertable for machine performance metrics (production_metrics.machine_metrics)"
+    type: boolean
+    required: true
+    default: true
+    group: "Hypertables"
+
+  - variable: timescaledb.hypertables.energyConsumption.enabled
+    label: "Create Energy Consumption Hypertable"
+    description: "Pre-create hypertable for energy monitoring (energy_management.energy_consumption)"
+    type: boolean
+    required: true
+    default: true
+    group: "Hypertables"
+
+  - variable: timescaledb.hypertables.qualityMeasurements.enabled
+    label: "Create Quality Measurements Hypertable"
+    description: "Pre-create hypertable for quality data and SPC charts (quality_data.quality_measurements)"
+    type: boolean
+    required: true
+    default: true
+    group: "Hypertables"
+
+  - variable: timescaledb.hypertables.alarmHistory.enabled
+    label: "Create Alarm History Hypertable"
+    description: "Pre-create hypertable for alarm and event logging (scada_historian.alarm_history)"
+    type: boolean
+    required: true
+    default: true
+    group: "Hypertables"
+
+  - variable: timescaledb.hypertables.productionCounts.enabled
+    label: "Create Production Counts Hypertable"
+    description: "Pre-create hypertable for OEE tracking (production_metrics.production_counts)"
+    type: boolean
+    required: true
+    default: true
+    group: "Hypertables"
+
+  # ============================================================================
+  # Storage Configuration
+  # ============================================================================
+  - variable: persistence.enabled
+    label: "Enable Persistent Storage"
+    description: "Enable persistent volume for database storage"
+    type: boolean
+    required: true
+    default: true
+    group: "Storage"
+
+  - variable: persistence.storageClass
+    label: "Storage Class"
+    description: "Storage class for persistent volume (leave empty for cluster default)"
+    type: storageclass
+    required: false
+    default: ""
+    group: "Storage"
+    show_if: "persistence.enabled=true"
+
+  - variable: persistence.size
+    label: "Storage Size"
+    description: "Size of persistent volume (overridden by preset)"
+    type: string
+    required: true
+    default: "500Gi"
+    group: "Storage"
+    show_if: "persistence.enabled=true&&preset=custom"
+
+  - variable: walVolume.enabled
+    label: "Enable Separate WAL Volume"
+    description: "Use separate volume for Write-Ahead Log (recommended for production)"
+    type: boolean
+    required: true
+    default: false
+    group: "Storage"
+
+  - variable: walVolume.size
+    label: "WAL Volume Size"
+    description: "Size of separate WAL volume"
+    type: string
+    required: false
+    default: "50Gi"
+    group: "Storage"
+    show_if: "walVolume.enabled=true"
+
+  # ============================================================================
+  # Backup Configuration
+  # ============================================================================
+  - variable: backup.enabled
+    label: "Enable Automated Backups"
+    description: "Enable automatic daily backups of TimescaleDB"
+    type: boolean
+    required: true
+    default: true
+    group: "Backup"
+
+  - variable: backup.schedule
+    label: "Backup Schedule"
+    description: "Cron schedule for automated backups (default: 2 AM daily)"
+    type: string
+    required: false
+    default: "0 2 * * *"
+    group: "Backup"
+    show_if: "backup.enabled=true"
+
+  - variable: backup.retention
+    label: "Backup Retention Count"
+    description: "Number of backup copies to retain"
+    type: int
+    required: false
+    default: 7
+    min: 1
+    max: 365
+    group: "Backup"
+    show_if: "backup.enabled=true"
+
+  - variable: backup.destination.type
+    label: "Backup Destination Type"
+    description: "Where to store backups (PVC, S3, or NFS)"
+    type: enum
+    required: true
+    default: "pvc"
+    group: "Backup"
+    show_if: "backup.enabled=true"
+    options:
+      - "pvc"
+      - "s3"
+      - "nfs"
+
+  - variable: backup.destination.pvc.size
+    label: "Backup PVC Size"
+    description: "Size of persistent volume for backup storage"
+    type: string
+    required: false
+    default: "100Gi"
+    group: "Backup"
+    show_if: "backup.enabled=true&&backup.destination.type=pvc"
+
+  - variable: backup.destination.s3.bucket
+    label: "S3 Bucket Name"
+    description: "S3 bucket for backup storage"
+    type: string
+    required: false
+    default: ""
+    group: "Backup"
+    show_if: "backup.enabled=true&&backup.destination.type=s3"
+
+  - variable: backup.destination.s3.region
+    label: "S3 Region"
+    description: "AWS region for S3 bucket"
+    type: string
+    required: false
+    default: "us-east-1"
+    group: "Backup"
+    show_if: "backup.enabled=true&&backup.destination.type=s3"
+
+  - variable: backup.destination.nfs.server
+    label: "NFS Server"
+    description: "NFS server hostname or IP address"
+    type: string
+    required: false
+    default: ""
+    group: "Backup"
+    show_if: "backup.enabled=true&&backup.destination.type=nfs"
+
+  - variable: backup.destination.nfs.path
+    label: "NFS Path"
+    description: "Path on NFS server for backup storage"
+    type: string
+    required: false
+    default: "/backups/timescaledb"
+    group: "Backup"
+    show_if: "backup.enabled=true&&backup.destination.type=nfs"
+
+  - variable: backup.compression
+    label: "Backup Compression"
+    description: "Enable gzip compression for backups (reduces storage but increases CPU usage)"
+    type: enum
+    required: true
+    default: "gzip"
+    group: "Backup"
+    show_if: "backup.enabled=true"
+    options:
+      - "gzip"
+      - "none"
+
+  # ============================================================================
+  # Sidecars
+  # ============================================================================
+  - variable: sidecars.pgbouncer.enabled
+    label: "Enable PgBouncer Connection Pooler"
+    description: "Enable PgBouncer sidecar for connection pooling (reduces connection overhead)"
+    type: boolean
+    required: true
+    default: false
+    group: "Sidecars"
+
+  - variable: sidecars.pgbouncer.poolMode
+    label: "PgBouncer Pool Mode"
+    description: "session=full features, transaction=better pooling, statement=max performance"
+    type: enum
+    required: false
+    default: "transaction"
+    group: "Sidecars"
+    show_if: "sidecars.pgbouncer.enabled=true"
+    options:
+      - "session"
+      - "transaction"
+      - "statement"
+
+  - variable: sidecars.pgbouncer.maxClientConn
+    label: "Max Client Connections (PgBouncer)"
+    description: "Maximum number of client connections to PgBouncer"
+    type: int
+    required: false
+    default: 1000
+    min: 100
+    max: 10000
+    group: "Sidecars"
+    show_if: "sidecars.pgbouncer.enabled=true"
+
+  - variable: sidecars.postgresExporter.enabled
+    label: "Enable Prometheus Exporter"
+    description: "Enable postgres_exporter sidecar for Prometheus metrics"
+    type: boolean
+    required: true
+    default: true
+    group: "Sidecars"
+
+  # ============================================================================
+  # Service Configuration
+  # ============================================================================
+  - variable: service.type
+    label: "Service Type"
+    description: "Kubernetes service type for TimescaleDB"
+    type: enum
+    required: true
+    default: "ClusterIP"
+    group: "Service"
+    options:
+      - "ClusterIP"
+      - "NodePort"
+      - "LoadBalancer"
+
+  - variable: service.nodePort
+    label: "NodePort"
+    description: "Specific NodePort to use (leave empty for automatic assignment)"
+    type: int
+    required: false
+    default: null
+    min: 30000
+    max: 32767
+    group: "Service"
+    show_if: "service.type=NodePort"
+
+  - variable: service.loadBalancerIP
+    label: "Load Balancer IP"
+    description: "Specific IP for LoadBalancer (leave empty for automatic assignment)"
+    type: string
+    required: false
+    default: ""
+    group: "Service"
+    show_if: "service.type=LoadBalancer"
+
+  # ============================================================================
+  # Ingress Configuration
+  # ============================================================================
+  - variable: ingress.enabled
+    label: "Enable Ingress"
+    description: "Enable ingress for external access to TimescaleDB (requires ingress controller)"
+    type: boolean
+    required: true
+    default: false
+    group: "Ingress"
+
+  - variable: ingress.className
+    label: "Ingress Class Name"
+    description: "Ingress class to use (nginx, traefik, etc.)"
+    type: string
+    required: false
+    default: "nginx"
+    group: "Ingress"
+    show_if: "ingress.enabled=true"
+
+  - variable: ingress.hosts[0].host
+    label: "Ingress Hostname"
+    description: "Hostname for ingress (e.g., timescaledb.example.com)"
+    type: hostname
+    required: false
+    default: "timescaledb.example.com"
+    group: "Ingress"
+    show_if: "ingress.enabled=true"
+
+  # ============================================================================
+  # Network Policy
+  # ============================================================================
+  - variable: networkPolicy.enabled
+    label: "Enable Network Policy"
+    description: "Enable network policy to restrict traffic to TimescaleDB"
+    type: boolean
+    required: true
+    default: false
+    group: "Security"
+
+  # ============================================================================
+  # Monitoring
+  # ============================================================================
+  - variable: monitoring.serviceMonitor.enabled
+    label: "Enable Prometheus ServiceMonitor"
+    description: "Create ServiceMonitor for Prometheus Operator (requires Prometheus Operator)"
+    type: boolean
+    required: true
+    default: false
+    group: "Monitoring"
+
+  - variable: monitoring.serviceMonitor.interval
+    label: "Metrics Scrape Interval"
+    description: "How often Prometheus should scrape metrics"
+    type: string
+    required: false
+    default: "30s"
+    group: "Monitoring"
+    show_if: "monitoring.serviceMonitor.enabled=true"
+
+  - variable: monitoring.grafana.enabled
+    label: "Enable Grafana Dashboards"
+    description: "Create ConfigMaps with Grafana dashboard definitions"
+    type: boolean
+    required: true
+    default: false
+    group: "Monitoring"
+
+  # ============================================================================
+  # Custom Resources (Advanced)
+  # ============================================================================
+  - variable: resources.requests.cpu
+    label: "CPU Request"
+    description: "CPU request (overridden by preset)"
+    type: string
+    required: true
+    default: "4"
+    group: "Resources"
+    show_if: "preset=custom"
+
+  - variable: resources.requests.memory
+    label: "Memory Request"
+    description: "Memory request (overridden by preset)"
+    type: string
+    required: true
+    default: "16Gi"
+    group: "Resources"
+    show_if: "preset=custom"
+
+  - variable: resources.limits.cpu
+    label: "CPU Limit"
+    description: "CPU limit (overridden by preset)"
+    type: string
+    required: true
+    default: "8"
+    group: "Resources"
+    show_if: "preset=custom"
+
+  - variable: resources.limits.memory
+    label: "Memory Limit"
+    description: "Memory limit (overridden by preset)"
+    type: string
+    required: true
+    default: "16Gi"
+    group: "Resources"
+    show_if: "preset=custom"
+
+  # ============================================================================
+  # PostgreSQL Performance Tuning
+  # ============================================================================
+  - variable: postgresql.sharedBuffers
+    label: "Shared Buffers"
+    description: "PostgreSQL shared buffer cache size (overridden by preset)"
+    type: string
+    required: true
+    default: "4GB"
+    group: "Performance"
+    show_if: "preset=custom"
+
+  - variable: postgresql.effectiveCacheSize
+    label: "Effective Cache Size"
+    description: "Estimated OS cache available to PostgreSQL (overridden by preset)"
+    type: string
+    required: true
+    default: "12GB"
+    group: "Performance"
+    show_if: "preset=custom"
+
+  - variable: postgresql.autovacuum.enabled
+    label: "Enable Autovacuum"
+    description: "Automatically vacuum tables to reclaim space and update statistics"
+    type: boolean
+    required: true
+    default: true
+    group: "Performance"
+
+  - variable: postgresql.performance.jitEnabled
+    label: "Enable JIT Compilation"
+    description: "Enable Just-In-Time compilation for faster query execution (PostgreSQL 11+)"
+    type: boolean
+    required: true
+    default: true
+    group: "Performance"
+
+  - variable: postgresql.logging.logMinDurationStatement
+    label: "Log Slow Queries Threshold"
+    description: "Log queries taking longer than this (0 disables, e.g., '1000ms' for 1 second)"
+    type: string
+    required: true
+    default: "1000ms"
+    group: "Performance"
+
+  # ============================================================================
+  # Pod Disruption Budget
+  # ============================================================================
+  - variable: podDisruptionBudget.enabled
+    label: "Enable Pod Disruption Budget"
+    description: "Prevent too many pods from being disrupted simultaneously during maintenance"
+    type: boolean
+    required: true
+    default: true
+    group: "Deployment"
+
+  - variable: podDisruptionBudget.minAvailable
+    label: "Minimum Available Pods"
+    description: "Minimum number of pods that must remain available during disruptions"
+    type: int
+    required: false
+    default: 1
+    min: 0
+    max: 9
+    group: "Deployment"
+    show_if: "podDisruptionBudget.enabled=true"

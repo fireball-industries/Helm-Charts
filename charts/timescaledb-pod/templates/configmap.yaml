@@ -1,0 +1,283 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "timescaledb.configMapName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "timescaledb.labels" . | nindent 4 }}
+data:
+  # PostgreSQL configuration optimized for TimescaleDB and industrial IoT workloads
+  # Because your PLC doesn't care about your database's feelings
+  
+  postgresql.conf: |
+    # Connection Settings
+    listen_addresses = '*'
+    max_connections = {{ .Values.postgresql.maxConnections }}
+    
+    # Memory Settings ({{ .Values.preset }} preset)
+    shared_buffers = {{ .Values.postgresql.sharedBuffers }}
+    effective_cache_size = {{ .Values.postgresql.effectiveCacheSize }}
+    maintenance_work_mem = {{ .Values.postgresql.maintenanceWorkMem }}
+    work_mem = 32MB
+    
+    # WAL Settings (Write-Ahead Logging)
+    wal_level = {{ .Values.postgresql.wal.level }}
+    {{- if eq .Values.mode "ha" }}
+    # HA mode requires replica WAL level
+    max_wal_senders = 10
+    max_replication_slots = 10
+    hot_standby = on
+    {{- if ne .Values.synchronousCommit "off" }}
+    synchronous_commit = {{ .Values.synchronousCommit }}
+    synchronous_standby_names = '*'
+    {{- end }}
+    {{- end }}
+    wal_buffers = {{ .Values.postgresql.wal.walBuffers }}
+    checkpoint_timeout = {{ .Values.postgresql.wal.checkpointTimeout }}
+    max_wal_size = {{ .Values.postgresql.wal.maxWalSize }}
+    min_wal_size = {{ .Values.postgresql.wal.minWalSize }}
+    checkpoint_completion_target = 0.9
+    
+    # Query Planner
+    random_page_cost = {{ .Values.postgresql.performance.randomPageCost }}
+    effective_io_concurrency = {{ .Values.postgresql.performance.effectiveIoConcurrency }}
+    
+    # Parallel Query
+    max_worker_processes = {{ .Values.postgresql.performance.maxParallelWorkers }}
+    max_parallel_workers_per_gather = {{ .Values.postgresql.performance.maxParallelWorkersPerGather }}
+    max_parallel_workers = {{ .Values.postgresql.performance.maxParallelWorkers }}
+    
+    # JIT (Just-In-Time Compilation)
+    {{- if .Values.postgresql.performance.jitEnabled }}
+    jit = on
+    {{- else }}
+    jit = off
+    {{- end }}
+    
+    # Autovacuum (because nobody vacuums manually anymore)
+    {{- if .Values.postgresql.autovacuum.enabled }}
+    autovacuum = on
+    autovacuum_max_workers = {{ .Values.postgresql.autovacuum.maxWorkers }}
+    autovacuum_naptime = {{ .Values.postgresql.autovacuum.naptime }}
+    autovacuum_vacuum_cost_delay = {{ .Values.postgresql.autovacuum.vacuumCostDelay }}
+    autovacuum_vacuum_cost_limit = {{ .Values.postgresql.autovacuum.vacuumCostLimit }}
+    {{- else }}
+    autovacuum = off
+    {{- end }}
+    
+    # Logging
+    logging_collector = on
+    log_destination = '{{ .Values.postgresql.logging.destination }}'
+    log_directory = 'log'
+    log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+    log_rotation_age = 1d
+    log_rotation_size = 100MB
+    log_connections = {{ .Values.postgresql.logging.logConnections }}
+    log_disconnections = {{ .Values.postgresql.logging.logDisconnections }}
+    log_duration = {{ .Values.postgresql.logging.logDuration }}
+    log_min_duration_statement = {{ .Values.postgresql.logging.logMinDurationStatement }}
+    log_line_prefix = '{{ .Values.postgresql.logging.logLinePrefix }}'
+    log_statement = '{{ .Values.postgresql.logging.logStatement }}'
+    log_timezone = 'UTC'
+    
+    # Locale and Formatting
+    datestyle = 'iso, mdy'
+    timezone = 'UTC'
+    lc_messages = 'C'
+    lc_monetary = 'C'
+    lc_numeric = 'C'
+    lc_time = 'C'
+    default_text_search_config = 'pg_catalog.english'
+    
+    {{- if .Values.timescaledb.enabled }}
+    # TimescaleDB Extension
+    shared_preload_libraries = 'timescaledb'
+    
+    # TimescaleDB Background Workers
+    timescaledb.max_background_workers = {{ .Values.timescaledb.maxBackgroundWorkers }}
+    
+    # TimescaleDB License (Apache 2.0)
+    timescaledb.telemetry_level = 'basic'
+    {{- end }}
+    
+    {{- if .Values.tls.enabled }}
+    # SSL/TLS Configuration
+    ssl = on
+    ssl_cert_file = '/etc/ssl/certs/tls.crt'
+    ssl_key_file = '/etc/ssl/private/tls.key'
+    {{- if eq .Values.tls.mode "require" }}
+    ssl_min_protocol_version = 'TLSv1.2'
+    {{- end }}
+    {{- end }}
+    
+    # Compliance and Auditing
+    {{- if or .Values.compliance.fda21CFRPart11.enabled .Values.compliance.iso9001.enabled }}
+    # Enhanced logging for compliance
+    log_statement = 'all'
+    log_connections = on
+    log_disconnections = on
+    log_duration = on
+    {{- end }}
+  
+  pg_hba.conf: |
+    # PostgreSQL Client Authentication Configuration
+    # TYPE  DATABASE        USER            ADDRESS                 METHOD
+    
+    # "local" is for Unix domain socket connections only
+    local   all             all                                     scram-sha-256
+    
+    # IPv4 local connections:
+    host    all             all             127.0.0.1/32            scram-sha-256
+    
+    # IPv6 local connections:
+    host    all             all             ::1/128                 scram-sha-256
+    
+    # Allow replication connections from localhost, by a user with the replication privilege.
+    {{- if eq .Values.mode "ha" }}
+    local   replication     all                                     scram-sha-256
+    host    replication     all             127.0.0.1/32            scram-sha-256
+    host    replication     all             ::1/128                 scram-sha-256
+    
+    # Allow replication from any pod in the cluster
+    host    replication     all             0.0.0.0/0               scram-sha-256
+    host    replication     all             ::/0                    scram-sha-256
+    {{- end }}
+    
+    # Allow connections from any host (within Kubernetes cluster)
+    {{- if .Values.tls.enabled }}
+    {{- if eq .Values.tls.mode "require" }}
+    hostssl all             all             0.0.0.0/0               scram-sha-256
+    hostssl all             all             ::/0                    scram-sha-256
+    {{- else }}
+    hostssl all             all             0.0.0.0/0               scram-sha-256
+    hostssl all             all             ::/0                    scram-sha-256
+    host    all             all             0.0.0.0/0               scram-sha-256
+    host    all             all             ::/0                    scram-sha-256
+    {{- end }}
+    {{- else }}
+    host    all             all             0.0.0.0/0               scram-sha-256
+    host    all             all             ::/0                    scram-sha-256
+    {{- end }}
+  
+  {{- if .Values.sidecars.postgresExporter.enabled }}
+  # Prometheus postgres_exporter queries
+  postgres-exporter-queries.yaml: |
+    # TimescaleDB-specific queries for monitoring
+    # Because you can't improve what you don't measure (or so the consultants say)
+    
+    pg_database:
+      query: "SELECT pg_database.datname, pg_database_size(pg_database.datname) as size FROM pg_database"
+      master: true
+      metrics:
+        - datname:
+            usage: "LABEL"
+            description: "Name of the database"
+        - size:
+            usage: "GAUGE"
+            description: "Disk space used by the database"
+    
+    pg_stat_statements:
+      query: "SELECT t2.rolname, t3.datname, queryid, calls, total_exec_time / 1000 as total_time_seconds, min_exec_time / 1000 as min_time_seconds, max_exec_time / 1000 as max_time_seconds, mean_exec_time / 1000 as mean_time_seconds, stddev_exec_time / 1000 as stddev_time_seconds, rows, 100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0) AS hit_percent FROM pg_stat_statements t1 JOIN pg_roles t2 ON (t1.userid=t2.oid) JOIN pg_database t3 ON (t1.dbid=t3.oid) WHERE t2.rolname != 'rdsadmin' AND queryid IS NOT NULL"
+      master: true
+      metrics:
+        - rolname:
+            usage: "LABEL"
+            description: "Name of user"
+        - datname:
+            usage: "LABEL"
+            description: "Name of database"
+        - queryid:
+            usage: "LABEL"
+            description: "Query ID"
+        - calls:
+            usage: "COUNTER"
+            description: "Number of times executed"
+        - total_time_seconds:
+            usage: "COUNTER"
+            description: "Total time spent in the statement, in seconds"
+        - min_time_seconds:
+            usage: "GAUGE"
+            description: "Minimum time spent in the statement, in seconds"
+        - max_time_seconds:
+            usage: "GAUGE"
+            description: "Maximum time spent in the statement, in seconds"
+        - mean_time_seconds:
+            usage: "GAUGE"
+            description: "Mean time spent in the statement, in seconds"
+        - stddev_time_seconds:
+            usage: "GAUGE"
+            description: "Population standard deviation of time spent in the statement, in seconds"
+        - rows:
+            usage: "COUNTER"
+            description: "Total number of rows retrieved or affected by the statement"
+        - hit_percent:
+            usage: "GAUGE"
+            description: "Percentage of blocks hit in cache"
+    
+    {{- if .Values.timescaledb.enabled }}
+    timescaledb_hypertable_size:
+      query: "SELECT hypertable_schema, hypertable_name, total_bytes FROM timescaledb_information.hypertables h LEFT JOIN LATERAL hypertable_size(format('%I.%I', hypertable_schema, hypertable_name)) total_bytes ON true"
+      master: true
+      metrics:
+        - hypertable_schema:
+            usage: "LABEL"
+            description: "Schema of the hypertable"
+        - hypertable_name:
+            usage: "LABEL"
+            description: "Name of the hypertable"
+        - total_bytes:
+            usage: "GAUGE"
+            description: "Total size of hypertable in bytes"
+    
+    timescaledb_hypertable_chunks:
+      query: "SELECT hypertable_schema, hypertable_name, COUNT(*) as chunk_count FROM timescaledb_information.chunks GROUP BY hypertable_schema, hypertable_name"
+      master: true
+      metrics:
+        - hypertable_schema:
+            usage: "LABEL"
+            description: "Schema of the hypertable"
+        - hypertable_name:
+            usage: "LABEL"
+            description: "Name of the hypertable"
+        - chunk_count:
+            usage: "GAUGE"
+            description: "Number of chunks in the hypertable"
+    
+    timescaledb_compression_stats:
+      query: "SELECT hypertable_schema, hypertable_name, COALESCE(before_compression_total_bytes, 0) as before_bytes, COALESCE(after_compression_total_bytes, 0) as after_bytes FROM timescaledb_information.hypertables h LEFT JOIN LATERAL hypertable_compression_stats(format('%I.%I', hypertable_schema, hypertable_name)) ON true"
+      master: true
+      metrics:
+        - hypertable_schema:
+            usage: "LABEL"
+            description: "Schema of the hypertable"
+        - hypertable_name:
+            usage: "LABEL"
+            description: "Name of the hypertable"
+        - before_bytes:
+            usage: "GAUGE"
+            description: "Size before compression in bytes"
+        - after_bytes:
+            usage: "GAUGE"
+            description: "Size after compression in bytes"
+    
+    timescaledb_background_jobs:
+      query: "SELECT job_id, application_name, schedule_interval, next_start, job_status FROM timescaledb_information.jobs"
+      master: true
+      metrics:
+        - job_id:
+            usage: "LABEL"
+            description: "Job ID"
+        - application_name:
+            usage: "LABEL"
+            description: "Job application name"
+        - schedule_interval:
+            usage: "LABEL"
+            description: "Job schedule interval"
+        - next_start:
+            usage: "LABEL"
+            description: "Next scheduled start time"
+        - job_status:
+            usage: "LABEL"
+            description: "Job status"
+    {{- end }}
+  {{- end }}

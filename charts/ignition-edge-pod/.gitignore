@@ -1,0 +1,40 @@
+# Helm chart packages
+*.tgz
+
+# Chart dependencies
+charts/
+Chart.lock
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test outputs
+test-output/
+test-results/
+
+# Personal notes
+NOTES.txt.local
+TODO.local.md
+
+# Secrets (never commit these!)
+secrets/
+*.key
+*.pem
+*.crt.local
+*-secret.yaml.local
+
+# Generated values
+values-*.yaml.local
+custom-values.yaml

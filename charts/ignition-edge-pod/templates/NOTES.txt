@@ -1,0 +1,228 @@
+🔥 IGNITION EDGE DEPLOYED - {{ .Values.gateway.name }} 🔥
+
+{{- if .Values.global.demoMode }}
+
+⚠️  IMPORTANT: Running in 2-hour demo mode (no license detected)
+    Your gateway will restart every 2 hours automatically.
+    This is great for testing, terrible for production.
+    
+    To activate your license:
+    
+    1. Obtain activation key from Inductive Automation:
+       https://inductiveautomation.com/ignition/edge
+    
+    2. Create license secret:
+       kubectl create secret generic {{ include "ignition-edge.fullname" . }}-license \
+         --from-literal=activation-key=YOUR-KEY-HERE \
+         -n {{ .Release.Namespace }}
+    
+    3. Upgrade release:
+       helm upgrade {{ .Release.Name }} . \
+         --set license.existingSecret={{ include "ignition-edge.fullname" . }}-license \
+         --set global.demoMode=false \
+         --reuse-values
+    
+    OR activate via web UI (easier for the button-clickers):
+       http://{{ include "ignition-edge.fullname" . }}.{{ .Release.Namespace }}.svc:8088
+       Navigate to: Config → Licensing → Activate License
+
+{{- else }}
+
+✓ Running in licensed mode (you made the right choice)
+
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📍 ACCESS YOUR GATEWAY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Web UI (Gateway Config):
+  {{- if .Values.ingress.enabled }}
+  https://{{ (index .Values.ingress.hosts 0).host }}
+  {{- else }}
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "ignition-edge.fullname" . }} 8088:8088
+  Then navigate to: http://localhost:8088
+  {{- end }}
+
+Designer Launcher:
+  http://localhost:8088/main
+
+Gateway Admin Credentials:
+  Username: {{ .Values.gateway.admin.username }}
+  Password: kubectl get secret {{ include "ignition-edge.fullname" . }}-secret \
+            -n {{ .Release.Namespace }} \
+            -o jsonpath='{.data.admin-password}' | base64 -d
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏭 INDUSTRIAL PROTOCOLS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{{- if .Values.opcua.server.enabled }}
+OPC UA Server:
+  Endpoint: {{ include "ignition-edge.opcuaEndpoint" . }}
+  Port: {{ .Values.opcua.server.port }}
+  Security: {{ .Values.opcua.server.securityPolicies | join ", " }}
+  
+  Connect your PLCs, SCADA systems, and other OPC UA clients here.
+  Because proprietary protocols are so 2005.
+{{- end }}
+
+{{- if .Values.mqtt.engine.enabled }}
+MQTT Engine (Sparkplug B):
+  Broker: {{ .Values.mqtt.engine.broker.host }}:{{ .Values.mqtt.engine.broker.port }}
+  Namespace: {{ .Values.mqtt.engine.namespace }}
+  Primary Host: {{ .Values.mqtt.engine.primaryHostId }}
+  
+  Subscribe to your IIoT sensors and edge devices.
+  Sparkplug B: because MQTT needed more acronyms.
+{{- end }}
+
+{{- if .Values.mqtt.transmission.enabled }}
+MQTT Transmission:
+  Central Broker: {{ .Values.mqtt.transmission.broker.host }}
+  Store-and-Forward: {{ if .Values.mqtt.transmission.storeAndForward.enabled }}Enabled ✓{{ else }}Disabled{{ end }}
+  
+  Publishes data to central gateway - won't lose data even when the
+  network dies (which it will, because factory WiFi is sketchy).
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 DATABASE CONNECTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{{- if .Values.databases.postgresql.enabled }}
+PostgreSQL (Production DB):
+  Connection: {{ .Values.databases.postgresql.name }}
+  Host: {{ .Values.databases.postgresql.host }}:{{ .Values.databases.postgresql.port }}
+  Database: {{ .Values.databases.postgresql.database }}
+  
+  Your production data lives here. Don't DROP TABLE in production.
+  We know you've thought about it.
+{{- end }}
+
+{{- if .Values.databases.timescaledb.enabled }}
+TimescaleDB (Tag Historian):
+  Connection: {{ .Values.databases.timescaledb.name }}
+  Host: {{ .Values.databases.timescaledb.host }}:{{ .Values.databases.timescaledb.port }}
+  Database: {{ .Values.databases.timescaledb.database }}
+  Retention: {{ .Values.historian.retention.period }}
+  
+  Historical tag data storage - because your manager WILL ask
+  "what was the temperature 3 months ago at 2:47 AM?"
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 QUICK START GUIDE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Access the Web UI (see above for URL)
+
+2. Log in with admin credentials
+
+3. Configure your OPC UA device connections:
+   Config → OPC UA → Devices → Add Device
+
+4. Set up tag providers:
+   Config → Tags → Providers
+
+5. Import your Ignition project:
+   Config → Projects → Import Project
+
+6. Configure alarm notifications:
+   Config → Alarming → Notification Pipelines
+
+7. {{- if .Values.global.demoMode }}
+   ACTIVATE YOUR LICENSE (seriously, do this for production)
+   {{- else }}
+   Start building your HMI screens
+   {{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛠️  MANAGEMENT SCRIPTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PowerShell scripts available in scripts/ directory:
+
+  .\manage-ignition.ps1 -Action health-check
+    Check gateway health and connectivity
+
+  .\manage-ignition.ps1 -Action backup
+    Create manual gateway backup
+
+  .\manage-ignition.ps1 -Action logs
+    View gateway logs
+
+  .\manage-ignition.ps1 -Action activate-license -ActivationKey YOUR-KEY
+    Activate Ignition license
+
+  .\test-ignition.ps1
+    Run comprehensive connectivity tests
+
+See scripts/README.md for full documentation.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+README.md              - Comprehensive setup guide
+LICENSING.md           - License activation procedures
+SECURITY.md            - Security configuration
+PROTOCOLS.md           - Industrial protocol setup
+TROUBLESHOOTING.md     - Common issues and solutions
+QUICK_REFERENCE.md     - Command cheat sheet
+
+All docs available at:
+https://github.com/fireball-industries/ignition-edge-pod
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️  RESOURCE CONFIGURATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Edition: {{ .Values.global.edition | upper }}
+{{- if .Values.global.preset }}
+Preset: {{ .Values.global.preset }}
+{{- end }}
+Heap Size: {{ include "ignition-edge.heapSize" . }}
+Max Designers: {{ include "ignition-edge.maxDesigners" . }}
+Max Vision Clients: {{ include "ignition-edge.maxVisionClients" . }}
+
+{{- if .Values.backup.enabled }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💾 BACKUP CONFIGURATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Automatic Backups: Enabled ✓
+Schedule: {{ .Values.backup.schedule }} (cron format)
+Retention: {{ .Values.backup.retention }} days
+Destination: {{ .Values.backup.destination.type }}
+
+Backups run automatically. Sleep well knowing your config is safe.
+(Unlike that other SCADA system that shall not be named.)
+
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- if .Values.global.demoMode }}
+🚨 DEMO MODE REMINDER 🚨
+
+Your gateway will restart every 2 hours. This is normal for demo mode.
+For production use, activate your license (see instructions above).
+
+Don't be the person who runs a production SCADA system in demo mode.
+We've all heard the stories. Don't become one.
+{{- else }}
+✓ Gateway is licensed and production-ready!
+  
+  Now go build something awesome. Your operators are counting on you.
+  (No pressure.)
+{{- end }}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Questions? Issues? Pull requests?
+https://github.com/fireball-industries/ignition-edge-pod/issues
+
+Happy SCADAing! 🏭
+
+- Patrick Ryan, Fireball Industries
+  (Because your operators deserve better than Windows XP)

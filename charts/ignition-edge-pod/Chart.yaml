@@ -1,0 +1,82 @@
+apiVersion: v2
+name: ignition-edge
+description: |
+  Production-ready Ignition Edge for Kubernetes - Because your operators deserve 
+  better than a Windows XP touchscreen running FactoryTalk from 2005.
+  
+  Industrial IoT/SCADA/HMI platform with OPC UA, MQTT Sparkplug B, and enough 
+  protocol support to make even the crustiest PLC tech crack a smile.
+  
+  Defaults to demo mode (2-hour sessions) - activate your license unless you enjoy 
+  watching your gateway restart during critical production runs.
+
+type: application
+version: 1.0.0
+appVersion: "8.1"
+kubeVersion: ">=1.19.0-0"
+home: https://github.com/fireball-industries/ignition-edge-pod
+sources:
+  - https://github.com/fireball-industries/ignition-edge-pod
+  - https://www.inductiveautomation.com/ignition/edge
+keywords:
+  - ignition
+  - scada
+  - hmi
+  - industrial
+  - iot
+  - opc-ua
+  - mqtt
+  - sparkplug
+  - edge
+  - automation
+  - manufacturing
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireball-industries.com
+    url: https://fireball-industries.com
+icon: https://inductiveautomation.com/static/images/ignition-logo.svg
+annotations:
+  # Rancher Apps & Marketplace metadata
+  catalog.cattle.io/certified: partner
+  catalog.cattle.io/release-name: ignition-edge
+  catalog.cattle.io/display-name: "Ignition Edge - Industrial IoT Gateway"
+  catalog.cattle.io/namespace: industrial
+  catalog.cattle.io/os: linux
+  catalog.cattle.io/auto-install: ""
+  catalog.cattle.io/provides-gvr: ""
+  catalog.cattle.io/rancher-version: ">= 2.6.0-0"
+  
+  # Artifact Hub annotations
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial release of Ignition Edge Helm chart
+    - kind: added
+      description: Support for Panel, Gateway, and Compute editions
+    - kind: added
+      description: Demo mode with 2-hour runtime sessions
+    - kind: added
+      description: OPC UA server and client support
+    - kind: added
+      description: MQTT Sparkplug B integration
+    - kind: added
+      description: TimescaleDB tag historian
+    - kind: added
+      description: Automated backup and restore
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/license: MIT
+  artifacthub.io/links: |
+    - name: Ignition Documentation
+      url: https://docs.inductiveautomation.com/
+    - name: Edge Licensing
+      url: https://inductiveautomation.com/ignition/edge
+    - name: Support
+      url: https://github.com/fireball-industries/ignition-edge-pod/issues
+  artifacthub.io/maintainers: |
+    - name: Patrick Ryan
+      email: patrick@fireball-industries.com
+  artifacthub.io/operator: "false"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/recommendations: |
+    - url: https://artifacthub.io/packages/helm/bitnami/postgresql
+    - url: https://artifacthub.io/packages/helm/timescale/timescaledb-single
+dependencies: []

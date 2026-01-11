@@ -1,0 +1,89 @@
+# Edge Gateway Configuration
+# Optimized for Raspberry Pi / resource-constrained edge devices
+
+preset: edge
+mode: standalone
+
+postgresql:
+  database: tsdb
+  username: tsadmin
+  maxConnections: 50
+
+timescaledb:
+  enabled: true
+  maxBackgroundWorkers: 4
+  compression:
+    enabled: true
+    compressAfter: "1 hour"
+  retention:
+    enabled: true
+    rawData: "7 days"
+    hourlyAggregates: "30 days"
+  continuousAggregates:
+    enabled: true
+  hypertables:
+    sensorData:
+      enabled: true
+      chunkTimeInterval: "1 day"
+      compression:
+        enabled: true
+        compressAfter: "1 hour"
+      retention:
+        enabled: true
+        dropAfter: "7 days"
+    machineMetrics:
+      enabled: true
+      chunkTimeInterval: "1 day"
+      compression:
+        enabled: true
+        compressAfter: "1 hour"
+      retention:
+        enabled: true
+        dropAfter: "7 days"
+    alarmHistory:
+      enabled: true
+      retention:
+        enabled: true
+        dropAfter: "30 days"
+    energyConsumption:
+      enabled: false
+    qualityMeasurements:
+      enabled: false
+    productionCounts:
+      enabled: false
+
+persistence:
+  enabled: true
+  size: 20Gi
+
+walVolume:
+  enabled: false
+
+backup:
+  enabled: true
+  schedule: "0 3 * * 0"
+  retention: 2
+  destination:
+    type: pvc
+    pvc:
+      size: 10Gi
+
+monitoring:
+  serviceMonitor:
+    enabled: false
+  grafana:
+    enabled: false
+
+sidecars:
+  postgresExporter:
+    enabled: false
+  pgbouncer:
+    enabled: false
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "1"
+    memory: "1Gi"

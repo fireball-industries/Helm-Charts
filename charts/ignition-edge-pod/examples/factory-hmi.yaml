@@ -1,0 +1,161 @@
+# Factory HMI Panel Configuration
+# Operator interface touchscreen on factory floor
+#
+# Features:
+# - Edge Panel edition (Vision runtime, no designer)
+# - Standard preset (production-ready resources)
+# - PostgreSQL backend
+# - OPC UA client to PLCs
+# - Alarm notifications
+# - Automated backups
+#
+# Deploy:
+#   helm install factory-hmi . -f examples/factory-hmi.yaml
+
+global:
+  preset: "edge-panel"
+  edition: "panel"
+  demoMode: false  # Requires license activation
+
+gateway:
+  name: "Factory HMI Panel"
+  description: "Operator interface - Line 1"
+  connections:
+    maxDesigners: 0
+    maxVisionClients: 5
+    maxPerspectiveSessions: 0
+
+# PostgreSQL for production data
+databases:
+  postgresql:
+    enabled: true
+    host: "postgresql.database.svc.cluster.local"
+    port: 5432
+    database: "factory_production"
+    username: "ignition"
+    existingSecret: "factory-db-secret"
+    passwordKey: "password"
+  
+  timescaledb:
+    enabled: false
+
+# OPC UA client connections to PLCs
+opcua:
+  server:
+    enabled: false  # Panel edition doesn't have OPC UA server
+  
+  client:
+    devices:
+      - name: "Line-1-PLC"
+        endpointUrl: "opc.tcp://192.168.1.20:4840"
+        securityPolicy: "None"
+        updateRate: 1000
+        enabled: true
+      
+      - name: "Packaging-PLC"
+        endpointUrl: "opc.tcp://192.168.1.21:4840"
+        securityPolicy: "None"
+        updateRate: 1000
+        enabled: true
+
+# No MQTT for HMI panel
+mqtt:
+  engine:
+    enabled: false
+  transmission:
+    enabled: false
+
+# No local historian (data stored in PostgreSQL)
+historian:
+  enabled: false
+
+# Alarm notifications
+alarming:
+  pipelines:
+    - name: "Critical_Alarms"
+      enabled: true
+      notifications:
+        - type: "Email"
+          recipients: ["operator@factory.com"]
+          subject: "[HMI Alert] {AlarmName}"
+
+# Automated backups
+backup:
+  enabled: true
+  schedule: "0 3 * * *"  # 3 AM daily
+  retention: 30
+  destination:
+    type: pvc
+    pvc:
+      size: 20Gi
+
+# Persistence
+persistence:
+  data:
+    enabled: true
+    size: 20Gi
+  backup:
+    enabled: true
+  modules:
+    enabled: false
+
+# Basic monitoring
+monitoring:
+  serviceMonitor:
+    enabled: true
+
+jmxExporter:
+  enabled: true
+
+# Service configuration
+service:
+  type: ClusterIP
+  http:
+    enabled: true
+    port: 8088
+  https:
+    enabled: true
+    port: 8043
+
+# Ingress for external access
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: hmi-line1.factory.local
+      paths:
+        - path: /
+          pathType: Prefix
+          servicePort: 8088
+  tls:
+    - secretName: hmi-tls
+      hosts:
+        - hmi-line1.factory.local
+
+# Network policies for security
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              network: factory-floor
+      ports:
+        - protocol: TCP
+          port: 8088
+
+# No autoscaling for HMI
+autoscaling:
+  enabled: false
+
+# Node affinity (run on factory floor nodes)
+nodeSelector:
+  location: factory-floor
+  
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "hmi-panels"
+    effect: "NoSchedule"

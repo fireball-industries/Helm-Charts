@@ -1,0 +1,74 @@
+# Patterns to ignore when building Helm packages
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Development files
+*.md
+!Chart.yaml
+OWNERS
+README.md
+docs/
+examples/
+scripts/test-*.ps1
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test files
+test/
+tests/
+*_test.yaml
+*-test.yaml
+
+# Backup files
+*.bak
+*.backup
+*.tmp
+*~
+
+# Local development
+values-local.yaml
+values-dev.yaml
+*.local.yaml
+
+# Security (don't package secrets in the chart)
+secrets/
+*.key
+*.pem
+*.crt
+*.pfx
+
+# Logs
+*.log
+logs/
+
+# Temporary
+tmp/
+temp/
+.tmp/
+
+# Because your local dev database dump doesn't belong in production
+*.sql.gz
+*.dump
+*.csv
+
+# PowerShell artifacts (keep management scripts separate)
+*.ps1
+!scripts/*.ps1

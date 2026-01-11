@@ -1,0 +1,795 @@
+categories:
+  - SCADA
+  - HMI
+  - Industrial IoT
+questions:
+  # ============================================================================
+  # Deployment Configuration
+  # ============================================================================
+  - variable: global.preset
+    label: "Resource Preset"
+    description: "Select a pre-configured resource profile for your deployment size"
+    type: enum
+    required: false
+    default: ""
+    group: "Deployment"
+    options:
+      - ""
+      - "edge-panel"
+      - "edge-gateway"
+      - "edge-compute"
+      - "standard"
+      - "enterprise"
+
+  - variable: global.edition
+    label: "Ignition Edition"
+    description: "panel=Vision HMI only, gateway=OPC UA+MQTT (no designer), compute=Full gateway with designer"
+    type: enum
+    required: true
+    default: "gateway"
+    group: "Deployment"
+    options:
+      - "panel"
+      - "gateway"
+      - "compute"
+
+  - variable: global.demoMode
+    label: "Enable Demo Mode"
+    description: "⚠️ Demo mode has 2-hour sessions and auto-restarts. Uncheck for licensed production use."
+    type: boolean
+    required: true
+    default: true
+    group: "Deployment"
+
+  # ============================================================================
+  # Image Configuration
+  # ============================================================================
+  - variable: image.repository
+    label: "Image Repository"
+    description: "Ignition Edge container image repository"
+    type: string
+    required: true
+    default: "inductiveautomation/ignition"
+    group: "Image"
+
+  - variable: image.tag
+    label: "Image Tag"
+    description: "Ignition version (e.g., '8.1-edge', '8.1.25-edge')"
+    type: string
+    required: true
+    default: "8.1-edge"
+    group: "Image"
+
+  - variable: image.pullPolicy
+    label: "Image Pull Policy"
+    description: "Image pull policy for the Ignition container"
+    type: enum
+    required: true
+    default: "IfNotPresent"
+    group: "Image"
+    options:
+      - "Always"
+      - "IfNotPresent"
+      - "Never"
+
+  # ============================================================================
+  # Gateway Configuration
+  # ============================================================================
+  - variable: gateway.name
+    label: "Gateway Name"
+    description: "Gateway name displayed in web UI and gateway network"
+    type: string
+    required: true
+    default: "Ignition Edge Gateway"
+    group: "Gateway"
+
+  - variable: gateway.admin.username
+    label: "Admin Username"
+    description: "Gateway administrator username"
+    type: string
+    required: true
+    default: "admin"
+    group: "Gateway"
+
+  - variable: gateway.admin.password
+    label: "Admin Password"
+    description: "Gateway administrator password (leave empty to auto-generate)"
+    type: password
+    required: false
+    default: ""
+    group: "Gateway"
+
+  - variable: gateway.heap.initial
+    label: "JVM Initial Heap Size"
+    description: "Initial Java heap size (e.g., '1024m', '2g') - overridden by preset"
+    type: string
+    required: true
+    default: "1024m"
+    group: "Gateway"
+    show_if: "global.preset="
+
+  - variable: gateway.heap.max
+    label: "JVM Maximum Heap Size"
+    description: "Maximum Java heap size (e.g., '2048m', '4g') - overridden by preset"
+    type: string
+    required: true
+    default: "2048m"
+    group: "Gateway"
+    show_if: "global.preset="
+
+  - variable: gateway.connections.maxDesigners
+    label: "Max Designer Connections"
+    description: "Maximum simultaneous designer connections (0=unlimited)"
+    type: int
+    required: true
+    default: 5
+    min: 0
+    max: 100
+    group: "Gateway"
+
+  - variable: gateway.connections.maxVisionClients
+    label: "Max Vision Client Connections"
+    description: "Maximum simultaneous Vision client sessions"
+    type: int
+    required: true
+    default: 25
+    min: 0
+    max: 1000
+    group: "Gateway"
+
+  - variable: gateway.connections.maxPerspectiveSessions
+    label: "Max Perspective Sessions"
+    description: "Maximum simultaneous Perspective web sessions"
+    type: int
+    required: true
+    default: 100
+    min: 0
+    max: 10000
+    group: "Gateway"
+
+  - variable: gateway.network.enabled
+    label: "Enable Gateway Network"
+    description: "Enable gateway-to-gateway connections for enterprise architectures"
+    type: boolean
+    required: true
+    default: false
+    group: "Gateway"
+
+  - variable: gateway.provisioning.enabled
+    label: "Enable Auto-Provisioning"
+    description: "Automatically restore gateway backup or import projects on first boot"
+    type: boolean
+    required: true
+    default: true
+    group: "Gateway"
+
+  # ============================================================================
+  # Licensing Configuration
+  # ============================================================================
+  - variable: license.activationKey
+    label: "Activation Key"
+    description: "Ignition Edge activation key (required for production, leave empty for demo mode)"
+    type: string
+    required: false
+    default: ""
+    group: "Licensing"
+
+  - variable: license.demoModeRestart.enabled
+    label: "Auto-Restart Demo Mode"
+    description: "Automatically restart gateway before 2-hour demo session expires (only applies in demo mode)"
+    type: boolean
+    required: true
+    default: true
+    group: "Licensing"
+    show_if: "global.demoMode=true"
+
+  # ============================================================================
+  # Database Configuration
+  # ============================================================================
+  - variable: databases.postgresql.enabled
+    label: "Enable PostgreSQL Connection"
+    description: "Connect to PostgreSQL database for production data, alarming, audit logs"
+    type: boolean
+    required: true
+    default: true
+    group: "Databases"
+
+  - variable: databases.postgresql.host
+    label: "PostgreSQL Host"
+    description: "PostgreSQL server hostname or IP address"
+    type: string
+    required: false
+    default: "postgresql"
+    group: "Databases"
+    show_if: "databases.postgresql.enabled=true"
+
+  - variable: databases.postgresql.port
+    label: "PostgreSQL Port"
+    description: "PostgreSQL server port"
+    type: int
+    required: false
+    default: 5432
+    min: 1
+    max: 65535
+    group: "Databases"
+    show_if: "databases.postgresql.enabled=true"
+
+  - variable: databases.postgresql.database
+    label: "PostgreSQL Database Name"
+    description: "Database name for Ignition data"
+    type: string
+    required: false
+    default: "ignition"
+    group: "Databases"
+    show_if: "databases.postgresql.enabled=true"
+
+  - variable: databases.postgresql.username
+    label: "PostgreSQL Username"
+    description: "Database username"
+    type: string
+    required: false
+    default: "ignition"
+    group: "Databases"
+    show_if: "databases.postgresql.enabled=true"
+
+  - variable: databases.postgresql.password
+    label: "PostgreSQL Password"
+    description: "Database password (leave empty if using existing secret)"
+    type: password
+    required: false
+    default: ""
+    group: "Databases"
+    show_if: "databases.postgresql.enabled=true"
+
+  - variable: databases.timescaledb.enabled
+    label: "Enable TimescaleDB Historian"
+    description: "Connect to TimescaleDB for time-series tag history and trending"
+    type: boolean
+    required: true
+    default: true
+    group: "Databases"
+
+  - variable: databases.timescaledb.host
+    label: "TimescaleDB Host"
+    description: "TimescaleDB server hostname or IP address"
+    type: string
+    required: false
+    default: "timescaledb"
+    group: "Databases"
+    show_if: "databases.timescaledb.enabled=true"
+
+  - variable: databases.timescaledb.port
+    label: "TimescaleDB Port"
+    description: "TimescaleDB server port"
+    type: int
+    required: false
+    default: 5432
+    min: 1
+    max: 65535
+    group: "Databases"
+    show_if: "databases.timescaledb.enabled=true"
+
+  - variable: databases.timescaledb.database
+    label: "TimescaleDB Database Name"
+    description: "Database name for tag historian"
+    type: string
+    required: false
+    default: "historian"
+    group: "Databases"
+    show_if: "databases.timescaledb.enabled=true"
+
+  # ============================================================================
+  # OPC UA Configuration
+  # ============================================================================
+  - variable: opcua.server.enabled
+    label: "Enable OPC UA Server"
+    description: "Enable OPC UA server for PLC and HMI client connections"
+    type: boolean
+    required: true
+    default: true
+    group: "OPC UA"
+
+  - variable: opcua.server.port
+    label: "OPC UA Server Port"
+    description: "Port for OPC UA server endpoint"
+    type: int
+    required: false
+    default: 62541
+    min: 1
+    max: 65535
+    group: "OPC UA"
+    show_if: "opcua.server.enabled=true"
+
+  - variable: opcua.server.allowAnonymous
+    label: "Allow Anonymous OPC UA Connections"
+    description: "⚠️ Allow connections without authentication (not recommended for production)"
+    type: boolean
+    required: true
+    default: false
+    group: "OPC UA"
+    show_if: "opcua.server.enabled=true"
+
+  - variable: opcua.tagProvider.historyEnabled
+    label: "Enable Tag History"
+    description: "Store tag values in historian database for trending and analysis"
+    type: boolean
+    required: true
+    default: true
+    group: "OPC UA"
+
+  # ============================================================================
+  # MQTT Sparkplug B Configuration
+  # ============================================================================
+  - variable: mqtt.engine.enabled
+    label: "Enable MQTT Engine"
+    description: "Subscribe to MQTT topics (receive data from IIoT sensors and PLCs)"
+    type: boolean
+    required: true
+    default: true
+    group: "MQTT"
+
+  - variable: mqtt.engine.broker.host
+    label: "MQTT Broker Host (Engine)"
+    description: "MQTT broker hostname for incoming Sparkplug B data"
+    type: string
+    required: false
+    default: "mqtt-broker"
+    group: "MQTT"
+    show_if: "mqtt.engine.enabled=true"
+
+  - variable: mqtt.engine.broker.port
+    label: "MQTT Broker Port (Engine)"
+    description: "MQTT broker port (1883=non-TLS, 8883=TLS)"
+    type: int
+    required: false
+    default: 1883
+    min: 1
+    max: 65535
+    group: "MQTT"
+    show_if: "mqtt.engine.enabled=true"
+
+  - variable: mqtt.transmission.enabled
+    label: "Enable MQTT Transmission"
+    description: "Publish to MQTT topics (send data to central SCADA or cloud)"
+    type: boolean
+    required: true
+    default: true
+    group: "MQTT"
+
+  - variable: mqtt.transmission.broker.host
+    label: "MQTT Broker Host (Transmission)"
+    description: "Central MQTT broker hostname for publishing data"
+    type: string
+    required: false
+    default: "central-mqtt"
+    group: "MQTT"
+    show_if: "mqtt.transmission.enabled=true"
+
+  - variable: mqtt.transmission.storeAndForward.enabled
+    label: "Enable Store & Forward"
+    description: "Buffer MQTT messages during network outages (prevents data loss)"
+    type: boolean
+    required: true
+    default: true
+    group: "MQTT"
+    show_if: "mqtt.transmission.enabled=true"
+
+  # ============================================================================
+  # Tag Historian Configuration
+  # ============================================================================
+  - variable: historian.enabled
+    label: "Enable Tag Historian"
+    description: "Store tag values for historical trending and analysis"
+    type: boolean
+    required: true
+    default: true
+    group: "Historian"
+
+  - variable: historian.retention.enabled
+    label: "Enable Retention Policy"
+    description: "Automatically delete old historical data to manage storage"
+    type: boolean
+    required: true
+    default: true
+    group: "Historian"
+    show_if: "historian.enabled=true"
+
+  - variable: historian.retention.period
+    label: "Data Retention Period"
+    description: "How long to keep historical data (e.g., '90 days', '1 year')"
+    type: string
+    required: false
+    default: "90 days"
+    group: "Historian"
+    show_if: "historian.retention.enabled=true"
+
+  - variable: historian.retention.compressionAge
+    label: "Compression Age"
+    description: "Age at which to compress historical data (e.g., '30 days')"
+    type: string
+    required: false
+    default: "30 days"
+    group: "Historian"
+    show_if: "historian.retention.enabled=true"
+
+  # ============================================================================
+  # Backup Configuration
+  # ============================================================================
+  - variable: backup.enabled
+    label: "Enable Automated Backups"
+    description: "Automatically backup gateway configuration, projects, and data"
+    type: boolean
+    required: true
+    default: true
+    group: "Backup"
+
+  - variable: backup.schedule
+    label: "Backup Schedule"
+    description: "Cron schedule for automated backups (default: 2 AM daily)"
+    type: string
+    required: false
+    default: "0 2 * * *"
+    group: "Backup"
+    show_if: "backup.enabled=true"
+
+  - variable: backup.retention
+    label: "Backup Retention (Days)"
+    description: "Number of backup copies to retain"
+    type: int
+    required: false
+    default: 30
+    min: 1
+    max: 365
+    group: "Backup"
+    show_if: "backup.enabled=true"
+
+  - variable: backup.destination.type
+    label: "Backup Destination Type"
+    description: "Where to store gateway backups"
+    type: enum
+    required: true
+    default: "pvc"
+    group: "Backup"
+    show_if: "backup.enabled=true"
+    options:
+      - "pvc"
+      - "nfs"
+      - "s3"
+
+  - variable: backup.destination.pvc.size
+    label: "Backup PVC Size"
+    description: "Size of persistent volume for backup storage"
+    type: string
+    required: false
+    default: "50Gi"
+    group: "Backup"
+    show_if: "backup.enabled=true&&backup.destination.type=pvc"
+
+  - variable: backup.destination.s3.bucket
+    label: "S3 Bucket Name"
+    description: "S3 bucket for backup storage"
+    type: string
+    required: false
+    default: ""
+    group: "Backup"
+    show_if: "backup.enabled=true&&backup.destination.type=s3"
+
+  - variable: backup.destination.nfs.server
+    label: "NFS Server"
+    description: "NFS server hostname or IP address"
+    type: string
+    required: false
+    default: ""
+    group: "Backup"
+    show_if: "backup.enabled=true&&backup.destination.type=nfs"
+
+  - variable: backup.destination.nfs.path
+    label: "NFS Path"
+    description: "Path on NFS server for backup storage"
+    type: string
+    required: false
+    default: "/backups/ignition"
+    group: "Backup"
+    show_if: "backup.enabled=true&&backup.destination.type=nfs"
+
+  # ============================================================================
+  # Storage Configuration
+  # ============================================================================
+  - variable: persistence.enabled
+    label: "Enable Persistent Storage"
+    description: "Enable persistent volume for gateway data (projects, logs, cache)"
+    type: boolean
+    required: true
+    default: true
+    group: "Storage"
+
+  - variable: persistence.storageClass
+    label: "Storage Class"
+    description: "Storage class for persistent volume (leave empty for cluster default)"
+    type: storageclass
+    required: false
+    default: ""
+    group: "Storage"
+    show_if: "persistence.enabled=true"
+
+  - variable: persistence.size
+    label: "Storage Size"
+    description: "Size of persistent volume (overridden by preset)"
+    type: string
+    required: true
+    default: "20Gi"
+    group: "Storage"
+    show_if: "persistence.enabled=true&&global.preset="
+
+  # ============================================================================
+  # Service Configuration
+  # ============================================================================
+  - variable: service.type
+    label: "Service Type"
+    description: "Kubernetes service type for Ignition gateway"
+    type: enum
+    required: true
+    default: "ClusterIP"
+    group: "Service"
+    options:
+      - "ClusterIP"
+      - "NodePort"
+      - "LoadBalancer"
+
+  - variable: service.http.nodePort
+    label: "HTTP NodePort"
+    description: "Specific NodePort for HTTP (leave empty for automatic assignment)"
+    type: int
+    required: false
+    default: null
+    min: 30000
+    max: 32767
+    group: "Service"
+    show_if: "service.type=NodePort"
+
+  - variable: service.https.nodePort
+    label: "HTTPS NodePort"
+    description: "Specific NodePort for HTTPS (leave empty for automatic assignment)"
+    type: int
+    required: false
+    default: null
+    min: 30000
+    max: 32767
+    group: "Service"
+    show_if: "service.type=NodePort"
+
+  - variable: service.loadBalancerIP
+    label: "Load Balancer IP"
+    description: "Specific IP for LoadBalancer (leave empty for automatic assignment)"
+    type: string
+    required: false
+    default: ""
+    group: "Service"
+    show_if: "service.type=LoadBalancer"
+
+  # ============================================================================
+  # Ingress Configuration
+  # ============================================================================
+  - variable: ingress.enabled
+    label: "Enable Ingress"
+    description: "Enable ingress for external access to Ignition gateway"
+    type: boolean
+    required: true
+    default: false
+    group: "Ingress"
+
+  - variable: ingress.className
+    label: "Ingress Class Name"
+    description: "Ingress class to use (nginx, traefik, etc.)"
+    type: string
+    required: false
+    default: "nginx"
+    group: "Ingress"
+    show_if: "ingress.enabled=true"
+
+  - variable: ingress.hosts[0].host
+    label: "Ingress Hostname"
+    description: "Hostname for ingress (e.g., scada.example.com)"
+    type: hostname
+    required: false
+    default: "ignition.example.com"
+    group: "Ingress"
+    show_if: "ingress.enabled=true"
+
+  - variable: ingress.tls[0].secretName
+    label: "TLS Secret Name"
+    description: "Secret containing TLS certificate for HTTPS (leave empty to disable TLS)"
+    type: string
+    required: false
+    default: ""
+    group: "Ingress"
+    show_if: "ingress.enabled=true"
+
+  # ============================================================================
+  # Security Configuration
+  # ============================================================================
+  - variable: security.tls.enabled
+    label: "Enable HTTPS"
+    description: "Enable TLS/SSL for gateway web interface"
+    type: boolean
+    required: true
+    default: true
+    group: "Security"
+
+  - variable: security.tls.autoGenerate
+    label: "Auto-Generate Self-Signed Certificate"
+    description: "Automatically create self-signed TLS certificate (for testing only)"
+    type: boolean
+    required: true
+    default: true
+    group: "Security"
+    show_if: "security.tls.enabled=true"
+
+  - variable: security.authentication.ldap.enabled
+    label: "Enable LDAP Authentication"
+    description: "Integrate with Active Directory or LDAP for user authentication"
+    type: boolean
+    required: true
+    default: false
+    group: "Security"
+
+  - variable: security.authentication.ldap.host
+    label: "LDAP Server Host"
+    description: "LDAP/Active Directory server hostname"
+    type: string
+    required: false
+    default: ""
+    group: "Security"
+    show_if: "security.authentication.ldap.enabled=true"
+
+  - variable: security.authentication.ldap.port
+    label: "LDAP Server Port"
+    description: "LDAP server port (389=non-SSL, 636=SSL)"
+    type: int
+    required: false
+    default: 389
+    min: 1
+    max: 65535
+    group: "Security"
+    show_if: "security.authentication.ldap.enabled=true"
+
+  - variable: security.networkPolicy.enabled
+    label: "Enable Network Policy"
+    description: "Enable network policy to restrict traffic to Ignition gateway"
+    type: boolean
+    required: true
+    default: false
+    group: "Security"
+
+  # ============================================================================
+  # Monitoring
+  # ============================================================================
+  - variable: monitoring.serviceMonitor.enabled
+    label: "Enable Prometheus ServiceMonitor"
+    description: "Create ServiceMonitor for Prometheus Operator (requires Prometheus Operator)"
+    type: boolean
+    required: true
+    default: false
+    group: "Monitoring"
+
+  - variable: monitoring.serviceMonitor.interval
+    label: "Metrics Scrape Interval"
+    description: "How often Prometheus should scrape metrics"
+    type: string
+    required: false
+    default: "30s"
+    group: "Monitoring"
+    show_if: "monitoring.serviceMonitor.enabled=true"
+
+  - variable: jmxExporter.enabled
+    label: "Enable JMX Exporter"
+    description: "Enable JMX exporter sidecar for JVM and gateway metrics"
+    type: boolean
+    required: true
+    default: true
+    group: "Monitoring"
+
+  # ============================================================================
+  # High Availability
+  # ============================================================================
+  - variable: highAvailability.enabled
+    label: "Enable High Availability"
+    description: "Enable active/standby redundancy for zero-downtime operations"
+    type: boolean
+    required: true
+    default: false
+    group: "High Availability"
+
+  - variable: highAvailability.mode
+    label: "HA Redundancy Mode"
+    description: "master-slave=active/standby, active-active=both gateways handle requests"
+    type: enum
+    required: false
+    default: "master-slave"
+    group: "High Availability"
+    show_if: "highAvailability.enabled=true"
+    options:
+      - "master-slave"
+      - "active-active"
+
+  - variable: highAvailability.redis.enabled
+    label: "Enable Redis State Sync"
+    description: "Use Redis for synchronizing state between redundant gateways"
+    type: boolean
+    required: false
+    default: false
+    group: "High Availability"
+    show_if: "highAvailability.enabled=true"
+
+  - variable: highAvailability.redis.host
+    label: "Redis Host"
+    description: "Redis server hostname for HA state synchronization"
+    type: string
+    required: false
+    default: "redis"
+    group: "High Availability"
+    show_if: "highAvailability.redis.enabled=true"
+
+  # ============================================================================
+  # Logging Configuration
+  # ============================================================================
+  - variable: logging.level
+    label: "Log Level"
+    description: "Gateway logging verbosity"
+    type: enum
+    required: true
+    default: "INFO"
+    group: "Logging"
+    options:
+      - "TRACE"
+      - "DEBUG"
+      - "INFO"
+      - "WARN"
+      - "ERROR"
+
+  - variable: logging.audit.enabled
+    label: "Enable Audit Logging"
+    description: "Log user actions (login, project saves, tag edits) for compliance"
+    type: boolean
+    required: true
+    default: true
+    group: "Logging"
+
+  # ============================================================================
+  # Custom Resources (Advanced)
+  # ============================================================================
+  - variable: resources.requests.cpu
+    label: "CPU Request"
+    description: "CPU request (overridden by preset)"
+    type: string
+    required: true
+    default: "2"
+    group: "Resources"
+    show_if: "global.preset="
+
+  - variable: resources.requests.memory
+    label: "Memory Request"
+    description: "Memory request (overridden by preset)"
+    type: string
+    required: true
+    default: "4Gi"
+    group: "Resources"
+    show_if: "global.preset="
+
+  - variable: resources.limits.cpu
+    label: "CPU Limit"
+    description: "CPU limit (overridden by preset)"
+    type: string
+    required: true
+    default: "4"
+    group: "Resources"
+    show_if: "global.preset="
+
+  - variable: resources.limits.memory
+    label: "Memory Limit"
+    description: "Memory limit (overridden by preset)"
+    type: string
+    required: true
+    default: "8Gi"
+    group: "Resources"
+    show_if: "global.preset="

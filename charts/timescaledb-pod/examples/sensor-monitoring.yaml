@@ -1,0 +1,76 @@
+# Sensor Monitoring Configuration
+# Optimized for high-frequency sensor data (1-second intervals)
+
+preset: medium
+mode: standalone
+
+postgresql:
+  database: tsdb
+  username: tsadmin
+  maxConnections: 300
+
+timescaledb:
+  enabled: true
+  maxBackgroundWorkers: 16
+  compression:
+    enabled: true
+    compressAfter: "1 day"
+    algorithm: "auto"
+  retention:
+    enabled: true
+    rawData: "90 days"
+  continuousAggregates:
+    enabled: true
+    autoRefresh: true
+  hypertables:
+    sensorData:
+      enabled: true
+      chunkTimeInterval: "1 hour"
+      compression:
+        enabled: true
+        compressAfter: "1 day"
+        segmentby: "device_id,sensor_type"
+        orderby: "time DESC"
+      retention:
+        enabled: true
+        dropAfter: "90 days"
+    machineMetrics:
+      enabled: true
+    energyConsumption:
+      enabled: true
+    alarmHistory:
+      enabled: true
+    qualityMeasurements:
+      enabled: false
+    productionCounts:
+      enabled: false
+
+persistence:
+  enabled: true
+  size: 500Gi
+
+walVolume:
+  enabled: true
+  size: 50Gi
+
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  retention: 7
+  destination:
+    type: pvc
+    pvc:
+      size: 100Gi
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+  grafana:
+    enabled: true
+
+sidecars:
+  postgresExporter:
+    enabled: true
+  pgbouncer:
+    enabled: true
+    maxClientConn: 500

@@ -1,0 +1,47 @@
+{{- if and .Values.persistence.enabled (eq .Values.mode "standalone") -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "timescaledb.fullname" . }}-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "timescaledb.labels" . | nindent 4 }}
+  {{- with .Values.persistence.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
+  {{- if include "timescaledb.storageClass" . }}
+  storageClassName: {{ include "timescaledb.storageClass" . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ include "timescaledb.persistenceSize" . }}
+  {{- with .Values.persistence.selector }}
+  selector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+---
+{{- if .Values.walVolume.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "timescaledb.fullname" . }}-wal
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "timescaledb.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.walVolume.accessModes | nindent 4 }}
+  {{- if .Values.walVolume.storageClass }}
+  storageClassName: {{ .Values.walVolume.storageClass }}
+  {{- else if include "timescaledb.storageClass" . }}
+  storageClassName: {{ include "timescaledb.storageClass" . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ include "timescaledb.walVolumeSize" . }}
+{{- end }}
+{{- end }}

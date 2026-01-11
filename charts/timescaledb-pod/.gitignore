@@ -1,0 +1,58 @@
+# Helm chart artifacts
+*.tgz
+charts/
+
+# Local development
+values-local.yaml
+values-dev.yaml
+values-secret.yaml
+*.local.yaml
+
+# Backup files
+*.bak
+*.backup
+*.sql.gz
+*.dump
+
+# Secrets (seriously, don't commit these)
+secrets/
+*.key
+*.pem
+*.crt
+*.pfx
+*.p12
+
+# Logs
+*.log
+logs/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Because someone always tries to commit their production passwords
+*password*
+*secret*
+!templates/secret.yaml
+!docs/SECURITY.md
+
+# Test results
+test-results/
+coverage/
+
+# PowerShell artifacts
+*.ps1xml
+PSReadLine_log.txt

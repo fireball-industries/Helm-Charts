@@ -1,0 +1,85 @@
+# HA Production Historian Configuration
+# Full-featured production SCADA historian with high availability
+
+preset: large
+mode: ha
+replicaCount: 3
+synchronousCommit: "local"
+
+postgresql:
+  database: tsdb
+  username: tsadmin
+  maxConnections: 500
+
+timescaledb:
+  enabled: true
+  maxBackgroundWorkers: 24
+  compression:
+    enabled: true
+    compressAfter: "7 days"
+  retention:
+    enabled: true
+    rawData: "90 days"
+    hourlyAggregates: "1 year"
+    dailyAggregates: "5 years"
+  continuousAggregates:
+    enabled: true
+    autoRefresh: true
+    refreshInterval: "1 hour"
+  hypertables:
+    sensorData:
+      enabled: true
+    machineMetrics:
+      enabled: true
+    energyConsumption:
+      enabled: true
+    qualityMeasurements:
+      enabled: true
+    alarmHistory:
+      enabled: true
+    productionCounts:
+      enabled: true
+
+persistence:
+  enabled: true
+  size: 1Ti
+
+walVolume:
+  enabled: true
+  size: 100Gi
+
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  retention: 30
+  destination:
+    type: pvc
+    pvc:
+      size: 500Gi
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+  grafana:
+    enabled: true
+
+sidecars:
+  postgresExporter:
+    enabled: true
+  pgbouncer:
+    enabled: true
+    poolMode: "transaction"
+    maxClientConn: 1000
+    defaultPoolSize: 50
+
+networkPolicy:
+  enabled: true
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+tls:
+  enabled: true
+  mode: "prefer"

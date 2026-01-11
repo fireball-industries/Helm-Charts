@@ -1,0 +1,409 @@
+{{- if .Values.initScripts.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "timescaledb.initScriptsConfigMapName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "timescaledb.labels" . | nindent 4 }}
+data:
+  # Init scripts are executed in alphabetical order
+  
+  00-enable-extensions.sql: |
+    -- Enable TimescaleDB and other useful extensions
+    -- Because vanilla PostgreSQL is like a PLC without ladder logic
+    
+    CREATE EXTENSION IF NOT EXISTS timescaledb;
+    CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+    CREATE EXTENSION IF NOT EXISTS btree_gist;
+    
+    -- Create replication user for HA mode
+    {{- if eq .Values.mode "ha" }}
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'replicator') THEN
+        CREATE ROLE replicator WITH REPLICATION PASSWORD '${POSTGRES_PASSWORD}' LOGIN;
+      END IF;
+    END
+    $$;
+    {{- end }}
+    
+    COMMENT ON EXTENSION timescaledb IS 'Time-series database for industrial IoT and SCADA data';
+  
+  {{- if .Values.timescaledb.enabled }}
+  01-create-schemas.sql: |
+    -- Create industrial IoT/SCADA schemas
+    -- Organized like a proper factory, not like Jeff's desk
+    
+    CREATE SCHEMA IF NOT EXISTS scada_historian;
+    COMMENT ON SCHEMA scada_historian IS 'OPC UA, Modbus, BACnet, and other SCADA protocol data';
+    
+    CREATE SCHEMA IF NOT EXISTS production_metrics;
+    COMMENT ON SCHEMA production_metrics IS 'OEE, cycle times, downtime tracking, and production counts';
+    
+    CREATE SCHEMA IF NOT EXISTS quality_data;
+    COMMENT ON SCHEMA quality_data IS 'SPC charts, measurements, inspections, and quality metrics';
+    
+    CREATE SCHEMA IF NOT EXISTS energy_management;
+    COMMENT ON SCHEMA energy_management IS 'Power consumption, demand monitoring, and energy analytics';
+    
+    CREATE SCHEMA IF NOT EXISTS predictive_maintenance;
+    COMMENT ON SCHEMA predictive_maintenance IS 'Vibration analysis, temperature monitoring, and failure predictions';
+    
+    CREATE SCHEMA IF NOT EXISTS asset_tracking;
+    COMMENT ON SCHEMA asset_tracking IS 'Equipment location, utilization, and asset management';
+    
+    {{- if or .Values.compliance.fda21CFRPart11.enabled .Values.compliance.iso9001.enabled }}
+    CREATE SCHEMA IF NOT EXISTS audit_log;
+    COMMENT ON SCHEMA audit_log IS 'Compliance audit trail and change tracking';
+    {{- end }}
+  
+  02-create-hypertables.sql: |
+    -- Create TimescaleDB hypertables for industrial time-series data
+    -- Because your sensor data deserves better than a flat table
+    
+    {{- range $key, $table := .Values.timescaledb.hypertables }}
+    {{- if $table.enabled }}
+    -- {{ $table.name }} ({{ $key }})
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = '{{ $table.schema }}' AND tablename = '{{ $table.name }}') THEN
+        
+        {{- if eq $key "sensorData" }}
+        -- High-frequency sensor data (1-second intervals)
+        CREATE TABLE {{ $table.schema }}.{{ $table.name }} (
+          time TIMESTAMPTZ NOT NULL,
+          device_id TEXT NOT NULL,
+          sensor_type TEXT NOT NULL,
+          value DOUBLE PRECISION,
+          quality INTEGER DEFAULT 192, -- OPC UA Good quality
+          tags JSONB,
+          PRIMARY KEY (time, device_id, sensor_type)
+        );
+        
+        {{- else if eq $key "machineMetrics" }}
+        -- Machine metrics (per-minute aggregates)
+        CREATE TABLE {{ $table.schema }}.{{ $table.name }} (
+          time TIMESTAMPTZ NOT NULL,
+          machine_id TEXT NOT NULL,
+          metric_name TEXT NOT NULL,
+          value DOUBLE PRECISION,
+          unit TEXT,
+          status TEXT,
+          PRIMARY KEY (time, machine_id, metric_name)
+        );
+        
+        {{- else if eq $key "energyConsumption" }}
+        -- Energy consumption (15-minute intervals)
+        CREATE TABLE {{ $table.schema }}.{{ $table.name }} (
+          time TIMESTAMPTZ NOT NULL,
+          meter_id TEXT NOT NULL,
+          kwh DOUBLE PRECISION,
+          kw_demand DOUBLE PRECISION,
+          power_factor DOUBLE PRECISION,
+          voltage DOUBLE PRECISION,
+          current DOUBLE PRECISION,
+          PRIMARY KEY (time, meter_id)
+        );
+        
+        {{- else if eq $key "qualityMeasurements" }}
+        -- Quality measurements
+        CREATE TABLE {{ $table.schema }}.{{ $table.name }} (
+          time TIMESTAMPTZ NOT NULL,
+          part_id TEXT,
+          measurement_type TEXT NOT NULL,
+          value DOUBLE PRECISION,
+          usl DOUBLE PRECISION, -- Upper spec limit
+          lsl DOUBLE PRECISION, -- Lower spec limit
+          inspector TEXT,
+          passed BOOLEAN,
+          PRIMARY KEY (time, measurement_type, part_id)
+        );
+        
+        {{- else if eq $key "alarmHistory" }}
+        -- Alarm history
+        CREATE TABLE {{ $table.schema }}.{{ $table.name }} (
+          time TIMESTAMPTZ NOT NULL,
+          alarm_id TEXT NOT NULL,
+          device_id TEXT,
+          severity TEXT,
+          message TEXT,
+          acknowledged BOOLEAN DEFAULT FALSE,
+          acknowledged_by TEXT,
+          acknowledged_at TIMESTAMPTZ,
+          PRIMARY KEY (time, alarm_id)
+        );
+        
+        {{- else if eq $key "productionCounts" }}
+        -- Production counts (per-shift aggregates)
+        CREATE TABLE {{ $table.schema }}.{{ $table.name }} (
+          time TIMESTAMPTZ NOT NULL,
+          line_id TEXT NOT NULL,
+          product_id TEXT NOT NULL,
+          shift TEXT,
+          good_count INTEGER DEFAULT 0,
+          scrap_count INTEGER DEFAULT 0,
+          rework_count INTEGER DEFAULT 0,
+          downtime_minutes INTEGER DEFAULT 0,
+          PRIMARY KEY (time, line_id, product_id)
+        );
+        {{- end }}
+        
+        COMMENT ON TABLE {{ $table.schema }}.{{ $table.name }} IS '{{ $key }} - chunk interval: {{ $table.chunkTimeInterval }}';
+        
+        -- Create hypertable
+        {{- if $table.partitionColumn }}
+        SELECT create_hypertable(
+          '{{ $table.schema }}.{{ $table.name }}',
+          '{{ $table.timeColumn }}',
+          partitioning_column => '{{ $table.partitionColumn }}',
+          number_partitions => {{ $table.partitions | default 4 }},
+          chunk_time_interval => INTERVAL '{{ $table.chunkTimeInterval }}'
+        );
+        {{- else }}
+        SELECT create_hypertable(
+          '{{ $table.schema }}.{{ $table.name }}',
+          '{{ $table.timeColumn }}',
+          chunk_time_interval => INTERVAL '{{ $table.chunkTimeInterval }}'
+        );
+        {{- end }}
+        
+        {{- if $table.compression.enabled }}
+        -- Enable compression
+        ALTER TABLE {{ $table.schema }}.{{ $table.name }} SET (
+          timescaledb.compress,
+          {{- if $table.compression.segmentby }}
+          timescaledb.compress_segmentby = '{{ $table.compression.segmentby }}',
+          {{- end }}
+          {{- if $table.compression.orderby }}
+          timescaledb.compress_orderby = '{{ $table.compression.orderby }}'
+          {{- else }}
+          timescaledb.compress_orderby = 'time DESC'
+          {{- end }}
+        );
+        
+        -- Add compression policy
+        SELECT add_compression_policy(
+          '{{ $table.schema }}.{{ $table.name }}',
+          INTERVAL '{{ $table.compression.compressAfter }}'
+        );
+        {{- end }}
+        
+        {{- if $table.retention.enabled }}
+        -- Add retention policy
+        SELECT add_retention_policy(
+          '{{ $table.schema }}.{{ $table.name }}',
+          INTERVAL '{{ $table.retention.dropAfter }}'
+        );
+        {{- end }}
+        
+      END IF;
+    END
+    $$;
+    
+    {{- end }}
+    {{- end }}
+  
+  {{- if .Values.timescaledb.continuousAggregates.enabled }}
+  03-create-continuous-aggregates.sql: |
+    -- Create continuous aggregates for real-time rollups
+    -- Because querying raw 1-second data for a monthly report is madness
+    
+    -- Hourly sensor data rollup
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM timescaledb_information.continuous_aggregates WHERE view_name = 'sensor_data_hourly') THEN
+        CREATE MATERIALIZED VIEW sensor_data_hourly
+        WITH (timescaledb.continuous) AS
+        SELECT
+          time_bucket('1 hour', time) AS bucket,
+          device_id,
+          sensor_type,
+          AVG(value) AS avg_value,
+          MIN(value) AS min_value,
+          MAX(value) AS max_value,
+          STDDEV(value) AS stddev_value,
+          COUNT(*) AS sample_count
+        FROM scada_historian.sensor_data
+        GROUP BY bucket, device_id, sensor_type
+        WITH NO DATA;
+        
+        SELECT add_continuous_aggregate_policy('sensor_data_hourly',
+          start_offset => INTERVAL '3 hours',
+          end_offset => INTERVAL '1 hour',
+          schedule_interval => INTERVAL '1 hour');
+      END IF;
+    END
+    $$;
+    
+    -- Daily production metrics rollup
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM timescaledb_information.continuous_aggregates WHERE view_name = 'production_daily') THEN
+        CREATE MATERIALIZED VIEW production_daily
+        WITH (timescaledb.continuous) AS
+        SELECT
+          time_bucket('1 day', time) AS bucket,
+          line_id,
+          product_id,
+          SUM(good_count) AS total_good,
+          SUM(scrap_count) AS total_scrap,
+          SUM(rework_count) AS total_rework,
+          SUM(downtime_minutes) AS total_downtime,
+          100.0 * SUM(good_count) / NULLIF(SUM(good_count + scrap_count), 0) AS yield_percent
+        FROM production_metrics.production_counts
+        GROUP BY bucket, line_id, product_id
+        WITH NO DATA;
+        
+        SELECT add_continuous_aggregate_policy('production_daily',
+          start_offset => INTERVAL '3 days',
+          end_offset => INTERVAL '1 day',
+          schedule_interval => INTERVAL '1 day');
+      END IF;
+    END
+    $$;
+    
+    -- Monthly energy consumption rollup
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM timescaledb_information.continuous_aggregates WHERE view_name = 'energy_monthly') THEN
+        CREATE MATERIALIZED VIEW energy_monthly
+        WITH (timescaledb.continuous) AS
+        SELECT
+          time_bucket('1 month', time) AS bucket,
+          meter_id,
+          SUM(kwh) AS total_kwh,
+          AVG(kw_demand) AS avg_demand,
+          MAX(kw_demand) AS peak_demand,
+          AVG(power_factor) AS avg_power_factor
+        FROM energy_management.energy_consumption
+        GROUP BY bucket, meter_id
+        WITH NO DATA;
+        
+        SELECT add_continuous_aggregate_policy('energy_monthly',
+          start_offset => INTERVAL '60 days',
+          end_offset => INTERVAL '1 day',
+          schedule_interval => INTERVAL '1 day');
+      END IF;
+    END
+    $$;
+  {{- end }}
+  
+  04-create-indexes.sql: |
+    -- Create recommended indexes for query performance
+    -- Because full table scans are for people who enjoy waiting
+    
+    {{- if (index .Values.timescaledb.hypertables "sensorData").enabled }}
+    CREATE INDEX IF NOT EXISTS idx_sensor_data_device_time 
+      ON scada_historian.sensor_data (device_id, time DESC);
+    CREATE INDEX IF NOT EXISTS idx_sensor_data_type_time 
+      ON scada_historian.sensor_data (sensor_type, time DESC);
+    CREATE INDEX IF NOT EXISTS idx_sensor_data_tags 
+      ON scada_historian.sensor_data USING GIN (tags);
+    {{- end }}
+    
+    {{- if (index .Values.timescaledb.hypertables "machineMetrics").enabled }}
+    CREATE INDEX IF NOT EXISTS idx_machine_metrics_machine_time 
+      ON production_metrics.machine_metrics (machine_id, time DESC);
+    CREATE INDEX IF NOT EXISTS idx_machine_metrics_status 
+      ON production_metrics.machine_metrics (status, time DESC) WHERE status != 'normal';
+    {{- end }}
+    
+    {{- if (index .Values.timescaledb.hypertables "alarmHistory").enabled }}
+    CREATE INDEX IF NOT EXISTS idx_alarm_history_device 
+      ON scada_historian.alarm_history (device_id, time DESC);
+    CREATE INDEX IF NOT EXISTS idx_alarm_history_severity 
+      ON scada_historian.alarm_history (severity, time DESC);
+    CREATE INDEX IF NOT EXISTS idx_alarm_history_unacknowledged 
+      ON scada_historian.alarm_history (time DESC) WHERE acknowledged = FALSE;
+    {{- end }}
+    
+    {{- if (index .Values.timescaledb.hypertables "productionCounts").enabled }}
+    CREATE INDEX IF NOT EXISTS idx_production_counts_line_time 
+      ON production_metrics.production_counts (line_id, time DESC);
+    CREATE INDEX IF NOT EXISTS idx_production_counts_product 
+      ON production_metrics.production_counts (product_id, time DESC);
+    {{- end }}
+  
+  {{- if or .Values.compliance.fda21CFRPart11.enabled .Values.compliance.iso9001.enabled }}
+  05-create-audit-tables.sql: |
+    -- Create audit logging tables for compliance
+    -- Because the FDA doesn't accept "trust me bro" as evidence
+    
+    CREATE TABLE IF NOT EXISTS audit_log.data_changes (
+      change_id BIGSERIAL PRIMARY KEY,
+      changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      schema_name TEXT NOT NULL,
+      table_name TEXT NOT NULL,
+      operation TEXT NOT NULL, -- INSERT, UPDATE, DELETE
+      user_name TEXT NOT NULL,
+      old_data JSONB,
+      new_data JSONB,
+      reason TEXT,
+      electronic_signature TEXT
+    );
+    
+    SELECT create_hypertable(
+      'audit_log.data_changes',
+      'changed_at',
+      chunk_time_interval => INTERVAL '1 month',
+      if_not_exists => TRUE
+    );
+    
+    {{- if .Values.compliance.fda21CFRPart11.immutableAuditTables }}
+    -- Make audit table immutable (no updates or deletes allowed)
+    CREATE OR REPLACE FUNCTION audit_log.prevent_audit_modification()
+    RETURNS TRIGGER AS $$
+    BEGIN
+      RAISE EXCEPTION 'Audit log modifications are not permitted (21 CFR Part 11 compliance)';
+    END;
+    $$ LANGUAGE plpgsql;
+    
+    DROP TRIGGER IF EXISTS prevent_audit_update ON audit_log.data_changes;
+    CREATE TRIGGER prevent_audit_update
+      BEFORE UPDATE OR DELETE ON audit_log.data_changes
+      FOR EACH ROW EXECUTE FUNCTION audit_log.prevent_audit_modification();
+    {{- end }}
+    
+    -- Retention policy for audit logs (typically longer than operational data)
+    SELECT add_retention_policy(
+      'audit_log.data_changes',
+      INTERVAL '25 years', -- Long-term regulatory retention
+      if_not_exists => TRUE
+    );
+  {{- end }}
+  
+  {{- end }}
+  
+  99-finalize.sql: |
+    -- Final setup and verification
+    -- This is where we make sure everything actually works
+    
+    -- Create readonly user for reporting/analytics
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'readonly') THEN
+        CREATE ROLE readonly WITH LOGIN PASSWORD '${POSTGRES_PASSWORD}';
+        GRANT CONNECT ON DATABASE {{ .Values.postgresql.database }} TO readonly;
+        GRANT USAGE ON SCHEMA scada_historian, production_metrics, quality_data, energy_management TO readonly;
+        GRANT SELECT ON ALL TABLES IN SCHEMA scada_historian, production_metrics, quality_data, energy_management TO readonly;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA scada_historian, production_metrics, quality_data, energy_management 
+          GRANT SELECT ON TABLES TO readonly;
+      END IF;
+    END
+    $$;
+    
+    -- Update statistics
+    ANALYZE;
+    
+    -- Mark initialization complete
+    \! touch /tmp/.initialized
+    
+    -- Display TimescaleDB status
+    SELECT '🔥 TimescaleDB initialized successfully! Your industrial IoT data is ready.' AS status;
+    SELECT * FROM timescaledb_information.hypertables;
+  
+  {{- with .Values.initScripts.customScripts }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{- end }}

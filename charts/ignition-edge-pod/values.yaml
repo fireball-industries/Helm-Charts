@@ -1,0 +1,856 @@
+# ============================================================================
+# Ignition Edge - Helm Chart Values
+# ============================================================================
+# Because your operators deserve better than a Windows XP touchscreen.
+# 
+# This chart defaults to demo mode (2-hour runtime sessions). For production
+# use, activate your Ignition license - unless you enjoy watching your SCADA
+# system restart during critical production runs.
+#
+# Quick Presets: edge-panel | edge-gateway | edge-compute | standard | enterprise
+# Set via: helm install ignition . --set preset=edge-gateway
+# ============================================================================
+
+# ============================================================================
+# Global Settings
+# ============================================================================
+global:
+  # Resource preset: edge-panel, edge-gateway, edge-compute, standard, enterprise
+  # Leave empty for custom configuration
+  preset: ""
+  
+  # Ignition edition: panel, gateway, compute
+  # panel: Vision runtime only, no designer
+  # gateway: OPC UA server, MQTT, historian (no designer)
+  # compute: Full gateway with designer access
+  edition: "gateway"
+  
+  # Demo mode (2-hour sessions) or licensed mode
+  demoMode: true
+  
+  # Kubernetes cluster domain
+  clusterDomain: cluster.local
+
+# ============================================================================
+# Image Configuration
+# ============================================================================
+image:
+  # Ignition Edge official Docker image
+  repository: inductiveautomation/ignition
+  tag: "8.1-edge"
+  pullPolicy: IfNotPresent
+  # Pull secrets for private registries
+  pullSecrets: []
+
+# Init container for gateway provisioning
+initImage:
+  repository: inductiveautomation/ignition
+  tag: "8.1-edge"
+  pullPolicy: IfNotPresent
+
+# JMX exporter sidecar for Prometheus metrics
+jmxExporter:
+  enabled: true
+  image:
+    repository: bitnami/jmx-exporter
+    tag: "0.20.0"
+    pullPolicy: IfNotPresent
+  port: 5556
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# ============================================================================
+# Ignition Gateway Configuration
+# ============================================================================
+gateway:
+  # Gateway name (appears in web UI)
+  name: "Ignition Edge Gateway"
+  
+  # Gateway description
+  description: "Kubernetes-deployed Ignition Edge - Because FactoryTalk is so 2005"
+  
+  # Gateway admin credentials (auto-generated if not specified)
+  admin:
+    username: admin
+    # Leave password empty to auto-generate
+    password: ""
+    # Existing secret with admin credentials
+    existingSecret: ""
+    passwordKey: "admin-password"
+  
+  # JVM heap size (overridden by preset)
+  heap:
+    initial: "1024m"
+    max: "2048m"
+  
+  # Thread pool configuration
+  threads:
+    # Max HTTP worker threads
+    http: 200
+    # Max database connection threads
+    database: 50
+    # Tag execution threads
+    tags: 8
+  
+  # Connection limits
+  connections:
+    # Max simultaneous designer connections
+    maxDesigners: 5
+    # Max simultaneous Vision clients
+    maxVisionClients: 25
+    # Max simultaneous Perspective sessions
+    maxPerspectiveSessions: 100
+  
+  # Gateway network configuration
+  network:
+    # Enable gateway network (connect to other gateways)
+    enabled: false
+    # Gateway network port
+    port: 8060
+    # SSL for gateway network
+    ssl: true
+  
+  # Module auto-installation
+  modules:
+    # Auto-install modules from volume
+    autoInstall: true
+    # Modules to install (download URLs or volume paths)
+    list: []
+    # - name: "Perspective"
+    #   url: "https://files.inductiveautomation.com/..."
+    # - name: "Vision"
+    #   path: "/modules/Vision.modl"
+  
+  # Scripting configuration
+  scripting:
+    # Enable Python scripting
+    enabled: true
+    # Script timeout (seconds)
+    timeout: 60
+    # Import script libraries from volume
+    libraryPath: "/scripts"
+  
+  # Auto-provisioning
+  provisioning:
+    # Enable auto-provisioning on first boot
+    enabled: true
+    # Restore from backup on init
+    restoreFromBackup: false
+    # Backup file path
+    backupPath: "/restore/gateway.gwbk"
+    # Import project on first boot
+    importProject: true
+    projectPath: "/provisioning/sample-project.proj"
+
+# ============================================================================
+# Licensing Configuration
+# ============================================================================
+license:
+  # Activation key (for production use)
+  activationKey: ""
+  
+  # Existing secret containing activation key
+  existingSecret: ""
+  activationKeyKey: "activation-key"
+  
+  # License file (alternative to activation key)
+  licenseFile: ""
+  
+  # Alert when license expires (days before expiry)
+  expiryWarningDays: 30
+  
+  # Demo mode restart helper (auto-restart every 2 hours)
+  demoModeRestart:
+    enabled: true
+    # Restart 5 minutes before session expires
+    restartBeforeExpiry: 300
+
+# ============================================================================
+# Database Connections
+# ============================================================================
+databases:
+  # PostgreSQL production database
+  postgresql:
+    enabled: true
+    name: "production_db"
+    host: "postgresql"
+    port: 5432
+    database: "ignition"
+    username: "ignition"
+    password: ""
+    existingSecret: ""
+    passwordKey: "postgres-password"
+    # Connection pool settings
+    maxConnections: 50
+    validationQuery: "SELECT 1"
+    maxIdleTime: 600
+  
+  # TimescaleDB for tag historian
+  timescaledb:
+    enabled: true
+    name: "historian_db"
+    host: "timescaledb"
+    port: 5432
+    database: "historian"
+    username: "ignition"
+    password: ""
+    existingSecret: ""
+    passwordKey: "timescale-password"
+    maxConnections: 20
+    # Partition configuration
+    partitionInterval: "7 days"
+    retentionPeriod: "90 days"
+  
+  # Additional database connections
+  additional: []
+  # - name: "mes_db"
+  #   driver: "PostgreSQL"
+  #   host: "mes-server"
+  #   port: 5432
+  #   database: "mes"
+  #   username: "ignition"
+  #   password: "password"
+
+# ============================================================================
+# OPC UA Configuration
+# ============================================================================
+opcua:
+  # Enable OPC UA server
+  server:
+    enabled: true
+    port: 62541
+    # Endpoint URL (auto-generated if empty)
+    endpointUrl: ""
+    # Security policies: None, Basic128Rsa15, Basic256, Basic256Sha256
+    securityPolicies:
+      - "None"
+      - "Basic256Sha256"
+    # Anonymous access
+    allowAnonymous: false
+    # Certificate configuration
+    certificate:
+      # Auto-generate self-signed cert
+      autoGenerate: true
+      # Existing secret with cert
+      existingSecret: ""
+      certKey: "tls.crt"
+      keyKey: "tls.key"
+  
+  # OPC UA client connections
+  client:
+    # Device connections
+    devices: []
+    # - name: "PLC-01"
+    #   endpointUrl: "opc.tcp://192.168.1.10:4840"
+    #   securityPolicy: "None"
+    #   updateRate: 1000
+    #   enabled: true
+  
+  # Tag provider configuration
+  tagProvider:
+    # Default tag provider name
+    name: "default"
+    # Enable tag history
+    historyEnabled: true
+    # Scan class definitions
+    scanClasses:
+      - name: "Fast"
+        rate: 100
+      - name: "Default"
+        rate: 1000
+      - name: "Slow"
+        rate: 5000
+
+# ============================================================================
+# MQTT Sparkplug B Configuration
+# ============================================================================
+mqtt:
+  # MQTT Engine (subscribe to sensors/PLCs)
+  engine:
+    enabled: true
+    # MQTT broker configuration
+    broker:
+      host: "mqtt-broker"
+      port: 1883
+      # TLS configuration
+      ssl: false
+      sslPort: 8883
+      # Authentication
+      username: ""
+      password: ""
+      existingSecret: ""
+      passwordKey: "mqtt-password"
+    # Sparkplug namespace
+    namespace: "spBv1.0"
+    # Primary host ID
+    primaryHostId: "Ignition-Edge"
+    # Group ID
+    groupId: "Factory"
+  
+  # MQTT Transmission (publish to central)
+  transmission:
+    enabled: true
+    # Central MQTT broker
+    broker:
+      host: "central-mqtt"
+      port: 1883
+      ssl: false
+      username: ""
+      password: ""
+      existingSecret: ""
+      passwordKey: "mqtt-central-password"
+    # Transmission group
+    groupId: "Edge"
+    edgeNodeId: "Gateway-01"
+    # Store and forward
+    storeAndForward:
+      enabled: true
+      maxCacheSize: 100000
+      forwardInterval: 60
+  
+  # MQTT Chariot (embedded MQTT broker)
+  chariot:
+    enabled: false
+    port: 1883
+    sslPort: 8883
+    maxConnections: 100
+
+# ============================================================================
+# Tag Historian Configuration
+# ============================================================================
+historian:
+  enabled: true
+  
+  # Database connection (uses TimescaleDB by default)
+  database: "historian_db"
+  
+  # Tag history provider
+  provider:
+    name: "default"
+    # Partition configuration
+    partitionEnabled: true
+    partitionDuration: "7 days"
+    # Deadband settings
+    deadband:
+      enabled: true
+      mode: "Absolute"
+      value: 0.1
+    # Sample rate limiting
+    sampleRate:
+      enabled: true
+      mode: "OnChange"
+      maxRate: 1000
+  
+  # Retention policy
+  retention:
+    enabled: true
+    # Delete data older than this
+    period: "90 days"
+    # Compression after this age
+    compressionAge: "30 days"
+
+# ============================================================================
+# Industrial Protocol Drivers
+# ============================================================================
+drivers:
+  # Allen-Bradley (via OPC UA)
+  allenBradley:
+    enabled: false
+    devices: []
+    # - name: "ControlLogix-01"
+    #   ipAddress: "192.168.1.20"
+    #   slot: 0
+    #   scanRate: 1000
+  
+  # Siemens S7 (via OPC UA)
+  siemens:
+    enabled: false
+    devices: []
+    # - name: "S7-1500-01"
+    #   ipAddress: "192.168.1.30"
+    #   rack: 0
+    #   slot: 1
+    #   scanRate: 1000
+  
+  # Modbus TCP
+  modbusTcp:
+    enabled: false
+    devices: []
+    # - name: "Modbus-Device-01"
+    #   ipAddress: "192.168.1.40"
+    #   port: 502
+    #   unitId: 1
+    #   scanRate: 1000
+  
+  # BACnet/IP
+  bacnet:
+    enabled: false
+    devices: []
+  
+  # DNP3
+  dnp3:
+    enabled: false
+    devices: []
+
+# ============================================================================
+# Backup Configuration
+# ============================================================================
+backup:
+  # Enable automated backups
+  enabled: true
+  
+  # Backup schedule (cron format)
+  schedule: "0 2 * * *"  # 2 AM daily
+  
+  # Backup retention (days)
+  retention: 30
+  
+  # Backup destination
+  destination:
+    # Type: pvc, nfs, s3
+    type: "pvc"
+    
+    # PVC configuration
+    pvc:
+      storageClass: ""
+      size: 50Gi
+      accessMode: ReadWriteOnce
+    
+    # NFS configuration
+    nfs:
+      server: ""
+      path: "/backups/ignition"
+    
+    # S3 configuration
+    s3:
+      bucket: ""
+      region: ""
+      accessKey: ""
+      secretKey: ""
+      existingSecret: ""
+  
+  # Pre-backup hooks
+  preBackup:
+    enabled: false
+    command: []
+  
+  # Post-backup hooks
+  postBackup:
+    enabled: false
+    command: []
+  
+  # Backup verification
+  verify:
+    enabled: true
+
+# ============================================================================
+# High Availability Configuration
+# ============================================================================
+highAvailability:
+  enabled: false
+  
+  # Redundancy mode: master-slave, active-active
+  mode: "master-slave"
+  
+  # Redis backend for state sync
+  redis:
+    enabled: false
+    host: "redis"
+    port: 6379
+    password: ""
+    existingSecret: ""
+    database: 0
+  
+  # Session failover
+  sessionFailover:
+    enabled: true
+    timeout: 30
+
+# ============================================================================
+# Security Configuration
+# ============================================================================
+security:
+  # Authentication
+  authentication:
+    # Internal user source
+    internal:
+      enabled: true
+    
+    # Active Directory / LDAP
+    ldap:
+      enabled: false
+      host: ""
+      port: 389
+      ssl: false
+      baseDN: ""
+      bindDN: ""
+      bindPassword: ""
+      existingSecret: ""
+    
+    # SAML SSO
+    saml:
+      enabled: false
+      idpMetadataUrl: ""
+      entityId: ""
+  
+  # TLS/SSL configuration
+  tls:
+    # Enable HTTPS
+    enabled: true
+    # Auto-generate self-signed cert
+    autoGenerate: true
+    # Existing secret with certificate
+    existingSecret: ""
+    certKey: "tls.crt"
+    keyKey: "tls.key"
+    caKey: "ca.crt"
+  
+  # Network policies
+  networkPolicy:
+    enabled: false
+    # Ingress rules
+    ingress: []
+    # Egress rules
+    egress: []
+  
+  # Pod security
+  podSecurityContext:
+    fsGroup: 2000
+    runAsNonRoot: false
+    runAsUser: 1000
+  
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+
+# ============================================================================
+# Monitoring & Observability
+# ============================================================================
+monitoring:
+  # Prometheus ServiceMonitor
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+  
+  # Metrics configuration
+  metrics:
+    # Gateway system metrics
+    gateway:
+      enabled: true
+    # JVM metrics
+    jvm:
+      enabled: true
+    # Database connection pool metrics
+    database:
+      enabled: true
+    # OPC UA metrics
+    opcua:
+      enabled: true
+    # Tag metrics
+    tags:
+      enabled: true
+  
+  # Alert rules
+  alerts:
+    # License expiry alert
+    licenseExpiry:
+      enabled: true
+      warningDays: 30
+    # Memory pressure alert
+    memoryPressure:
+      enabled: true
+      threshold: 80
+    # Connection failure alert
+    connectionFailure:
+      enabled: true
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+logging:
+  # Log level: TRACE, DEBUG, INFO, WARN, ERROR
+  level: "INFO"
+  
+  # Log to stdout (Kubernetes-friendly)
+  stdout: true
+  
+  # Wrapper log persistence
+  wrapperLog:
+    enabled: true
+    size: 10Mi
+  
+  # Audit logging
+  audit:
+    enabled: true
+    # Audit events to log
+    events:
+      - "USER_LOGIN"
+      - "USER_LOGOUT"
+      - "PROJECT_SAVE"
+      - "TAG_EDIT"
+      - "SCRIPT_EXECUTION"
+  
+  # Tag history diagnostic logging
+  tagHistory:
+    enabled: false
+    level: "INFO"
+
+# ============================================================================
+# Persistence Configuration
+# ============================================================================
+persistence:
+  # Gateway data persistence
+  data:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 20Gi
+    # Existing PVC
+    existingClaim: ""
+  
+  # Backup volume
+  backup:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 50Gi
+    existingClaim: ""
+  
+  # Module storage
+  modules:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 5Gi
+    existingClaim: ""
+  
+  # Script libraries
+  scripts:
+    enabled: false
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    existingClaim: ""
+
+# ============================================================================
+# Service Configuration
+# ============================================================================
+service:
+  type: ClusterIP
+  
+  # HTTP port (web UI, designer, clients)
+  http:
+    enabled: true
+    port: 8088
+    targetPort: 8088
+    nodePort: ""
+  
+  # HTTPS port
+  https:
+    enabled: true
+    port: 8043
+    targetPort: 8043
+    nodePort: ""
+  
+  # OPC UA port
+  opcua:
+    enabled: true
+    port: 62541
+    targetPort: 62541
+    nodePort: ""
+  
+  # MQTT ports
+  mqtt:
+    enabled: true
+    port: 1883
+    targetPort: 1883
+    nodePort: ""
+  
+  mqtts:
+    enabled: false
+    port: 8883
+    targetPort: 8883
+    nodePort: ""
+  
+  # Gateway network port
+  gatewayNetwork:
+    enabled: false
+    port: 8060
+    targetPort: 8060
+    nodePort: ""
+  
+  # Session affinity for web clients
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  
+  annotations: {}
+  labels: {}
+
+# ============================================================================
+# Ingress Configuration
+# ============================================================================
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "ignition-edge"
+  
+  hosts:
+    - host: ignition.local
+      paths:
+        - path: /
+          pathType: Prefix
+          servicePort: 8088
+  
+  tls: []
+  # - secretName: ignition-tls
+  #   hosts:
+  #     - ignition.local
+
+# ============================================================================
+# Network Policy
+# ============================================================================
+networkPolicy:
+  enabled: false
+  
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    # Allow from any (customize for production)
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8088
+        - protocol: TCP
+          port: 8043
+        - protocol: TCP
+          port: 62541
+        - protocol: TCP
+          port: 1883
+  
+  egress:
+    # Allow all egress (customize for production)
+    - to:
+        - namespaceSelector: {}
+
+# ============================================================================
+# Horizontal Pod Autoscaling
+# ============================================================================
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# ============================================================================
+# Resource Configuration
+# ============================================================================
+resources:
+  # Resource limits (overridden by preset)
+  requests:
+    cpu: 2
+    memory: 4Gi
+  limits:
+    cpu: 4
+    memory: 8Gi
+
+# ============================================================================
+# Pod Configuration
+# ============================================================================
+replicaCount: 1
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "5556"
+  prometheus.io/path: "/metrics"
+
+podLabels: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# ============================================================================
+# ServiceAccount Configuration
+# ============================================================================
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# ============================================================================
+# RBAC Configuration
+# ============================================================================
+rbac:
+  create: true
+
+# ============================================================================
+# Additional Volumes
+# ============================================================================
+extraVolumes: []
+# - name: custom-scripts
+#   configMap:
+#     name: ignition-scripts
+
+extraVolumeMounts: []
+# - name: custom-scripts
+#   mountPath: /scripts/custom
+
+# ============================================================================
+# Environment Variables
+# ============================================================================
+env: []
+# - name: JAVA_OPTS
+#   value: "-Duser.timezone=America/New_York"
+
+# ============================================================================
+# Probes
+# ============================================================================
+livenessProbe:
+  httpGet:
+    path: /StatusPing
+    port: 8088
+  initialDelaySeconds: 180
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /StatusPing
+    port: 8088
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+startupProbe:
+  httpGet:
+    path: /StatusPing
+    port: 8088
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30

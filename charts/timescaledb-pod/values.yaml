@@ -1,0 +1,892 @@
+# TimescaleDB Helm Chart - Default Values
+# Because your industrial IoT data deserves better than a CSV file on a network share
+# 
+# Resource Presets Available:
+#   edge    - Raspberry Pi / IoT Gateway (500m CPU, 1Gi RAM, 20Gi storage)
+#   small   - Dev/Test / Small Sites (2 CPU, 4Gi RAM, 100Gi storage)
+#   medium  - Standard Production (4 CPU, 16Gi RAM, 500Gi storage)
+#   large   - High-Volume SCADA (8 CPU, 32Gi RAM, 1Ti storage)
+#   xlarge  - Enterprise Historian (16 CPU, 64Gi RAM, 2Ti storage)
+#
+# Pro tip: Don't use "edge" preset for your 50,000-tag SCADA system.
+# Yes, this has happened. No, it didn't end well.
+
+## Global Configuration
+global:
+  # Domain for ingress (if enabled)
+  domain: ""
+  # Global image pull secrets
+  imagePullSecrets: []
+  # Storage class for all PVCs (leave empty for cluster default)
+  storageClass: ""
+
+## Resource Preset Selection
+# Choose ONE preset or set to "custom" and configure resources manually
+# Options: edge, small, medium, large, xlarge, custom
+preset: "medium"
+
+## Image Configuration
+image:
+  # TimescaleDB image repository
+  repository: timescale/timescaledb-ha
+  # Image tag (uses Chart appVersion if not specified)
+  tag: "pg15-latest"
+  # Image pull policy
+  pullPolicy: IfNotPresent
+  # Pull secrets for private registries
+  pullSecrets: []
+
+## Deployment Mode
+# "standalone" - Single instance (StatefulSet with 1 replica)
+# "ha" - High availability with streaming replication (3+ replicas)
+mode: "standalone"
+
+## Replica Configuration (for HA mode)
+replicaCount: 3
+
+# Synchronous replication (for HA mode only)
+# "off" - async replication (fastest, may lose data on failover)
+# "local" - sync to one local replica (balanced)
+# "remote_write" - sync write to replica (safest)
+synchronousCommit: "local"
+
+## ServiceAccount
+serviceAccount:
+  # Create a service account
+  create: true
+  # Annotations for service account
+  annotations: {}
+  # Name of service account (auto-generated if not specified)
+  name: ""
+
+## RBAC Configuration
+rbac:
+  # Create RBAC resources
+  create: true
+  # Additional rules for the role
+  rules: []
+
+## Pod Security Context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "OnRootMismatch"
+  # Because running databases as root is so 2010
+
+## Container Security Context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+      - ALL
+
+## Resources
+# These are overridden by preset selection
+# Set preset to "custom" to use these values
+resources:
+  requests:
+    cpu: "4"
+    memory: "16Gi"
+  limits:
+    cpu: "8"
+    memory: "16Gi"
+
+## PostgreSQL / TimescaleDB Configuration
+postgresql:
+  # Database name
+  database: "tsdb"
+  
+  # Default username
+  username: "tsadmin"
+  
+  # Password (leave empty to auto-generate)
+  # Seriously, leave this empty and let Kubernetes generate a random password
+  # Your future self will thank you when you're not explaining to InfoSec
+  # why "password123" was in the production database
+  password: ""
+  
+  # Maximum connections (overridden by preset)
+  maxConnections: 300
+  
+  # Shared buffers (overridden by preset)
+  sharedBuffers: "4GB"
+  
+  # Effective cache size (overridden by preset)
+  effectiveCacheSize: "12GB"
+  
+  # Maintenance work mem
+  maintenanceWorkMem: "2GB"
+  
+  # WAL Configuration
+  wal:
+    # WAL level (replica, logical)
+    level: "replica"
+    # Checkpoint timeout (time between automatic WAL checkpoints)
+    checkpointTimeout: "15min"
+    # Maximum WAL size before checkpoint is forced
+    maxWalSize: "4GB"
+    # Minimum WAL size to retain
+    minWalSize: "1GB"
+    # WAL buffers (-1 for auto)
+    walBuffers: "-1"
+  
+  # Autovacuum settings (because nobody remembers to vacuum manually)
+  autovacuum:
+    enabled: true
+    maxWorkers: 4
+    naptime: "30s"
+    vacuumCostDelay: "2ms"
+    vacuumCostLimit: 200
+  
+  # Performance tuning
+  performance:
+    # Enable JIT compilation (PostgreSQL 11+)
+    jitEnabled: true
+    # Parallel workers
+    maxParallelWorkers: 8
+    maxParallelWorkersPerGather: 4
+    # Random page cost (lower for SSD)
+    randomPageCost: 1.1
+    # Effective IO concurrency (higher for SSD)
+    effectiveIoConcurrency: 200
+  
+  # Logging configuration
+  logging:
+    # Log destination (stderr, csvlog)
+    destination: "stderr"
+    # Log connections
+    logConnections: false
+    # Log disconnections
+    logDisconnections: false
+    # Log duration of queries
+    logDuration: false
+    # Log slow queries (0 disables)
+    logMinDurationStatement: "1000ms"
+    # Log line prefix
+    logLinePrefix: "%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h "
+    # Log statement (none, ddl, mod, all)
+    logStatement: "ddl"
+
+## TimescaleDB-Specific Configuration
+timescaledb:
+  # Enable TimescaleDB extension
+  enabled: true
+  
+  # TimescaleDB version (leave empty for image default)
+  version: ""
+  
+  # Maximum background workers
+  maxBackgroundWorkers: 16
+  
+  # Chunk management
+  chunk:
+    # Default chunk time interval (overridden per hypertable)
+    defaultTimeInterval: "1 hour"
+    # Target chunk size (before compression)
+    targetChunkSize: "1GB"
+  
+  # Compression settings
+  compression:
+    # Enable compression policies
+    enabled: true
+    # Compress chunks older than this
+    compressAfter: "7 days"
+    # Compression algorithms: auto, lz4, zstd
+    algorithm: "auto"
+    # Recompression (update compressed chunks)
+    allowRecompression: false
+  
+  # Data retention policies
+  retention:
+    # Enable automatic retention policies
+    enabled: true
+    # Retention periods by table type (can be overridden per hypertable)
+    rawData: "90 days"
+    hourlyAggregates: "1 year"
+    dailyAggregates: "5 years"
+    monthlyAggregates: "10 years"
+  
+  # Continuous aggregates
+  continuousAggregates:
+    # Enable continuous aggregates
+    enabled: true
+    # Auto-refresh policies
+    autoRefresh: true
+    # Refresh interval for real-time aggregates
+    refreshInterval: "1 hour"
+    # Materialization hypertable compression
+    compressMaterialized: true
+  
+  # Pre-configured hypertables
+  # Set enabled: true to auto-create on deployment
+  hypertables:
+    # High-frequency sensor data (1-second intervals)
+    sensorData:
+      enabled: true
+      name: "sensor_data"
+      schema: "scada_historian"
+      timeColumn: "time"
+      partitionColumn: "device_id"
+      partitions: 4
+      chunkTimeInterval: "1 hour"
+      compression:
+        enabled: true
+        compressAfter: "7 days"
+        segmentby: "device_id,sensor_type"
+        orderby: "time DESC"
+      retention:
+        enabled: true
+        dropAfter: "90 days"
+    
+    # Machine metrics (per-minute aggregates)
+    machineMetrics:
+      enabled: true
+      name: "machine_metrics"
+      schema: "production_metrics"
+      timeColumn: "time"
+      partitionColumn: "machine_id"
+      partitions: 4
+      chunkTimeInterval: "6 hours"
+      compression:
+        enabled: true
+        compressAfter: "7 days"
+      retention:
+        enabled: true
+        dropAfter: "90 days"
+    
+    # Energy consumption (15-minute intervals)
+    energyConsumption:
+      enabled: true
+      name: "energy_consumption"
+      schema: "energy_management"
+      timeColumn: "time"
+      chunkTimeInterval: "1 day"
+      compression:
+        enabled: true
+        compressAfter: "7 days"
+      retention:
+        enabled: true
+        dropAfter: "5 years"
+    
+    # Quality measurements
+    qualityMeasurements:
+      enabled: true
+      name: "quality_measurements"
+      schema: "quality_data"
+      timeColumn: "time"
+      chunkTimeInterval: "1 day"
+      compression:
+        enabled: true
+        compressAfter: "30 days"
+      retention:
+        enabled: true
+        dropAfter: "5 years"
+    
+    # Alarm history
+    alarmHistory:
+      enabled: true
+      name: "alarm_history"
+      schema: "scada_historian"
+      timeColumn: "time"
+      chunkTimeInterval: "1 day"
+      compression:
+        enabled: true
+        compressAfter: "30 days"
+      retention:
+        enabled: true
+        dropAfter: "2 years"
+    
+    # Production counts
+    productionCounts:
+      enabled: true
+      name: "production_counts"
+      schema: "production_metrics"
+      timeColumn: "time"
+      partitionColumn: "line_id"
+      partitions: 2
+      chunkTimeInterval: "1 day"
+      compression:
+        enabled: true
+        compressAfter: "7 days"
+      retention:
+        enabled: true
+        dropAfter: "5 years"
+
+## Persistence Configuration
+persistence:
+  # Enable persistence
+  enabled: true
+  
+  # Storage class (leave empty for cluster default)
+  storageClass: ""
+  
+  # Access modes
+  accessModes:
+    - ReadWriteOnce
+  
+  # Volume size (overridden by preset)
+  size: "500Gi"
+  
+  # Annotations for PVC
+  annotations: {}
+  
+  # Selector for existing volumes
+  selector: {}
+  
+  # Data directory in container
+  mountPath: /var/lib/postgresql/data
+  
+  # Subpath in volume (useful for shared volumes)
+  subPath: "pgdata"
+
+# Separate WAL volume (recommended for production)
+walVolume:
+  # Enable separate WAL volume
+  enabled: false
+  
+  # Storage class (leave empty for cluster default)
+  storageClass: ""
+  
+  # Volume size (overridden by preset)
+  size: "50Gi"
+  
+  # Access modes
+  accessModes:
+    - ReadWriteOnce
+  
+  # Mount path
+  mountPath: /var/lib/postgresql/wal
+
+## Service Configuration
+service:
+  # Service type
+  type: ClusterIP
+  
+  # PostgreSQL port
+  port: 5432
+  
+  # NodePort (if service.type is NodePort)
+  nodePort: null
+  
+  # Annotations for service
+  annotations: {}
+  
+  # Load balancer source ranges (if service.type is LoadBalancer)
+  loadBalancerSourceRanges: []
+  
+  # Load balancer IP (if service.type is LoadBalancer)
+  loadBalancerIP: ""
+
+# Headless service (for StatefulSet)
+headlessService:
+  # Annotations for headless service
+  annotations: {}
+
+## Ingress Configuration
+ingress:
+  # Enable ingress
+  enabled: false
+  
+  # Ingress class name
+  className: "nginx"
+  
+  # Annotations for ingress
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  
+  # Ingress hosts
+  hosts:
+    - host: timescaledb.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  
+  # TLS configuration
+  tls: []
+    # - secretName: timescaledb-tls
+    #   hosts:
+    #     - timescaledb.example.com
+
+## Network Policy
+networkPolicy:
+  # Enable network policy
+  enabled: false
+  
+  # Ingress rules
+  ingress:
+    # Allow from specific namespaces
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        - namespaceSelector:
+            matchLabels:
+              name: applications
+  
+  # Egress rules (empty allows all egress)
+  egress: []
+
+## Pod Disruption Budget
+podDisruptionBudget:
+  # Enable PDB
+  enabled: true
+  
+  # Minimum available pods
+  minAvailable: 1
+  
+  # Maximum unavailable pods (mutually exclusive with minAvailable)
+  # maxUnavailable: 1
+
+## Sidecars
+sidecars:
+  # PgBouncer connection pooler
+  pgbouncer:
+    # Enable PgBouncer sidecar
+    enabled: false
+    image:
+      repository: pgbouncer/pgbouncer
+      tag: "1.21.0"
+      pullPolicy: IfNotPresent
+    # PgBouncer port
+    port: 6432
+    # Pool mode (session, transaction, statement)
+    poolMode: "transaction"
+    # Maximum client connections
+    maxClientConn: 1000
+    # Default pool size
+    defaultPoolSize: 25
+    # Reserve pool size
+    reservePoolSize: 5
+    # Resources
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+  
+  # Prometheus postgres_exporter
+  postgresExporter:
+    # Enable postgres_exporter sidecar
+    enabled: true
+    image:
+      repository: quay.io/prometheuscommunity/postgres-exporter
+      tag: "v0.15.0"
+      pullPolicy: IfNotPresent
+    # Exporter port
+    port: 9187
+    # Custom queries for TimescaleDB metrics
+    customQueries: true
+    # Resources
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "200m"
+        memory: "128Mi"
+
+## Init Containers
+initContainers: []
+  # - name: custom-init
+  #   image: busybox
+  #   command: ['sh', '-c', 'echo "Custom init"']
+
+## Extra Containers (beyond sidecars)
+extraContainers: []
+
+## Backup Configuration
+backup:
+  # Enable automatic backups
+  enabled: true
+  
+  # Backup schedule (cron format)
+  schedule: "0 2 * * *"  # 2 AM daily
+  
+  # Backup retention (number of backups to keep)
+  retention: 7
+  
+  # Backup destination
+  destination:
+    # Type: s3, nfs, pvc
+    type: "pvc"
+    
+    # PVC configuration
+    pvc:
+      # Storage class
+      storageClass: ""
+      # Volume size
+      size: "100Gi"
+      # Access modes
+      accessModes:
+        - ReadWriteOnce
+    
+    # S3 configuration
+    s3:
+      # S3 bucket
+      bucket: ""
+      # S3 region
+      region: "us-east-1"
+      # S3 endpoint (for S3-compatible storage)
+      endpoint: ""
+      # Access key (use secret for production)
+      accessKey: ""
+      # Secret key (use secret for production)
+      secretKey: ""
+      # Path prefix in bucket
+      prefix: "timescaledb-backups"
+    
+    # NFS configuration
+    nfs:
+      # NFS server
+      server: ""
+      # NFS path
+      path: "/backups/timescaledb"
+  
+  # Compression (gzip, none)
+  compression: "gzip"
+  
+  # TimescaleDB-specific backup options
+  timescaledb:
+    # Exclude internal schemas
+    excludeInternalSchemas: true
+    # Include continuous aggregate definitions
+    includeContinuousAggregates: true
+  
+  # Resources for backup job
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "2"
+      memory: "2Gi"
+
+## Monitoring
+monitoring:
+  # Enable ServiceMonitor (requires Prometheus Operator)
+  serviceMonitor:
+    enabled: false
+    # Scrape interval
+    interval: 30s
+    # Scrape timeout
+    scrapeTimeout: 10s
+    # Additional labels
+    labels: {}
+    # Relabelings
+    relabelings: []
+  
+  # Grafana dashboards
+  grafana:
+    # Enable Grafana dashboard ConfigMaps
+    enabled: false
+    # Dashboard IDs to import
+    dashboards:
+      - 455    # PostgreSQL Overview
+      - 12776  # TimescaleDB Metrics
+    # Additional labels for ConfigMaps
+    labels:
+      grafana_dashboard: "1"
+
+## High Availability (for HA mode)
+ha:
+  # Patroni or pg_auto_failover (leave empty for basic streaming replication)
+  orchestrator: ""
+  
+  # Patroni configuration
+  patroni:
+    # Enable Patroni
+    enabled: false
+    # Patroni configuration
+    config: {}
+  
+  # pg_auto_failover configuration
+  pgAutoFailover:
+    # Enable pg_auto_failover
+    enabled: false
+    # Monitor node count
+    monitorReplicas: 1
+
+## Compliance & Security
+compliance:
+  # Enable FDA 21 CFR Part 11 compliance features
+  fda21CFRPart11:
+    enabled: false
+    # Audit logging
+    auditLogging: true
+    # Immutable audit tables
+    immutableAuditTables: true
+    # Electronic signatures
+    electronicSignatures: false
+  
+  # Enable ISO 9001 audit logging
+  iso9001:
+    enabled: false
+    auditLogging: true
+  
+  # GDPR compliance
+  gdpr:
+    enabled: false
+    # Enable data retention automation
+    dataRetention: true
+    # Enable right to be forgotten helpers
+    rightToBeForgotten: false
+
+## TLS/SSL Configuration
+tls:
+  # Enable TLS
+  enabled: false
+  
+  # TLS mode (disable, allow, prefer, require, verify-ca, verify-full)
+  mode: "prefer"
+  
+  # Certificate source (secret, cert-manager)
+  certificateSource: "secret"
+  
+  # Secret name containing TLS certificates
+  # Expected keys: tls.crt, tls.key, ca.crt (optional)
+  secretName: "timescaledb-tls"
+  
+  # cert-manager issuer
+  certManager:
+    # Issuer name
+    issuer: ""
+    # Issuer kind (Issuer, ClusterIssuer)
+    issuerKind: "ClusterIssuer"
+
+## Pod Settings
+# Annotations for pods
+podAnnotations: {}
+
+# Labels for pods
+podLabels: {}
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity (anti-affinity recommended for HA)
+affinity: {}
+  # podAntiAffinity:
+  #   preferredDuringSchedulingIgnoredDuringExecution:
+  #     - weight: 100
+  #       podAffinityTerm:
+  #         labelSelector:
+  #           matchExpressions:
+  #             - key: app.kubernetes.io/name
+  #               operator: In
+  #               values:
+  #                 - timescaledb
+  #         topologyKey: kubernetes.io/hostname
+
+# Priority class name
+priorityClassName: ""
+
+# Topology spread constraints
+topologySpreadConstraints: []
+
+# Termination grace period
+terminationGracePeriodSeconds: 60
+
+## Liveness Probe
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+
+## Readiness Probe
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+
+## Startup Probe
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 0
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+  successThreshold: 1
+
+## Extra Volumes
+extraVolumes: []
+  # - name: custom-config
+  #   configMap:
+  #     name: custom-postgresql-config
+
+## Extra Volume Mounts
+extraVolumeMounts: []
+  # - name: custom-config
+  #   mountPath: /etc/postgresql/custom
+
+## Extra Environment Variables
+extraEnv: []
+  # - name: CUSTOM_VAR
+  #   value: "custom-value"
+
+## Extra Environment Variables from Secrets/ConfigMaps
+extraEnvFrom: []
+  # - secretRef:
+  #     name: custom-secret
+
+## Custom Init Scripts
+# SQL scripts to run on first initialization
+initScripts:
+  # Enable default init scripts
+  enabled: true
+  
+  # Additional custom scripts (mounted from ConfigMap)
+  customScripts: {}
+    # 99-custom.sql: |
+    #   -- Your custom SQL here
+    #   CREATE SCHEMA IF NOT EXISTS custom_schema;
+
+## Resource Presets (DO NOT EDIT - these override other resource settings)
+# These are applied when preset is set to edge/small/medium/large/xlarge
+resourcePresets:
+  edge:
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+    persistence:
+      size: "20Gi"
+    walVolume:
+      size: "5Gi"
+    postgresql:
+      maxConnections: 50
+      sharedBuffers: "256MB"
+      effectiveCacheSize: "768MB"
+      maintenanceWorkMem: "64MB"
+      wal:
+        maxWalSize: "1GB"
+        minWalSize: "256MB"
+    timescaledb:
+      maxBackgroundWorkers: 4
+      chunk:
+        defaultTimeInterval: "1 day"
+    
+  small:
+    resources:
+      requests:
+        cpu: "2"
+        memory: "4Gi"
+      limits:
+        cpu: "4"
+        memory: "4Gi"
+    persistence:
+      size: "100Gi"
+    walVolume:
+      size: "10Gi"
+    postgresql:
+      maxConnections: 100
+      sharedBuffers: "1GB"
+      effectiveCacheSize: "3GB"
+      maintenanceWorkMem: "256MB"
+      wal:
+        maxWalSize: "2GB"
+        minWalSize: "512MB"
+    timescaledb:
+      maxBackgroundWorkers: 8
+      chunk:
+        defaultTimeInterval: "6 hours"
+    
+  medium:
+    resources:
+      requests:
+        cpu: "4"
+        memory: "16Gi"
+      limits:
+        cpu: "8"
+        memory: "16Gi"
+    persistence:
+      size: "500Gi"
+    walVolume:
+      size: "50Gi"
+    postgresql:
+      maxConnections: 300
+      sharedBuffers: "4GB"
+      effectiveCacheSize: "12GB"
+      maintenanceWorkMem: "2GB"
+      wal:
+        maxWalSize: "4GB"
+        minWalSize: "1GB"
+    timescaledb:
+      maxBackgroundWorkers: 16
+      chunk:
+        defaultTimeInterval: "1 hour"
+    
+  large:
+    resources:
+      requests:
+        cpu: "8"
+        memory: "32Gi"
+      limits:
+        cpu: "16"
+        memory: "32Gi"
+    persistence:
+      size: "1Ti"
+    walVolume:
+      size: "100Gi"
+    postgresql:
+      maxConnections: 500
+      sharedBuffers: "8GB"
+      effectiveCacheSize: "24GB"
+      maintenanceWorkMem: "4GB"
+      wal:
+        maxWalSize: "8GB"
+        minWalSize: "2GB"
+      performance:
+        maxParallelWorkers: 16
+        maxParallelWorkersPerGather: 8
+    timescaledb:
+      maxBackgroundWorkers: 24
+      chunk:
+        defaultTimeInterval: "1 hour"
+    
+  xlarge:
+    resources:
+      requests:
+        cpu: "16"
+        memory: "64Gi"
+      limits:
+        cpu: "32"
+        memory: "64Gi"
+    persistence:
+      size: "2Ti"
+    walVolume:
+      size: "200Gi"
+    postgresql:
+      maxConnections: 1000
+      sharedBuffers: "16GB"
+      effectiveCacheSize: "48GB"
+      maintenanceWorkMem: "8GB"
+      wal:
+        maxWalSize: "16GB"
+        minWalSize: "4GB"
+      performance:
+        maxParallelWorkers: 32
+        maxParallelWorkersPerGather: 16
+    timescaledb:
+      maxBackgroundWorkers: 32
+      chunk:
+        defaultTimeInterval: "30 minutes"

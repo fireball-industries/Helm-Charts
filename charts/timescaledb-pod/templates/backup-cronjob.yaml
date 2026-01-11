@@ -1,0 +1,114 @@
+{{- if .Values.backup.enabled -}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "timescaledb.fullname" . }}-backup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "timescaledb.labels" . | nindent 4 }}
+    component: backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.backup.retention }}
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    metadata:
+      labels:
+        {{- include "timescaledb.selectorLabels" . | nindent 8 }}
+        component: backup
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "timescaledb.selectorLabels" . | nindent 12 }}
+            component: backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: {{ include "timescaledb.serviceAccountName" . }}
+          containers:
+            - name: backup
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -e
+                  echo "🔥 TimescaleDB Backup - Because losing production data is not a career-enhancing move"
+                  echo "Starting backup at $(date)"
+                  
+                  BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_FILE="timescaledb-backup-${BACKUP_DATE}.sql"
+                  
+                  # TimescaleDB-aware backup
+                  echo "Creating backup: ${BACKUP_FILE}"
+                  pg_dump -h {{ include "timescaledb.serviceName" . }} \
+                    -U {{ .Values.postgresql.username }} \
+                    -d {{ .Values.postgresql.database }} \
+                    {{- if .Values.backup.timescaledb.excludeInternalSchemas }}
+                    --exclude-schema='_timescaledb*' \
+                    {{- end }}
+                    --format=plain \
+                    --verbose \
+                    > /backup/${BACKUP_FILE}
+                  
+                  {{- if eq .Values.backup.compression "gzip" }}
+                  echo "Compressing backup..."
+                  gzip /backup/${BACKUP_FILE}
+                  BACKUP_FILE="${BACKUP_FILE}.gz"
+                  {{- end }}
+                  
+                  BACKUP_SIZE=$(du -h /backup/${BACKUP_FILE} | cut -f1)
+                  echo "✅ Backup completed: ${BACKUP_FILE} (${BACKUP_SIZE})"
+                  
+                  # Cleanup old backups
+                  echo "Cleaning up old backups (keeping {{ .Values.backup.retention }} most recent)"
+                  cd /backup
+                  ls -t timescaledb-backup-* | tail -n +{{ add .Values.backup.retention 1 }} | xargs -r rm -f
+                  
+                  echo "🎉 Backup job completed successfully at $(date)"
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "timescaledb.secretName" . }}
+                      key: password
+              resources:
+                {{- toYaml .Values.backup.resources | nindent 16 }}
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backup
+          volumes:
+            - name: backup-storage
+              {{- if eq .Values.backup.destination.type "pvc" }}
+              persistentVolumeClaim:
+                claimName: {{ include "timescaledb.fullname" . }}-backup
+              {{- else if eq .Values.backup.destination.type "nfs" }}
+              nfs:
+                server: {{ .Values.backup.destination.nfs.server }}
+                path: {{ .Values.backup.destination.nfs.path }}
+              {{- else }}
+              emptyDir: {}
+              {{- end }}
+---
+{{- if eq .Values.backup.destination.type "pvc" }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "timescaledb.fullname" . }}-backup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "timescaledb.labels" . | nindent 4 }}
+    component: backup
+spec:
+  accessModes:
+    {{- toYaml .Values.backup.destination.pvc.accessModes | nindent 4 }}
+  {{- if .Values.backup.destination.pvc.storageClass }}
+  storageClassName: {{ .Values.backup.destination.pvc.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backup.destination.pvc.size }}
+{{- end }}
+{{- end }}

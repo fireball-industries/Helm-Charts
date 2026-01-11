@@ -1,0 +1,117 @@
+# Demo Ignition Deployment
+# Minimal configuration for quick testing and evaluation
+# 
+# Features:
+# - Demo mode (no license required, 2-hour sessions)
+# - Edge Panel preset
+# - Single PostgreSQL database
+# - Sample project auto-import
+# - Minimal resource usage
+#
+# Deploy:
+#   helm install ignition-demo . -f examples/demo-ignition.yaml
+
+global:
+  preset: "edge-panel"
+  edition: "panel"
+  demoMode: true
+
+gateway:
+  name: "Ignition Demo Gateway"
+  description: "Demo deployment - Because seeing is believing"
+  heap:
+    initial: "512m"
+    max: "1024m"
+
+# Single database for demo
+databases:
+  postgresql:
+    enabled: true
+    host: "postgresql"
+    port: 5432
+    database: "ignition_demo"
+    username: "ignition"
+    password: "demo123"
+  
+  timescaledb:
+    enabled: false
+
+# Disable OPC UA server (panel edition doesn't have it)
+opcua:
+  server:
+    enabled: false
+
+# Disable MQTT
+mqtt:
+  engine:
+    enabled: false
+  transmission:
+    enabled: false
+
+# Disable historian
+historian:
+  enabled: false
+
+# Disable backups for demo
+backup:
+  enabled: false
+
+# Auto-provisioning with sample project
+gateway:
+  provisioning:
+    enabled: true
+    importProject: true
+    projectPath: "/provisioning/sample-project.proj"
+
+# Minimal persistence
+persistence:
+  data:
+    enabled: true
+    size: 10Gi
+  backup:
+    enabled: false
+  modules:
+    enabled: false
+  scripts:
+    enabled: false
+
+# No monitoring for demo
+monitoring:
+  serviceMonitor:
+    enabled: false
+
+jmxExporter:
+  enabled: false
+
+# Resource limits
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 1
+    memory: 2Gi
+
+# Simple service (ClusterIP)
+service:
+  type: ClusterIP
+  http:
+    enabled: true
+  https:
+    enabled: false
+  opcua:
+    enabled: false
+  mqtt:
+    enabled: false
+
+# No ingress for demo
+ingress:
+  enabled: false
+
+# No network policies
+networkPolicy:
+  enabled: false
+
+# No autoscaling
+autoscaling:
+  enabled: false
