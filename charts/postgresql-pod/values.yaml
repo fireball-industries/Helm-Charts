@@ -1,0 +1,730 @@
+# PostgreSQL Helm Chart Values
+# Fireball Industries - Industrial IoT Edition
+# Maintained by Patrick Ryan (who's seen things in production you wouldn't believe)
+
+# ==============================================================================
+# DEPLOYMENT MODE
+# ==============================================================================
+# Choose your adventure: "standalone" or "ha" (high availability)
+# Standalone = single pod, perfect for dev or "it's fine until it's not"
+# HA = StatefulSet with streaming replication, for when uptime actually matters
+deploymentMode: standalone  # Options: standalone, ha
+
+# ==============================================================================
+# GLOBAL SETTINGS
+# ==============================================================================
+global:
+  # PostgreSQL version - stick with 16.x unless you enjoy pain
+  postgresqlVersion: "16.1"
+  
+  # Image settings
+  image:
+    registry: docker.io
+    repository: postgres
+    tag: "16.1-alpine"
+    pullPolicy: IfNotPresent
+    # pullSecrets: []
+  
+  # Storage class - use what your cluster actually has
+  storageClass: ""  # Empty means cluster default
+  
+  # Namespace override (if you're fancy)
+  namespaceOverride: ""
+
+# ==============================================================================
+# RESOURCE PRESETS
+# ==============================================================================
+# Select a preset based on your workload. Or ignore this and tune manually.
+# Options: edge, small, medium, large, xlarge
+resourcePreset: medium
+
+# Preset definitions (because not everyone wants to math)
+resourcePresets:
+  edge:
+    # For edge gateways, Raspberry Pi clusters, and other "ambitious" hardware
+    description: "Lightweight edge deployment - 100 connections, minimal footprint"
+    replicas: 1
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+    storage: 10Gi
+    maxConnections: 100
+    sharedBuffers: "128MB"
+    effectiveCacheSize: "512MB"
+    workMem: "4MB"
+    maintenanceWorkMem: "64MB"
+  
+  small:
+    # Dev/test or small production (< 1000 tx/sec)
+    description: "Small workload - 200 connections, 2K tx/sec"
+    replicas: 1
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "2Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+    storage: 50Gi
+    maxConnections: 200
+    sharedBuffers: "512MB"
+    effectiveCacheSize: "2GB"
+    workMem: "8MB"
+    maintenanceWorkMem: "256MB"
+  
+  medium:
+    # Standard production (1K-10K tx/sec)
+    description: "Medium workload - 500 connections, 10K tx/sec"
+    replicas: 1
+    resources:
+      requests:
+        cpu: "2"
+        memory: "8Gi"
+      limits:
+        cpu: "4"
+        memory: "16Gi"
+    storage: 200Gi
+    maxConnections: 500
+    sharedBuffers: "2GB"
+    effectiveCacheSize: "8GB"
+    workMem: "16MB"
+    maintenanceWorkMem: "512MB"
+  
+  large:
+    # High-volume production (10K-50K tx/sec)
+    description: "Large workload - 1000 connections, 50K tx/sec"
+    replicas: 3
+    resources:
+      requests:
+        cpu: "4"
+        memory: "16Gi"
+      limits:
+        cpu: "8"
+        memory: "32Gi"
+    storage: 500Gi
+    maxConnections: 1000
+    sharedBuffers: "8GB"
+    effectiveCacheSize: "24GB"
+    workMem: "32MB"
+    maintenanceWorkMem: "2GB"
+  
+  xlarge:
+    # Enterprise/data warehouse (> 50K tx/sec)
+    description: "Extra large - 2000 connections, unlimited coffee"
+    replicas: 5
+    resources:
+      requests:
+        cpu: "8"
+        memory: "32Gi"
+      limits:
+        cpu: "16"
+        memory: "64Gi"
+    storage: 1Ti
+    maxConnections: 2000
+    sharedBuffers: "16GB"
+    effectiveCacheSize: "48GB"
+    workMem: "64MB"
+    maintenanceWorkMem: "4GB"
+
+# ==============================================================================
+# POSTGRESQL CONFIGURATION
+# ==============================================================================
+postgresql:
+  # Authentication
+  auth:
+    # Admin password - leave empty for auto-generation (recommended)
+    postgresPassword: ""
+    # Default user/database
+    username: "fireball"
+    password: ""  # Auto-generated if empty
+    database: "production_data"
+    # Authentication method: scram-sha-256 (secure) or md5 (legacy)
+    authMethod: "scram-sha-256"
+    # Trust local connections (for init scripts)
+    trustLocal: true
+  
+  # PostgreSQL configuration overrides
+  config:
+    # Connection settings
+    max_connections: ""  # Leave empty to use preset value
+    superuser_reserved_connections: "3"
+    
+    # Memory settings (empty = use preset)
+    shared_buffers: ""
+    effective_cache_size: ""
+    work_mem: ""
+    maintenance_work_mem: ""
+    
+    # WAL settings
+    wal_level: "replica"  # Required for replication
+    max_wal_senders: "10"
+    max_replication_slots: "10"
+    wal_keep_size: "1GB"
+    
+    # Checkpoints and performance
+    checkpoint_timeout: "15min"
+    checkpoint_completion_target: "0.9"
+    max_wal_size: "4GB"
+    min_wal_size: "1GB"
+    
+    # Query planner
+    random_page_cost: "1.1"  # For SSD storage
+    effective_io_concurrency: "200"
+    
+    # Logging - because debugging at 3am is a lifestyle
+    logging_collector: "on"
+    log_destination: "stderr"
+    log_line_prefix: "%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h "
+    log_statement: "ddl"  # Log DDL statements
+    log_duration: "off"
+    log_min_duration_statement: "1000"  # Log queries > 1s
+    log_checkpoints: "on"
+    log_connections: "on"
+    log_disconnections: "on"
+    log_lock_waits: "on"
+    
+    # Autovacuum (let it do its job)
+    autovacuum: "on"
+    autovacuum_max_workers: "3"
+    autovacuum_naptime: "1min"
+    
+    # Time zone
+    timezone: "UTC"
+    
+    # Locale
+    lc_messages: "en_US.utf8"
+    lc_monetary: "en_US.utf8"
+    lc_numeric: "en_US.utf8"
+    lc_time: "en_US.utf8"
+  
+  # PostgreSQL extensions
+  extensions:
+    # TimescaleDB - for time-series data (SCADA historians rejoice!)
+    timescaledb:
+      enabled: true
+      # Version is auto-detected from image
+    
+    # PostGIS - spatial data for factory floor layouts
+    postgis:
+      enabled: true
+    
+    # pg_stat_statements - query performance monitoring
+    pgStatStatements:
+      enabled: true
+      max: "10000"
+      track: "all"
+    
+    # pg_cron - scheduled jobs inside the database
+    pgCron:
+      enabled: false
+  
+  # Initial databases and users
+  # Auto-created on first deployment
+  initialDatabases:
+    - name: production_data
+      owner: fireball
+      encoding: UTF8
+      locale: en_US.utf8
+    
+    - name: quality_metrics
+      owner: fireball
+      encoding: UTF8
+      locale: en_US.utf8
+    
+    - name: maintenance_logs
+      owner: fireball
+      encoding: UTF8
+      locale: en_US.utf8
+    
+    - name: energy_consumption
+      owner: fireball
+      encoding: UTF8
+      locale: en_US.utf8
+    
+    - name: scada_historian
+      owner: fireball
+      encoding: UTF8
+      locale: en_US.utf8
+    
+    - name: audit_trail
+      owner: fireball
+      encoding: UTF8
+      locale: en_US.utf8
+  
+  # Custom init scripts
+  # Mounted from ConfigMap
+  initScripts:
+    enabled: true
+    scripts:
+      01-extensions.sql: |
+        -- Enable extensions
+        CREATE EXTENSION IF NOT EXISTS timescaledb;
+        CREATE EXTENSION IF NOT EXISTS postgis;
+        CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+      
+      02-industrial-schemas.sql: |
+        -- Industrial IoT schemas
+        CREATE SCHEMA IF NOT EXISTS scada;
+        CREATE SCHEMA IF NOT EXISTS quality;
+        CREATE SCHEMA IF NOT EXISTS maintenance;
+        CREATE SCHEMA IF NOT EXISTS energy;
+        CREATE SCHEMA IF NOT EXISTS audit;
+        
+        -- Grant permissions
+        GRANT USAGE ON SCHEMA scada TO fireball;
+        GRANT USAGE ON SCHEMA quality TO fireball;
+        GRANT USAGE ON SCHEMA maintenance TO fireball;
+        GRANT USAGE ON SCHEMA energy TO fireball;
+        GRANT USAGE ON SCHEMA audit TO fireball;
+      
+      03-timescale-tables.sql: |
+        -- Example TimescaleDB hypertables for SCADA data
+        -- Connect to scada_historian database first
+        \c scada_historian
+        
+        CREATE TABLE IF NOT EXISTS scada.sensor_data (
+          time TIMESTAMPTZ NOT NULL,
+          sensor_id TEXT NOT NULL,
+          value DOUBLE PRECISION,
+          quality INTEGER,
+          tags JSONB
+        );
+        
+        -- Convert to hypertable
+        SELECT create_hypertable('scada.sensor_data', 'time', if_not_exists => TRUE);
+        
+        -- Create indexes
+        CREATE INDEX IF NOT EXISTS idx_sensor_data_sensor_id ON scada.sensor_data (sensor_id, time DESC);
+        CREATE INDEX IF NOT EXISTS idx_sensor_data_tags ON scada.sensor_data USING GIN (tags);
+
+# ==============================================================================
+# HIGH AVAILABILITY
+# ==============================================================================
+highAvailability:
+  # Enable streaming replication
+  enabled: false  # Auto-enabled when deploymentMode=ha
+  
+  # Number of replicas (primary + standbys)
+  replicas: 3
+  
+  # Replication settings
+  replication:
+    # Replication user
+    username: "replicator"
+    password: ""  # Auto-generated
+    
+    # Synchronous replication (slower but safer)
+    synchronous: false
+    synchronousCommit: "on"  # on, remote_apply, remote_write, local, off
+    
+    # Number of synchronous standbys
+    numSynchronousReplicas: 1
+  
+  # Automatic failover (requires operator or external tool)
+  autoFailover:
+    enabled: false
+    # Tool: patroni, stolon, pg_auto_failover, etc.
+
+# ==============================================================================
+# STORAGE
+# ==============================================================================
+persistence:
+  # Enable persistent storage (you probably want this)
+  enabled: true
+  
+  # Storage class
+  storageClass: ""  # Empty = cluster default
+  
+  # Access mode
+  accessMode: ReadWriteOnce
+  
+  # Size (overridden by preset if using presets)
+  size: 100Gi
+  
+  # Annotations for PVC
+  annotations: {}
+  
+  # Separate WAL volume (recommended for performance)
+  wal:
+    enabled: false
+    storageClass: ""
+    size: 50Gi
+    # Mount path for WAL
+    mountPath: /var/lib/postgresql/wal
+
+# ==============================================================================
+# CONNECTION POOLING (PgBouncer)
+# ==============================================================================
+pgbouncer:
+  # Enable PgBouncer sidecar
+  enabled: false
+  
+  # PgBouncer image
+  image:
+    registry: docker.io
+    repository: pgbouncer/pgbouncer
+    tag: "1.21.0"
+    pullPolicy: IfNotPresent
+  
+  # Pool mode: session, transaction, statement
+  poolMode: transaction
+  
+  # Connection limits
+  maxClientConn: 1000
+  defaultPoolSize: 25
+  reservePoolSize: 5
+  
+  # Resources
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+
+# ==============================================================================
+# BACKUP CONFIGURATION
+# ==============================================================================
+backup:
+  # Enable automated backups
+  enabled: true
+  
+  # Backup schedule (cron format)
+  schedule: "0 2 * * *"  # 2 AM daily
+  
+  # Backup retention (days)
+  retention: 30
+  
+  # Backup destination
+  destination:
+    # Type: s3, nfs, pvc
+    type: pvc
+    
+    # S3 configuration
+    s3:
+      bucket: ""
+      endpoint: ""
+      region: ""
+      accessKeyId: ""
+      secretAccessKey: ""
+      # Existing secret
+      existingSecret: ""
+      existingSecretKeyId: "access-key-id"
+      existingSecretAccessKey: "secret-access-key"
+    
+    # NFS configuration
+    nfs:
+      server: ""
+      path: "/backups/postgresql"
+    
+    # PVC configuration
+    pvc:
+      storageClass: ""
+      size: 200Gi
+      accessMode: ReadWriteOnce
+  
+  # pg_dump options
+  pgDumpOptions: "--format=custom --compress=9 --verbose"
+  
+  # Resources for backup job
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+
+# ==============================================================================
+# MONITORING
+# ==============================================================================
+monitoring:
+  # Enable Prometheus ServiceMonitor
+  enabled: true
+  
+  # postgres_exporter sidecar
+  exporter:
+    enabled: true
+    image:
+      registry: quay.io
+      repository: prometheuscommunity/postgres-exporter
+      tag: "v0.15.0"
+      pullPolicy: IfNotPresent
+    
+    # Exporter port
+    port: 9187
+    
+    # Custom queries
+    customQueries: {}
+    
+    # Resources
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+  
+  # ServiceMonitor configuration
+  serviceMonitor:
+    # Namespace for ServiceMonitor
+    namespace: ""
+    
+    # Labels
+    labels: {}
+    
+    # Scrape interval
+    interval: 30s
+    
+    # Scrape timeout
+    scrapeTimeout: 10s
+
+# ==============================================================================
+# NETWORKING
+# ==============================================================================
+service:
+  # Service type
+  type: ClusterIP
+  
+  # PostgreSQL port
+  port: 5432
+  
+  # NodePort (if type=NodePort)
+  nodePort: ""
+  
+  # Annotations
+  annotations: {}
+  
+  # Labels
+  labels: {}
+  
+  # Load balancer source ranges
+  loadBalancerSourceRanges: []
+
+# Headless service (for StatefulSet)
+headlessService:
+  # Annotations
+  annotations: {}
+  
+  # Labels
+  labels: {}
+
+# Ingress configuration (for PgAdmin or similar)
+ingress:
+  enabled: false
+  
+  # Ingress class
+  className: "nginx"
+  
+  # Annotations
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  
+  # Hosts
+  hosts:
+    - host: postgresql.fireball.local
+      paths:
+        - path: /
+          pathType: Prefix
+  
+  # TLS
+  tls:
+    - secretName: postgresql-tls
+      hosts:
+        - postgresql.fireball.local
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  
+  # Ingress rules
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: default
+  
+  # Egress rules
+  egress:
+    - to:
+        - namespaceSelector: {}
+
+# ==============================================================================
+# SECURITY
+# ==============================================================================
+security:
+  # Pod Security Context
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999  # postgres user
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  
+  # Container Security Context
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false  # PostgreSQL needs write access
+    capabilities:
+      drop:
+        - ALL
+  
+  # TLS/SSL
+  tls:
+    enabled: false
+    
+    # Certificate source: secret or cert-manager
+    source: secret
+    
+    # Existing secret name
+    secretName: postgresql-tls
+    
+    # Certificate files in secret
+    certFile: tls.crt
+    certKeyFile: tls.key
+    caFile: ca.crt
+    
+    # cert-manager issuer
+    certManager:
+      issuerRef:
+        name: ""
+        kind: Issuer  # or ClusterIssuer
+  
+  # Encryption at rest (requires enterprise features or external tools)
+  encryptionAtRest:
+    enabled: false
+
+# ==============================================================================
+# RBAC
+# ==============================================================================
+rbac:
+  # Create RBAC resources
+  create: true
+
+# Service Account
+serviceAccount:
+  # Create service account
+  create: true
+  
+  # Service account name
+  name: ""
+  
+  # Annotations
+  annotations: {}
+
+# ==============================================================================
+# POD CONFIGURATION
+# ==============================================================================
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Priority class
+priorityClassName: ""
+
+# ==============================================================================
+# COMPLIANCE CONFIGURATIONS
+# ==============================================================================
+compliance:
+  # 21 CFR Part 11 (FDA Electronic Records)
+  cfrPart11:
+    enabled: false
+    auditLogging: true
+    electronicSignatures: true
+    dataIntegrity: true
+  
+  # ISO 9001 (Quality Management)
+  iso9001:
+    enabled: false
+    documentControl: true
+    recordRetention: true
+  
+  # GDPR (Data Protection)
+  gdpr:
+    enabled: false
+    dataEncryption: true
+    rightToBeForgotten: true
+    auditTrail: true
+
+# ==============================================================================
+# DEVELOPMENT / TESTING
+# ==============================================================================
+development:
+  # Enable development mode (relaxed security, debug logging)
+  enabled: false
+  
+  # Populate with sample data
+  sampleData: false
+  
+  # Enable pgAdmin sidecar
+  pgAdmin:
+    enabled: false
+    image:
+      registry: docker.io
+      repository: dpage/pgadmin4
+      tag: "latest"
+    port: 5050
+    email: "admin@fireball.local"
+    password: "changeme"
+
+# ==============================================================================
+# ADVANCED CONFIGURATION
+# ==============================================================================
+# Extra environment variables
+extraEnv: []
+# - name: PGTZ
+#   value: "America/New_York"
+
+# Extra volumes
+extraVolumes: []
+
+# Extra volume mounts
+extraVolumeMounts: []
+
+# Init containers
+initContainers: []
+
+# Sidecar containers
+sidecars: []
+
+# Custom pg_hba.conf entries
+customPgHba: []
+# - "host all all 10.0.0.0/8 scram-sha-256"
+
+# Custom postgresql.conf entries
+customPostgresqlConf: {}
+# shared_preload_libraries: 'pg_stat_statements,timescaledb'
+
+# ==============================================================================
+# METRICS AND DASHBOARDS
+# ==============================================================================
+metrics:
+  # Custom Grafana dashboard ConfigMap
+  dashboards:
+    enabled: false
+    namespace: ""
+    labels:
+      grafana_dashboard: "1"

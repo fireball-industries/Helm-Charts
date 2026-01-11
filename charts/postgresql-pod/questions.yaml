@@ -1,0 +1,489 @@
+# ============================================================================
+# Rancher Questions - PostgreSQL Pod Configuration Wizard
+# Fireball Industries - Industrial IoT Edition
+# ============================================================================
+# Because YAML archaeology shouldn't be required for database deployment.
+# Maintained by Patrick Ryan (who's debugged PostgreSQL at 3 AM more times than he'd like)
+# ============================================================================
+
+categories:
+  - Database
+  - Storage
+  - Industrial
+
+questions:
+# ============================================================================
+# Deployment Configuration
+# ============================================================================
+- variable: deploymentMode
+  label: Deployment Mode
+  description: "Standalone for dev/test, HA (StatefulSet with replication) for production where uptime actually matters."
+  type: enum
+  required: true
+  default: "standalone"
+  group: "Deployment"
+  options:
+    - "standalone"
+    - "ha"
+
+- variable: resourcePreset
+  label: Resource Preset
+  description: "Pre-configured profiles for different workloads. Or choose 'custom' because you know your database better than we do."
+  type: enum
+  required: true
+  default: "medium"
+  group: "Deployment"
+  options:
+    - "edge"
+    - "small"
+    - "medium"
+    - "large"
+    - "xlarge"
+
+# ============================================================================
+# High Availability Configuration
+# ============================================================================
+- variable: highAvailability.replicas
+  label: Number of Replicas
+  description: "Number of PostgreSQL instances for HA (3 recommended, 5 for paranoia). Only used when deployment mode is HA."
+  type: int
+  required: false
+  default: 3
+  group: "High Availability"
+  show_if: "deploymentMode=ha"
+  min: 2
+  max: 7
+
+- variable: highAvailability.replication.synchronous
+  label: Synchronous Replication
+  description: "Wait for at least one standby to confirm before committing. Slower but safer. Disable if you enjoy data loss."
+  type: boolean
+  required: false
+  default: true
+  group: "High Availability"
+  show_if: "deploymentMode=ha"
+
+- variable: highAvailability.replication.numSynchronousReplicas
+  label: Number of Synchronous Replicas
+  description: "How many standbys must confirm before commit. 1 is usually enough, 2 if you're paranoid."
+  type: int
+  required: false
+  default: 1
+  group: "High Availability"
+  show_if: "deploymentMode=ha&&highAvailability.replication.synchronous=true"
+  min: 1
+  max: 5
+
+# ============================================================================
+# PostgreSQL Configuration
+# ============================================================================
+- variable: postgresql.auth.username
+  label: Default Username
+  description: "Primary database user (not the postgres superuser). Will own databases and handle app connections."
+  type: string
+  required: true
+  default: "fireball"
+  group: "Database Configuration"
+
+- variable: postgresql.auth.database
+  label: Default Database
+  description: "Primary database name. Additional databases can be created via initialDatabases configuration."
+  type: string
+  required: true
+  default: "production_data"
+  group: "Database Configuration"
+
+- variable: postgresql.auth.password
+  label: User Password
+  description: "Password for the default user. Leave empty to auto-generate (recommended). Check secret after install."
+  type: password
+  required: false
+  group: "Database Configuration"
+
+- variable: postgresql.auth.postgresPassword
+  label: Postgres Admin Password
+  description: "Password for 'postgres' superuser. Leave empty to auto-generate. Store securely."
+  type: password
+  required: false
+  group: "Database Configuration"
+
+- variable: postgresql.auth.authMethod
+  label: Authentication Method
+  description: "SCRAM-SHA-256 is secure and modern. MD5 is legacy (but sometimes necessary for old clients)."
+  type: enum
+  required: true
+  default: "scram-sha-256"
+  group: "Database Configuration"
+  options:
+    - "scram-sha-256"
+    - "md5"
+
+# ============================================================================
+# Extensions Configuration
+# ============================================================================
+- variable: postgresql.extensions.timescaledb.enabled
+  label: Enable TimescaleDB
+  description: "Time-series database extension. Essential for SCADA historians, IoT sensor data, and manufacturing metrics."
+  type: boolean
+  required: true
+  default: true
+  group: "Extensions"
+
+- variable: postgresql.extensions.postgis.enabled
+  label: Enable PostGIS
+  description: "Spatial/geographic data extension. Useful for factory floor layouts, asset tracking, and delivery routing."
+  type: boolean
+  required: true
+  default: true
+  group: "Extensions"
+
+- variable: postgresql.extensions.pgStatStatements.enabled
+  label: Enable pg_stat_statements
+  description: "Query performance monitoring extension. Tracks execution statistics for all queries. Highly recommended for production."
+  type: boolean
+  required: true
+  default: true
+  group: "Extensions"
+
+- variable: postgresql.extensions.pgCron.enabled
+  label: Enable pg_cron
+  description: "Schedule jobs inside the database (VACUUM, aggregations, cleanup). For when cron jobs aren't enough chaos."
+  type: boolean
+  required: true
+  default: false
+  group: "Extensions"
+
+# ============================================================================
+# Storage Configuration
+# ============================================================================
+- variable: persistence.enabled
+  label: Enable Persistent Storage
+  description: "Databases without persistence are expensive no-ops. Don't disable this unless you enjoy starting over."
+  type: boolean
+  required: true
+  default: true
+  group: "Storage"
+
+- variable: persistence.storageClass
+  label: Storage Class
+  description: "Storage class for PersistentVolumeClaim. Empty uses cluster default. Use fast SSDs for production (seriously)."
+  type: storageclass
+  required: false
+  group: "Storage"
+  show_if: "persistence.enabled=true"
+
+- variable: persistence.size
+  label: Storage Size
+  description: "Database storage size. Overridden by resource preset unless set manually. Plan for growth."
+  type: string
+  required: false
+  default: "200Gi"
+  group: "Storage"
+  show_if: "persistence.enabled=true"
+
+- variable: persistence.accessMode
+  label: Access Mode
+  description: "ReadWriteOnce for most deployments. ReadWriteMany only if using shared storage (rare)."
+  type: enum
+  required: false
+  default: "ReadWriteOnce"
+  group: "Storage"
+  show_if: "persistence.enabled=true"
+  options:
+    - "ReadWriteOnce"
+    - "ReadWriteMany"
+
+# ============================================================================
+# Backup Configuration
+# ============================================================================
+- variable: backup.enabled
+  label: Enable Automated Backups
+  description: "Schedule automatic database backups. Because disasters happen, even to good databases."
+  type: boolean
+  required: true
+  default: true
+  group: "Backup"
+
+- variable: backup.schedule
+  label: Backup Schedule
+  description: "Cron schedule for backups (default: 2 AM daily). Adjust for your maintenance window."
+  type: string
+  required: false
+  default: "0 2 * * *"
+  group: "Backup"
+  show_if: "backup.enabled=true"
+
+- variable: backup.retention
+  label: Backup Retention (Days)
+  description: "Number of daily backups to keep before deletion. Balance storage costs vs. recovery options."
+  type: int
+  required: false
+  default: 30
+  group: "Backup"
+  show_if: "backup.enabled=true"
+  min: 1
+  max: 365
+
+- variable: backup.destination.type
+  label: Backup Destination Type
+  description: "Where to store backups: PVC (cluster storage), S3 (AWS/MinIO), or NFS."
+  type: enum
+  required: false
+  default: "pvc"
+  group: "Backup"
+  show_if: "backup.enabled=true"
+  options:
+    - "pvc"
+    - "s3"
+    - "nfs"
+
+- variable: backup.destination.pvc.size
+  label: Backup Storage Size
+  description: "PVC size for backup storage. Should be at least 2x your database size."
+  type: string
+  required: false
+  default: "200Gi"
+  group: "Backup"
+  show_if: "backup.enabled=true&&backup.destination.type=pvc"
+
+- variable: backup.destination.s3.bucket
+  label: S3 Bucket Name
+  description: "AWS S3 bucket name for backups. Requires AWS credentials configured via secrets."
+  type: string
+  required: false
+  group: "Backup"
+  show_if: "backup.enabled=true&&backup.destination.type=s3"
+
+- variable: backup.destination.s3.region
+  label: S3 Region
+  description: "AWS region for S3 bucket."
+  type: string
+  required: false
+  default: "us-east-1"
+  group: "Backup"
+  show_if: "backup.enabled=true&&backup.destination.type=s3"
+
+# ============================================================================
+# Connection Pooling
+# ============================================================================
+- variable: pgbouncer.enabled
+  label: Enable PgBouncer
+  description: "Connection pooling for high-concurrency workloads. Recommended if you have >100 concurrent connections."
+  type: boolean
+  required: true
+  default: false
+  group: "Connection Pooling"
+
+- variable: pgbouncer.poolMode
+  label: Pool Mode
+  description: "Session (most compatible), Transaction (higher throughput), Statement (use with caution)."
+  type: enum
+  required: false
+  default: "transaction"
+  group: "Connection Pooling"
+  show_if: "pgbouncer.enabled=true"
+  options:
+    - "session"
+    - "transaction"
+    - "statement"
+
+- variable: pgbouncer.maxClientConn
+  label: Max Client Connections
+  description: "Maximum connections from clients to PgBouncer. Set higher than expected peak."
+  type: int
+  required: false
+  default: 1000
+  group: "Connection Pooling"
+  show_if: "pgbouncer.enabled=true"
+  min: 100
+  max: 10000
+
+- variable: pgbouncer.defaultPoolSize
+  label: Default Pool Size
+  description: "Number of server connections per user/database pair. Tune based on workload."
+  type: int
+  required: false
+  default: 25
+  group: "Connection Pooling"
+  show_if: "pgbouncer.enabled=true"
+  min: 10
+  max: 100
+
+# ============================================================================
+# Service Configuration
+# ============================================================================
+- variable: service.type
+  label: Service Type
+  description: "How to expose PostgreSQL. ClusterIP=internal only (recommended), LoadBalancer=external IP, NodePort=static port."
+  type: enum
+  required: true
+  default: "ClusterIP"
+  group: "Service"
+  options:
+    - "ClusterIP"
+    - "LoadBalancer"
+    - "NodePort"
+
+- variable: service.port
+  label: Service Port
+  description: "PostgreSQL service port. Standard is 5432 unless you enjoy confusing people."
+  type: int
+  required: true
+  default: 5432
+  group: "Service"
+  min: 1024
+  max: 65535
+
+- variable: service.nodePort
+  label: Node Port
+  description: "Static port on each node (30000-32767). Only used when Service Type is NodePort."
+  type: int
+  required: false
+  default: 30432
+  group: "Service"
+  show_if: "service.type=NodePort"
+  min: 30000
+  max: 32767
+
+# ============================================================================
+# Monitoring
+# ============================================================================
+- variable: monitoring.enabled
+  label: Enable Monitoring
+  description: "Deploy postgres_exporter for Prometheus metrics. Highly recommended for production."
+  type: boolean
+  required: true
+  default: true
+  group: "Monitoring"
+
+- variable: monitoring.serviceMonitor.enabled
+  label: Enable ServiceMonitor
+  description: "Create ServiceMonitor resource for Prometheus Operator auto-discovery. Requires Prometheus Operator installed."
+  type: boolean
+  required: false
+  default: false
+  group: "Monitoring"
+  show_if: "monitoring.enabled=true"
+
+- variable: monitoring.serviceMonitor.interval
+  label: Scrape Interval
+  description: "How often Prometheus should scrape PostgreSQL metrics."
+  type: string
+  required: false
+  default: "30s"
+  group: "Monitoring"
+  show_if: "monitoring.enabled=true&&monitoring.serviceMonitor.enabled=true"
+
+# ============================================================================
+# Security Configuration
+# ============================================================================
+- variable: networkPolicy.enabled
+  label: Enable Network Policy
+  description: "Restrict network traffic to/from PostgreSQL pod. Requires a CNI that supports NetworkPolicy (Calico, Cilium, etc.)."
+  type: boolean
+  required: true
+  default: false
+  group: "Security"
+
+- variable: tls.enabled
+  label: Enable TLS/SSL
+  description: "Encrypt client connections with TLS. Recommended for production, especially if database is exposed outside cluster."
+  type: boolean
+  required: true
+  default: false
+  group: "Security"
+
+- variable: tls.certificatesSecret
+  label: TLS Secret Name
+  description: "Name of secret containing server.crt and server.key. Create secret before enabling TLS."
+  type: secret
+  required: false
+  default: "postgresql-tls"
+  group: "Security"
+  show_if: "tls.enabled=true"
+
+- variable: audit.enabled
+  label: Enable Audit Logging
+  description: "Log all DDL and DML operations for compliance (21 CFR Part 11, ISO 9001, GDPR). Warning: verbose."
+  type: boolean
+  required: true
+  default: false
+  group: "Security"
+
+# ============================================================================
+# Performance Tuning
+# ============================================================================
+- variable: postgresql.config.max_connections
+  label: Max Connections (Custom)
+  description: "Override preset max_connections. Leave empty to use preset value. Higher isn't always better."
+  type: string
+  required: false
+  group: "Performance Tuning"
+
+- variable: postgresql.config.shared_buffers
+  label: Shared Buffers (Custom)
+  description: "Override preset shared_buffers (e.g., '4GB'). Leave empty to use preset. Typically 25% of RAM."
+  type: string
+  required: false
+  group: "Performance Tuning"
+
+- variable: postgresql.config.work_mem
+  label: Work Memory (Custom)
+  description: "Override preset work_mem for query operations (e.g., '32MB'). Per-connection setting."
+  type: string
+  required: false
+  group: "Performance Tuning"
+
+- variable: postgresql.config.maintenance_work_mem
+  label: Maintenance Work Memory (Custom)
+  description: "Override preset for maintenance operations like VACUUM, CREATE INDEX (e.g., '1GB')."
+  type: string
+  required: false
+  group: "Performance Tuning"
+
+- variable: postgresql.config.random_page_cost
+  label: Random Page Cost
+  description: "Cost estimate for non-sequential disk access. 1.1 for SSD, 4.0 for HDD (seriously, use SSDs)."
+  type: string
+  required: false
+  default: "1.1"
+  group: "Performance Tuning"
+
+# ============================================================================
+# Advanced Configuration
+# ============================================================================
+- variable: rbac.create
+  label: Create RBAC Resources
+  description: "Create ServiceAccount and Role for PostgreSQL pod. Required unless using existing ServiceAccount."
+  type: boolean
+  required: true
+  default: true
+  group: "Advanced"
+
+- variable: serviceAccount.create
+  label: Create Service Account
+  description: "Create ServiceAccount for PostgreSQL pod. Disable if using existing ServiceAccount."
+  type: boolean
+  required: true
+  default: true
+  group: "Advanced"
+
+- variable: podDisruptionBudget.enabled
+  label: Enable Pod Disruption Budget
+  description: "Prevent all PostgreSQL pods from being evicted at once. Recommended for HA deployments."
+  type: boolean
+  required: false
+  default: false
+  group: "Advanced"
+  show_if: "deploymentMode=ha"
+
+- variable: podDisruptionBudget.minAvailable
+  label: Minimum Available Pods
+  description: "Minimum number of pods that must stay running during disruptions (e.g., node drains, upgrades)."
+  type: int
+  required: false
+  default: 1
+  group: "Advanced"
+  show_if: "deploymentMode=ha&&podDisruptionBudget.enabled=true"
+  min: 1
+  max: 10

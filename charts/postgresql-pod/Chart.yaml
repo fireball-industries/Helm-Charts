@@ -1,0 +1,41 @@
+apiVersion: v2
+name: postgresql-pod
+description: Production-ready PostgreSQL for Kubernetes - Because your industrial IoT data deserves better than Excel spreadsheets
+type: application
+version: 1.0.0
+appVersion: "16.1"
+keywords:
+  - postgresql
+  - database
+  - sql
+  - timescaledb
+  - postgis
+  - industrial-iot
+  - scada
+  - manufacturing
+  - edge-computing
+home: https://github.com/fireball-industries/postgresql-pod
+sources:
+  - https://github.com/postgres/postgres
+  - https://github.com/timescale/timescaledb
+maintainers:
+  - name: Patrick Ryan
+    email: patrick.ryan@fireballindustries.com
+icon: https://www.postgresql.org/media/img/about/press/elephant.png
+annotations:
+  # Rancher Apps & Marketplace
+  catalog.cattle.io/certified: "true"
+  catalog.cattle.io/display-name: "PostgreSQL Pod - Industrial Edition"
+  catalog.cattle.io/release-name: "postgresql"
+  catalog.cattle.io/namespace: "databases"
+  catalog.cattle.io/os: "linux"
+  catalog.cattle.io/type: "database"
+  catalog.cattle.io/auto-install: "postgresql=16.1"
+  # Additional metadata
+  category: "Database"
+  licenses: "MIT"
+  capabilities: "TimescaleDB, PostGIS, HA Replication, Backup/Restore, Monitoring"
+  # Because every database needs a good backstory
+  patrick.ryan/sarcasm-level: "industrial-grade"
+  patrick.ryan/coffee-required: "yes"
+  patrick.ryan/tested-at: "3am-on-production"
