@@ -1,0 +1,20 @@
+Copyright © 2026 Fireball Industries - Patrick Ryan. All rights reserved.
+
+This Helm chart repository and its contents are proprietary software owned by
+Fireball Industries and Patrick Ryan.
+
+Permission is hereby granted to use these charts for deploying applications
+in your Kubernetes/k3s clusters managed by Rancher.
+
+Redistribution and commercial use of these charts require explicit written
+permission from Fireball Industries.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+For licensing inquiries, contact: patrick@fireball-industries.com

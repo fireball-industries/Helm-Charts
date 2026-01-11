@@ -1,0 +1,351 @@
+# Default values for alert-manager Helm chart
+# This is a YAML-formatted file optimized for Rancher UI deployment
+# Declare variables to be passed into your templates
+
+# -- Namespace configuration
+# Rancher will create this namespace if it doesn't exist
+namespace:
+  # -- Create the namespace automatically
+  create: true
+  # -- Namespace name (override with custom name)
+  name: "alertmanager"
+
+# -- Number of Alertmanager replicas
+# For high availability, use 3+ replicas
+replicaCount: 1
+
+# -- Container image configuration
+image:
+  # -- Alertmanager container image repository
+  repository: prom/alertmanager
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+  # -- Image tag (defaults to chart appVersion if not set)
+  tag: "v0.26.0"
+
+# -- Image pull secrets for private registries
+imagePullSecrets: []
+
+# -- Override the default name
+nameOverride: ""
+# -- Override the full name
+fullnameOverride: ""
+
+# -- Service account configuration
+serviceAccount:
+  # -- Create a service account
+  create: true
+  # -- Annotations for the service account
+  annotations: {}
+  # -- Service account name (auto-generated if not set)
+  name: ""
+
+# -- Pod annotations
+podAnnotations: {}
+
+# -- Pod security context
+podSecurityContext:
+  # -- Run as non-root user
+  runAsNonRoot: true
+  # -- User ID to run as (nobody user)
+  runAsUser: 65534
+  # -- Group ID to run as
+  runAsGroup: 65534
+  # -- FSGroup for volume permissions
+  fsGroup: 65534
+  # -- Set filesystem to read-only
+  fsGroupChangePolicy: "OnRootMismatch"
+
+# -- Container security context
+securityContext:
+  # -- Drop all capabilities
+  capabilities:
+    drop:
+      - ALL
+  # -- Read-only root filesystem
+  readOnlyRootFilesystem: true
+  # -- Run as non-root
+  runAsNonRoot: true
+  # -- User ID
+  runAsUser: 65534
+  # -- Disable privilege escalation
+  allowPrivilegeEscalation: false
+
+# -- Service configuration
+service:
+  # -- Service type (ClusterIP, NodePort, LoadBalancer)
+  type: LoadBalancer
+  # -- Service port for Alertmanager UI
+  port: 9093
+  # -- Target port on the container
+  targetPort: 9093
+  # -- Node port (required if type is NodePort)
+  nodePort: null
+  # -- Service annotations
+  annotations: {}
+  # -- Load balancer IP (for LoadBalancer type)
+  loadBalancerIP: ""
+  # -- Load balancer source ranges
+  loadBalancerSourceRanges: []
+
+# -- Ingress configuration
+ingress:
+  # -- Enable ingress
+  enabled: false
+  # -- Ingress class name
+  className: ""
+  # -- Ingress annotations
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  # -- Ingress hosts configuration
+  hosts:
+    - host: alertmanager.local
+      paths:
+        - path: /
+          pathType: Prefix
+  # -- Ingress TLS configuration
+  tls: []
+  #  - secretName: alertmanager-tls
+  #    hosts:
+  #      - alertmanager.local
+
+# -- Resource configuration presets and custom settings
+resources:
+  # -- Resource preset (small, medium, large, or custom)
+  # This makes it easy to select in Rancher UI dropdown
+  preset: "medium"
+  
+  # Preset definitions (used when preset is selected)
+  presets:
+    small:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+    medium:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+    large:
+      requests:
+        cpu: "250m"
+        memory: "256Mi"
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+  
+  # Custom resource limits (used when preset is "custom")
+  custom:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+# -- Persistent storage configuration
+persistence:
+  # -- Enable persistent storage for alert state
+  enabled: true
+  # -- Storage class name (leave empty for default)
+  storageClassName: ""
+  # -- Access modes
+  accessModes:
+    - ReadWriteOnce
+  # -- Storage size
+  size: 2Gi
+  # -- Annotations for PVC
+  annotations: {}
+  # -- Selector for existing PV
+  selector: {}
+
+# -- Alertmanager configuration
+config:
+  # -- Global configuration
+  global:
+    # -- SMTP configuration for email alerts
+    smtp_smarthost: "smtp.example.com:587"
+    smtp_from: "alertmanager@fireball-industries.com"
+    smtp_auth_username: ""
+    smtp_auth_password: ""
+    smtp_require_tls: true
+    
+    # -- Slack API URL (webhook)
+    slack_api_url: ""
+    
+    # -- PagerDuty API URL
+    pagerduty_url: "https://events.pagerduty.com/v2/enqueue"
+    
+    # -- Default resolve timeout
+    resolve_timeout: 5m
+  
+  # -- Route configuration - how alerts are grouped and routed
+  route:
+    # -- Default receiver for alerts
+    receiver: "default"
+    # -- Group alerts by these labels
+    group_by: ['alertname', 'cluster', 'service']
+    # -- Wait time before sending group notification
+    group_wait: 10s
+    # -- Wait time before sending new alerts for existing group
+    group_interval: 10s
+    # -- Wait time before re-sending resolved alerts
+    repeat_interval: 12h
+    
+    # -- Route specific alerts to different receivers
+    routes:
+      - match:
+          severity: critical
+        receiver: pagerduty-critical
+        continue: true
+      - match:
+          severity: warning
+        receiver: slack-warnings
+  
+  # -- Alert receivers configuration
+  receivers:
+    - name: "default"
+      # Default receiver (catch-all)
+      
+    - name: "slack-warnings"
+      slack_configs:
+        - api_url: ""  # Set via Rancher UI
+          channel: "#alerts-warnings"
+          title: "⚠️ Warning Alert"
+          text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}"
+          send_resolved: true
+          
+    - name: "pagerduty-critical"
+      pagerduty_configs:
+        - service_key: ""  # Set via Rancher UI
+          description: "{{ .CommonAnnotations.summary }}"
+          severity: "{{ .CommonLabels.severity }}"
+          
+    - name: "email-team"
+      email_configs:
+        - to: "oncall@fireball-industries.com"
+          from: "alertmanager@fireball-industries.com"
+          smarthost: "smtp.example.com:587"
+          auth_username: ""
+          auth_password: ""
+          headers:
+            Subject: "[ALERT] {{ .CommonLabels.alertname }}"
+          html: |
+            <h2>Alert Summary</h2>
+            {{ range .Alerts }}
+            <p><strong>{{ .Labels.alertname }}</strong></p>
+            <p>{{ .Annotations.description }}</p>
+            {{ end }}
+  
+  # -- Inhibition rules - suppress alerts based on other alerts
+  inhibit_rules:
+    - source_match:
+        severity: critical
+      target_match:
+        severity: warning
+      equal: ['alertname', 'cluster', 'service']
+
+# -- Extra environment variables
+extraEnv: []
+  # - name: CUSTOM_VAR
+  #   value: "custom_value"
+
+# -- Extra volumes
+extraVolumes: []
+  # - name: extra-config
+  #   configMap:
+  #     name: extra-config
+
+# -- Extra volume mounts
+extraVolumeMounts: []
+  # - name: extra-config
+  #   mountPath: /etc/extra-config
+
+# -- Liveness probe configuration
+livenessProbe:
+  # -- Enable liveness probe
+  enabled: true
+  # -- Initial delay before probe starts
+  initialDelaySeconds: 30
+  # -- Probe interval
+  periodSeconds: 10
+  # -- Probe timeout
+  timeoutSeconds: 5
+  # -- Success threshold
+  successThreshold: 1
+  # -- Failure threshold
+  failureThreshold: 3
+  # -- HTTP GET path
+  httpGet:
+    path: /-/healthy
+    port: 9093
+
+# -- Readiness probe configuration
+readinessProbe:
+  # -- Enable readiness probe
+  enabled: true
+  # -- Initial delay before probe starts
+  initialDelaySeconds: 10
+  # -- Probe interval
+  periodSeconds: 5
+  # -- Probe timeout
+  timeoutSeconds: 3
+  # -- Success threshold
+  successThreshold: 1
+  # -- Failure threshold
+  failureThreshold: 3
+  # -- HTTP GET path
+  httpGet:
+    path: /-/ready
+    port: 9093
+
+# -- Startup probe configuration
+startupProbe:
+  # -- Enable startup probe
+  enabled: true
+  # -- Initial delay before probe starts
+  initialDelaySeconds: 0
+  # -- Probe interval
+  periodSeconds: 5
+  # -- Probe timeout
+  timeoutSeconds: 3
+  # -- Success threshold
+  successThreshold: 1
+  # -- Failure threshold (30 * 5s = 150s max startup time)
+  failureThreshold: 30
+  # -- HTTP GET path
+  httpGet:
+    path: /-/ready
+    port: 9093
+
+# -- Node selector for pod assignment
+nodeSelector: {}
+
+# -- Tolerations for pod assignment
+tolerations: []
+
+# -- Affinity rules for pod assignment
+affinity: {}
+
+# -- Pod disruption budget
+podDisruptionBudget:
+  # -- Enable PDB
+  enabled: false
+  # -- Minimum available pods
+  minAvailable: 1
+  # -- Maximum unavailable pods
+  # maxUnavailable: 1
+
+# -- Alertmanager data retention
+retention: "120h"
+
+# -- Additional command-line arguments
+extraArgs: []
+  # - --cluster.listen-address=0.0.0.0:9094
+  # - --log.level=debug

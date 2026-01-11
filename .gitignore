@@ -1,0 +1,33 @@
+# Fireball Industries Podstore Charts
+# .gitignore
+
+# Helm generated files
+*.tgz
+charts/*/charts/
+.cr-release-packages/
+.cr-index/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+.*.sw?
+
+# Test files
+tmp/
+temp/
+
+# Environment files
+.env
+.env.local
+
+# Chart lock files (if any)
+Chart.lock

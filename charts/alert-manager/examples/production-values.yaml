@@ -1,0 +1,269 @@
+# Production Values Example for Alert Manager
+# Fireball Industries Podstore - Patrick Ryan
+
+# High availability configuration with 3 replicas
+replicaCount: 3
+
+# Namespace configuration
+namespace:
+  create: true
+  name: "alertmanager-prod"
+
+# Use the latest stable version
+image:
+  repository: prom/alertmanager
+  pullPolicy: IfNotPresent
+  tag: "v0.26.0"
+
+# Large resource preset for production workloads
+resources:
+  preset: "large"
+
+# Persistent storage for production
+persistence:
+  enabled: true
+  storageClassName: "fast-ssd"  # Use your fast storage class
+  size: 10Gi
+  accessModes:
+    - ReadWriteOnce
+
+# LoadBalancer with static IP
+service:
+  type: LoadBalancer
+  port: 9093
+  loadBalancerIP: ""  # Set your static IP
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"  # For AWS
+
+# Ingress configuration with TLS
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  hosts:
+    - host: alertmanager.fireball-industries.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: alertmanager-tls
+      hosts:
+        - alertmanager.fireball-industries.com
+
+# Production alert configuration
+config:
+  global:
+    resolve_timeout: 5m
+    
+    # Slack configuration
+    slack_api_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+    
+    # Email configuration
+    smtp_smarthost: "smtp.gmail.com:587"
+    smtp_from: "alerts@fireball-industries.com"
+    smtp_auth_username: "alerts@fireball-industries.com"
+    smtp_auth_password: ""  # Use secret in production
+    smtp_require_tls: true
+    
+    # PagerDuty configuration
+    pagerduty_url: "https://events.pagerduty.com/v2/enqueue"
+  
+  # Advanced routing
+  route:
+    receiver: "default"
+    group_by: ['alertname', 'cluster', 'service', 'severity']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    
+    routes:
+      # Critical alerts to PagerDuty
+      - match:
+          severity: critical
+        receiver: pagerduty-critical
+        group_wait: 10s
+        repeat_interval: 1h
+        continue: true
+      
+      # Critical alerts also to Slack
+      - match:
+          severity: critical
+        receiver: slack-critical
+        continue: true
+      
+      # Warnings to Slack only
+      - match:
+          severity: warning
+        receiver: slack-warnings
+        repeat_interval: 12h
+      
+      # Database team alerts
+      - match:
+          team: database
+        receiver: database-team
+        group_by: ['alertname', 'instance']
+      
+      # After-hours critical alerts
+      - match:
+          severity: critical
+        receiver: oncall-phone
+        time_intervals:
+          - after-hours
+  
+  # Receivers configuration
+  receivers:
+    - name: "default"
+      slack_configs:
+        - api_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+          channel: "#alerts-general"
+          title: "Alert Notification"
+          text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}"
+    
+    - name: "pagerduty-critical"
+      pagerduty_configs:
+        - service_key: "YOUR_PAGERDUTY_SERVICE_KEY"
+          description: "{{ .CommonAnnotations.summary }}"
+          severity: "critical"
+          client: "Alert Manager - Fireball Industries"
+          client_url: "https://alertmanager.fireball-industries.com"
+    
+    - name: "slack-critical"
+      slack_configs:
+        - api_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+          channel: "#alerts-critical"
+          title: "🚨 CRITICAL ALERT"
+          text: |
+            *Alert:* {{ .CommonLabels.alertname }}
+            *Severity:* {{ .CommonLabels.severity }}
+            *Summary:* {{ .CommonAnnotations.summary }}
+            *Description:* {{ .CommonAnnotations.description }}
+          color: "danger"
+          send_resolved: true
+    
+    - name: "slack-warnings"
+      slack_configs:
+        - api_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+          channel: "#alerts-warnings"
+          title: "⚠️ Warning Alert"
+          text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}"
+          color: "warning"
+          send_resolved: true
+    
+    - name: "database-team"
+      email_configs:
+        - to: "database-team@fireball-industries.com"
+          from: "alerts@fireball-industries.com"
+          smarthost: "smtp.gmail.com:587"
+          headers:
+            Subject: "[DB ALERT] {{ .CommonLabels.alertname }}"
+          html: |
+            <h2>Database Alert</h2>
+            {{ range .Alerts }}
+            <p><strong>{{ .Labels.alertname }}</strong> - {{ .Labels.severity }}</p>
+            <p>{{ .Annotations.description }}</p>
+            <p>Started: {{ .StartsAt }}</p>
+            {{ end }}
+      slack_configs:
+        - api_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+          channel: "#database-alerts"
+    
+    - name: "oncall-phone"
+      pagerduty_configs:
+        - service_key: "YOUR_ONCALL_PAGERDUTY_KEY"
+          description: "After-hours critical alert"
+  
+  # Inhibition rules
+  inhibit_rules:
+    # Don't send warnings if critical is firing
+    - source_match:
+        severity: critical
+      target_match:
+        severity: warning
+      equal: ['alertname', 'cluster', 'service']
+    
+    # Don't send instance down if node is down
+    - source_match:
+        alertname: NodeDown
+      target_match:
+        alertname: InstanceDown
+      equal: ['instance']
+  
+  # Time intervals for routing
+  time_intervals:
+    - name: after-hours
+      time_intervals:
+        # Weekdays after 6 PM
+        - times:
+            - start_time: '18:00'
+              end_time: '23:59'
+          weekdays: ['monday:friday']
+        # Weekends all day
+        - weekdays: ['saturday', 'sunday']
+
+# Pod disruption budget for HA
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Anti-affinity to spread pods across nodes
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: alert-manager
+          topologyKey: kubernetes.io/hostname
+
+# Health probes optimized for production
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 5
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 0
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+
+# Extended data retention
+retention: "168h"  # 7 days
+
+# Additional args for clustering
+extraArgs:
+  - --cluster.listen-address=0.0.0.0:9094
+  - --cluster.advertise-address=$(POD_IP):9094
+  - --log.level=info
+  - --log.format=json
+
+# Environment variables for pod IP
+extraEnv:
+  - name: POD_IP
+    valueFrom:
+      fieldRef:
+        fieldPath: status.podIP
+
+# Node selector for dedicated nodes
+nodeSelector:
+  workload: monitoring
+
+# Tolerations for tainted nodes
+tolerations:
+  - key: "monitoring"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"

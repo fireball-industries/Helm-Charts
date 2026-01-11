@@ -1,0 +1,6 @@
+# Fireball Industries Podstore - Helm Charts
+# Chart Releaser configuration
+
+owner: fireball-industries
+git-repo: fireball-podstore-charts
+charts-repo-url: https://fireball-industries.github.io/fireball-podstore-charts

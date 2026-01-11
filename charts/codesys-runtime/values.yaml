@@ -1,0 +1,270 @@
+# Default values for codesys-runtime Helm chart
+# CODESYS Control for Linux ARM SL - Industrial PLC Runtime with integrated WebVisu
+# Fireball Industries Podstore - Patrick Ryan
+
+# -- Namespace configuration
+namespace:
+  # -- Create the namespace automatically
+  create: true
+  # -- Namespace name
+  name: "codesys-plc"
+
+# ==================== Runtime Configuration ====================
+
+runtime:
+  # -- Enable the CODESYS runtime pod
+  enabled: true
+  
+  # -- Number of runtime replicas (typically 1 for PLC determinism)
+  replicaCount: 1
+  
+  # -- Architecture selection
+  architecture:
+    # -- CPU architecture: arm32 (ARMv7) or arm64 (ARMv8/AArch64)
+    type: "arm64"  # Options: arm32, arm64
+  
+  # -- Container image configuration
+  image:
+    # -- CODESYS runtime image repository (customize with your image)
+    repository: "codesys/codesyscontrol-linux-arm"
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+    # -- Image tag (CODESYS version)
+    tag: "4.18.0.0"
+    # -- Architecture-specific tag suffix (auto-applied based on architecture.type)
+    # Final image: {repository}:{tag}-{architecture.type}
+  
+  # -- Image pull secrets for private registries
+  imagePullSecrets: []
+  
+  # -- Service account
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+  
+  # -- Pod annotations
+  podAnnotations:
+    description: "CODESYS PLC Runtime with integrated WebVisu"
+  
+  # -- Pod security context
+  podSecurityContext:
+    runAsNonRoot: false
+    runAsUser: 0
+    fsGroup: 0
+  
+  # -- Container security context (privileged required for I/O)
+  securityContext:
+    privileged: true
+    allowPrivilegeEscalation: true
+    capabilities:
+      add:
+        - SYS_ADMIN
+        - SYS_NICE
+        - SYS_RAWIO
+        - NET_ADMIN
+        - IPC_LOCK
+  
+  # -- Use host network for fieldbus communication (EtherCAT, PROFINET)
+  hostNetwork: false
+  # -- Use host PID namespace
+  hostPID: false
+  
+  # -- Service configuration
+  service:
+    # -- Service type (LoadBalancer, NodePort, ClusterIP)
+    type: LoadBalancer
+    annotations: {}
+    loadBalancerIP: ""
+    # -- Ports configuration
+    ports:
+      # CODESYS communication port
+      codesys:
+        port: 1217
+        targetPort: 1217
+        nodePort: null
+        protocol: TCP
+      # OPC UA server port
+      opcua:
+        port: 4840
+        targetPort: 4840
+        nodePort: null
+        protocol: TCP
+      # WebVisu HTTP port (built-in web visualization)
+      webvisu:
+        port: 8080
+        targetPort: 8080
+        nodePort: null
+        protocol: TCP
+  
+  # -- Ingress configuration for WebVisu web interface
+  ingress:
+    enabled: false
+    className: "nginx"
+    annotations: {}
+    hosts:
+      - host: plc-webvisu.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  
+  # -- Resource configuration
+  resources:
+    # -- Resource preset (small, medium, large, custom)
+    preset: "medium"
+    
+    presets:
+      small:
+        requests:
+          cpu: "250m"
+          memory: "256Mi"
+        limits:
+          cpu: "500m"
+          memory: "512Mi"
+      medium:
+        requests:
+          cpu: "500m"
+          memory: "512Mi"
+        limits:
+          cpu: "1000m"
+          memory: "1Gi"
+      large:
+        requests:
+          cpu: "1000m"
+          memory: "1Gi"
+        limits:
+          cpu: "2000m"
+          memory: "2Gi"
+    
+    # -- Custom resources (used when preset is "custom")
+    custom:
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+  
+  # -- Persistent storage for PLC programs and retains
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: "5Gi"
+    mountPath: /var/opt/codesys
+    existingClaim: ""
+  
+  # -- CODESYS runtime configuration
+  config:
+    # -- License configuration
+    license:
+      # -- License type: demo, soft-container, usb-dongle
+      type: "demo"
+      # -- For soft-container: base64-encoded license file content
+      content: ""
+      # -- For USB dongle: device path
+      usbDevice: "/dev/bus/usb"
+    
+    # -- Runtime mode: Debug or Release
+    runtimeMode: "Release"
+    
+    # -- Enable diagnostics
+    enableDiagnostics: true
+    
+    # -- Log level: Debug, Info, Warning, Error
+    logLevel: "Info"
+    
+    # -- Real-time configuration (requires RT kernel on node)
+    realtime:
+      enabled: false
+      priority: 80
+    
+    # -- WebVisu configuration (built-in web server)
+    webvisu:
+      # -- Enable WebVisu web server
+      enabled: true
+      # -- WebVisu HTTP port
+      port: 8080
+      # -- Maximum concurrent WebVisu clients
+      maxClients: 10
+    
+    # -- Additional environment variables
+    extraEnv: []
+  
+  # -- Liveness probe configuration
+  livenessProbe:
+    enabled: true
+    tcpSocket:
+      port: 1217
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  
+  # -- Readiness probe configuration
+  readinessProbe:
+    enabled: true
+    tcpSocket:
+      port: 1217
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  
+  # -- Node selector for pod assignment
+  nodeSelector: {}
+  
+  # -- Tolerations for pod assignment
+  tolerations: []
+  
+  # -- Affinity rules
+  affinity: {}
+
+# ==================== Monitoring ====================
+
+monitoring:
+  enabled: false
+  
+  serviceMonitor:
+    enabled: false
+    interval: "30s"
+    scrapeTimeout: "10s"
+    labels: {}
+  
+  grafanaDashboard:
+    enabled: false
+    labels:
+      grafana_dashboard: "1"
+
+# ==================== Pod Disruption Budget ====================
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# ==================== Network Policy ====================
+
+networkPolicy:
+  enabled: false
+  
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 1217
+        - protocol: TCP
+          port: 4840
+        - protocol: TCP
+          port: 8080
+  
+  egress:
+    - to:
+        - namespaceSelector: {}
+    - ports:
+        - protocol: UDP
+          port: 53
+    - ports:
+        - protocol: TCP
+          port: 123

@@ -1,0 +1,56 @@
+apiVersion: v2
+name: grafana-loki
+description: All-in-one observability solution - Grafana with integrated Loki log aggregation in a single pod for isolated, production-ready deployments
+type: application
+version: 1.0.0
+appVersion: "grafana-10.2.3-loki-2.9.3"
+keywords:
+  - grafana
+  - loki
+  - observability
+  - logging
+  - monitoring
+  - dashboards
+  - log-aggregation
+home: https://github.com/fireball-industries/fireball-podstore-charts
+sources:
+  - https://grafana.com/
+  - https://grafana.com/oss/loki/
+  - https://github.com/fireball-industries/fireball-podstore-charts
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireball-industries.com
+    url: https://fireball-industries.com
+icon: https://raw.githubusercontent.com/grafana/grafana/main/public/img/grafana_icon.svg
+annotations:
+  # Rancher Catalog Integration
+  catalog.cattle.io/display-name: "Grafana + Loki Pod"
+  catalog.cattle.io/release-name: "grafana-loki"
+  catalog.cattle.io/certified: "partner"
+  catalog.cattle.io/kube-version: ">=1.25.0"
+  catalog.cattle.io/rancher-version: ">=2.6.0"
+  catalog.cattle.io/namespace: "observability"
+  catalog.cattle.io/os: "linux"
+  catalog.cattle.io/provides-gvr: "apps/v1/Deployment"
+  
+  # Additional metadata for Rancher UI
+  catalog.cattle.io/auto-install: ""
+  catalog.cattle.io/requests-cpu: "750m"
+  catalog.cattle.io/requests-memory: "1.5Gi"
+  catalog.cattle.io/upstream-version: "grafana-10.2.3-loki-2.9.3"
+  
+  # Categories and tags for Rancher catalog browsing
+  catalog.cattle.io/categories: "Observability,Logging,Monitoring"
+  catalog.cattle.io/type: "cluster-tool"
+  
+  # Branding
+  catalog.cattle.io/vendor: "Fireball Industries"
+  catalog.cattle.io/maintainer: "Patrick Ryan <patrick@fireball-industries.com>"
+  
+  # Feature highlights shown in Rancher UI
+  catalog.cattle.io/scope: "namespace"
+  catalog.cattle.io/featured: "true"
+  
+  # Documentation links
+  catalog.cattle.io/support-url: "https://github.com/fireball-industries/fireball-podstore-charts/issues"
+  catalog.cattle.io/documentation-url: "https://github.com/fireball-industries/fireball-podstore-charts/tree/main/charts/grafana-loki"
