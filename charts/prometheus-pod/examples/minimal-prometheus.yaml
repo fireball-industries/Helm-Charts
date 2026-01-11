@@ -1,0 +1,131 @@
+# Minimal Prometheus Configuration
+# Lightweight deployment for development/testing
+#
+# This configuration is optimized for:
+# - Local development (k3s, minikube, kind)
+# - CI/CD testing
+# - Resource-constrained environments
+# - Quick deployments
+#
+# Trade-offs:
+# - Short retention (3 days)
+# - Minimal scraping (pods only)
+# - No alerting
+# - Small storage
+#
+# NOT suitable for production!
+
+deploymentMode: single
+resourcePreset: small
+
+# Minimal storage
+persistence:
+  enabled: true
+  size: 5Gi  # Minimum viable size
+  storageClass: ""  # Use default
+
+# Short retention
+retention:
+  time: 3d  # Only 3 days
+  size: 4GB
+
+# Scrape only annotated pods (reduce noise)
+scrapeConfigs:
+  prometheus:
+    enabled: true  # Self-monitoring only
+  
+  kubernetesApiServers:
+    enabled: false  # Skip API server
+  
+  kubernetesNodes:
+    enabled: false  # Skip nodes
+  
+  kubernetesPods:
+    enabled: true  # Only pods with prometheus.io/scrape annotation
+  
+  kubernetesServiceEndpoints:
+    enabled: false  # Skip services
+  
+  kubernetesCadvisor:
+    enabled: false  # Skip cAdvisor
+
+# Disable alerting (keep it simple)
+alerting:
+  enabled: false
+
+# Prometheus configuration
+prometheus:
+  scrapeInterval: 30s  # More frequent for dev
+  scrapeTimeout: 10s
+  evaluationInterval: 30s
+  walCompression: true
+  enableLifecycle: true
+  enableQueryLog: false  # No query logging
+  externalLabels:
+    cluster: dev-cluster
+    environment: development
+
+# Service
+service:
+  type: ClusterIP  # Or NodePort for local access
+  port: 9090
+  # Uncomment for NodePort access
+  # type: NodePort
+  # nodePort: 30090
+
+# No ingress (use port-forward)
+ingress:
+  enabled: false
+
+# No ServiceMonitor
+serviceMonitor:
+  enabled: false
+
+# Security (still important!)
+rbac:
+  create: true
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+
+# Minimal probes (faster startup)
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 15  # Shorter delay
+  periodSeconds: 10
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 15
+  periodSeconds: 10
+startupProbe:
+  enabled: true
+  failureThreshold: 30  # Shorter startup window
+
+# No special affinity/tolerations
+nodeSelector: {}
+affinity: {}
+tolerations: []
+
+# Usage:
+# 
+# helm install prometheus fireball/prometheus-pod \
+#   --namespace monitoring \
+#   --create-namespace \
+#   -f examples/minimal-prometheus.yaml
+#
+# Access:
+# kubectl port-forward -n monitoring svc/prometheus 9090:9090
+# Open: http://localhost:9090

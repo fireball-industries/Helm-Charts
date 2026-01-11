@@ -1,0 +1,193 @@
+# High Availability Prometheus with Thanos
+# Production-grade HA setup with long-term storage
+#
+# This configuration provides:
+# - 3 Prometheus replicas (survives 2 failures)
+# - Thanos sidecar for deduplication
+# - Object storage for long-term retention
+# - Anti-affinity to spread across nodes
+# - PodDisruptionBudget for safe evictions
+#
+# Prerequisites:
+# 1. Create Thanos object storage secret:
+#    kubectl create secret generic thanos-objstore-config \
+#      --from-file=objstore.yml=objstore.yml \
+#      -n monitoring
+#
+# 2. Deploy Thanos Query separately (or use thanos-query Helm chart)
+
+deploymentMode: ha
+replicaCount: 3  # Odd number recommended
+
+resourcePreset: large  # HA needs more resources
+
+# Storage per replica
+persistence:
+  enabled: true
+  size: 30Gi  # Per replica
+  storageClass: fast-ssd  # Use performant storage
+
+# Shorter local retention (Thanos has long-term)
+retention:
+  time: 7d  # Local retention only
+  size: 24GB
+
+# Enable Thanos sidecar
+thanos:
+  enabled: true
+  image:
+    repository: quay.io/thanos/thanos
+    tag: v0.33.0
+  objectStorageConfig:
+    secretName: thanos-objstore-config
+    secretKey: objstore.yml
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# High availability configuration
+highAvailability:
+  # Spread replicas across nodes
+  antiAffinity: hard  # REQUIRED for different nodes
+  
+  # Prevent all replicas from being evicted at once
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2  # At least 2 must stay running
+  
+  # Optional: Topology spread for zone distribution
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: prometheus-pod
+
+# Full Kubernetes monitoring
+scrapeConfigs:
+  prometheus:
+    enabled: true
+  kubernetesApiServers:
+    enabled: true
+  kubernetesNodes:
+    enabled: true
+  kubernetesPods:
+    enabled: true
+  kubernetesServiceEndpoints:
+    enabled: true
+  kubernetesCadvisor:
+    enabled: true
+
+# Alerting with HA Alertmanager
+alerting:
+  enabled: true
+  rules:
+    nodes:
+      enabled: true
+    pods:
+      enabled: true
+    storage:
+      enabled: true
+    prometheus:
+      enabled: true
+  
+  # Multiple Alertmanager instances for HA
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager-0.alertmanager-headless.monitoring.svc:9093
+            - alertmanager-1.alertmanager-headless.monitoring.svc:9093
+            - alertmanager-2.alertmanager-headless.monitoring.svc:9093
+
+# Prometheus configuration
+prometheus:
+  scrapeInterval: 30s  # More frequent for production
+  scrapeTimeout: 10s
+  evaluationInterval: 30s
+  walCompression: true
+  enableLifecycle: true
+  externalLabels:
+    cluster: production-cluster
+    environment: production
+    replica: $(POD_NAME)  # For Thanos deduplication
+
+# Remote write to Thanos Receiver (optional, for global view)
+remoteWrite:
+  enabled: true
+  configs:
+    - url: http://thanos-receive.monitoring.svc:10908/api/v1/receive
+      queue_config:
+        capacity: 10000
+        max_shards: 50
+        max_samples_per_send: 5000
+      write_relabel_configs:
+        # Add replica label for deduplication
+        - source_labels: [__replica__]
+          target_label: prometheus_replica
+
+# Service with additional Thanos ports
+service:
+  type: ClusterIP
+  port: 9090
+  additionalPorts:
+    - name: grpc
+      port: 10901
+      targetPort: 10901
+      protocol: TCP
+    - name: http-thanos
+      port: 10902
+      targetPort: 10902
+      protocol: TCP
+
+# Ingress (optional)
+ingress:
+  enabled: false  # Use Thanos Query for unified querying
+
+# ServiceMonitor for self-monitoring
+serviceMonitor:
+  enabled: true
+
+# Security
+rbac:
+  create: true
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+
+# Node affinity (optional - prefer nodes with SSD)
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: node.kubernetes.io/instance-type
+              operator: In
+              values:
+                - c5.xlarge
+                - c5.2xlarge
+
+# Tolerations (if monitoring nodes are tainted)
+# tolerations:
+#   - key: monitoring
+#     operator: Equal
+#     value: "true"
+#     effect: NoSchedule

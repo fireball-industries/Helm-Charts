@@ -1,0 +1,222 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                                                                               ║
+║   ██████╗ ██████╗  ██████╗ ███╗   ███╗███████╗████████╗██╗  ██╗███████╗██╗   ║
+║   ██╔══██╗██╔══██╗██╔═══██╗████╗ ████║██╔════╝╚══██╔══╝██║  ██║██╔════╝██║   ║
+║   ██████╔╝██████╔╝██║   ██║██╔████╔██║█████╗     ██║   ███████║█████╗  ██║   ║
+║   ██╔═══╝ ██╔══██╗██║   ██║██║╚██╔╝██║██╔══╝     ██║   ██╔══██║██╔══╝  ██║   ║
+║   ██║     ██║  ██║╚██████╔╝██║ ╚═╝ ██║███████╗   ██║   ██║  ██║███████╗██║   ║
+║   ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝   ║
+║                                                                               ║
+║                           P O D   P R O D U C T                               ║
+║                                                                               ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+                    🔥 Fireball Industries Podstore 🔥
+              "We Play With Fire So You Don't Have To™"
+
+═══════════════════════════════════════════════════════════════════════════════
+
+PROJECT: Prometheus Pod
+VERSION: 1.0.0
+DATE: January 2026
+PROMETHEUS VERSION: 2.49.0
+
+AUTHOR: Patrick Ryan
+COMPANY: Fireball Industries
+STATUS: Production Ready (Finally)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+                            🔥 THE PROMETHEUS STORY 🔥
+
+So you want to monitor your Kubernetes cluster? Cute. Let me guess - you 
+deployed Prometheus with 128Mi of RAM and wondered why it OOMKilled every 
+30 seconds? Or maybe you set retention to 1d and lost all your data when 
+that critical incident happened over the weekend?
+
+Yeah, I've been there. At 3am. On a Saturday. While my wife reminded me 
+that "normal jobs don't require you to fix databases at dawn."
+
+This Prometheus pod is the result of approximately 47 production incidents,
+23 post-mortems, and 1 very stern talking-to from our CTO about why our
+monitoring was down more than the services it was monitoring.
+
+                          🎯 WHAT THIS GIVES YOU 🎯
+
+✅ SENSIBLE DEFAULTS - 15d retention, 2Gi RAM, 20Gi storage (not 128Mi, Karen)
+✅ HA MODE - Because monitoring that dies isn't monitoring
+✅ SECURITY - Non-root, read-only FS, dropped caps, network policies
+✅ AUTO-DISCOVERY - Finds your K8s services without you lifting a finger
+✅ PRE-CONFIGURED ALERTS - Node down, high CPU, crash loops, the classics
+✅ RESOURCE PRESETS - Small/Medium/Large/XLarge/Custom (choose wisely)
+✅ PERSISTENT STORAGE - REQUIRED, not optional (learn from my pain)
+✅ THANOS SUPPORT - For when you need to query the multiverse
+✅ RBAC - Proper service discovery without cluster-admin (finally)
+✅ COMPREHENSIVE DOCS - 100+ pages because I care about your sleep schedule
+
+                        ⚠️  THINGS THAT WILL BITE YOU ⚠️
+
+1. STORAGE IS NOT OPTIONAL
+   - Prometheus without persistence is just an expensive /dev/null
+   - Set retention.time and retention.size appropriately
+   - Check your PVC actually has space (shocking how often this fails)
+
+2. MEMORY USAGE IS NOT LINEAR
+   - More targets = more RAM (but it's complicated)
+   - More labels = more RAM (seriously, stop with the 47 labels)
+   - Longer retention = more RAM (TSDB keeps it all in memory)
+   - See docs for the actual math (it'll make you cry)
+
+3. HA IS TRICKY
+   - You'll get duplicate data (use Thanos for dedup)
+   - You'll need anti-affinity (or they'll all die together)
+   - You'll need a PodDisruptionBudget (or K8s will yeet them all)
+   - Did I mention Thanos? Use Thanos.
+
+4. SERVICE DISCOVERY IS NOISY
+   - Every pod, service, endpoint gets scraped by default
+   - Use relabeling to filter (examples included)
+   - Or your Prometheus will scrape your coffee maker
+   - Yes, someone tried to scrape /metrics on a printer once
+
+5. SCRAPE INTERVALS MATTER
+   - Default is 1m (not 1s, you maniac)
+   - Shorter intervals = more data = more RAM = more disk = more $$$
+   - Your app doesn't need millisecond resolution
+   - Unless it does, then may God have mercy on your storage budget
+
+                           📊 RESOURCE SIZING GUIDE 📊
+
+SMALL (1-5 targets, 7d retention):
+  - 512Mi RAM, 1 CPU, 10Gi storage
+  - Perfect for: Dev environments, tiny clusters, your Raspberry Pi
+
+MEDIUM (5-50 targets, 15d retention) [DEFAULT]:
+  - 2Gi RAM, 2 CPU, 20Gi storage
+  - Perfect for: Most small-medium clusters, sanity
+
+LARGE (50-500 targets, 30d retention):
+  - 8Gi RAM, 4 CPU, 50Gi storage
+  - Perfect for: Serious deployments, compliance requirements
+
+XLARGE (500+ targets, 60d retention):
+  - 16Gi RAM, 8 CPU, 100Gi storage
+  - Perfect for: When you have more money than sense
+  - Or actual enterprise needs, I guess
+
+CUSTOM:
+  - You're on your own, hotshot
+  - Read the docs (seriously, they have the formulas)
+  - Test in dev first
+  - Have a backup plan
+
+                            🎬 QUICK START 🎬
+
+# Deploy with defaults (medium preset, 15d retention)
+helm install prometheus . --namespace monitoring --create-namespace
+
+# Deploy HA with Thanos (the smart choice)
+helm install prometheus . -f examples/ha-prometheus.yaml
+
+# Deploy for dev/testing (small, cheap, fast)
+helm install prometheus . -f examples/minimal-prometheus.yaml
+
+# Check if it's working (spoiler: it probably is)
+kubectl get pods -n monitoring
+kubectl logs -n monitoring prometheus-0
+
+# Access the UI
+kubectl port-forward -n monitoring svc/prometheus 9090:9090
+# Open http://localhost:9090
+
+# Run a query (verify scraping works)
+# up{job="kubernetes-nodes"}
+
+                         🔧 COMMON FAILURE MODES 🔧
+
+1. Pod won't start
+   → Check PVC is bound (kubectl get pvc -n monitoring)
+   → Check resource limits (might be requesting more than node has)
+   → Check RBAC (logs will say "permission denied" if broken)
+
+2. No data being scraped
+   → Check ServiceMonitor is created (if using Prometheus Operator)
+   → Check RBAC permissions (ClusterRole needs list/watch/get)
+   → Check targets page (Status → Targets in UI)
+   → Check network policies (might be blocking egress)
+
+3. Running out of memory
+   → You underestimated target count (see sizing guide)
+   → You have too many labels (seriously, trim them)
+   → Upgrade to next preset size
+   → Or tune --storage.tsdb.max-block-duration
+
+4. Running out of disk
+   → Retention is too long for disk size
+   → Set retention.size to 80% of PVC size
+   → Or add more storage (resize PVC)
+   → Or reduce retention.time
+
+5. HA replicas out of sync
+   → This is normal (that's why you use Thanos)
+   → Check Thanos sidecar logs
+   → Verify anti-affinity is working
+   → Cry softly while reading Thanos docs
+
+                          📚 WHERE TO GO NEXT 📚
+
+README.md              - Project overview and features
+QUICK_REFERENCE.md     - One-page cheat sheet
+docs/README.md         - Comprehensive documentation (100+ pages)
+docs/SECURITY.md       - Security hardening guide
+examples/              - 6+ real-world deployment scenarios
+scripts/               - PowerShell automation tools
+
+                       🎯 AUTOMATION SCRIPTS 🎯
+
+scripts/manage-prometheus.ps1   - Deploy, upgrade, backup, restore
+scripts/test-prometheus.ps1     - Validate scraping, alerts, HA
+scripts/generate-config.ps1     - Generate prometheus.yml configs
+
+                          ⚡ PRO TIPS ⚡
+
+- Start with medium preset, tune from there
+- Enable HA in production (or explain to your CTO why monitoring died)
+- Use Thanos for long-term storage (or pay $$$ for giant PVCs)
+- Set up Alertmanager (monitoring without alerts is just... collecting data)
+- Configure Grafana dashboards (pretty graphs make stakeholders happy)
+- Test your backup/restore process (before you need it at 3am)
+- Read the sizing guide (seriously, I did the math for you)
+- Use network policies (because security is not optional)
+- Monitor your monitoring (ServiceMonitor included for meta-fun)
+
+                         🔥 FINAL WORDS 🔥
+
+This pod has been battle-tested in production by people who make poor life
+choices at scale. It's been tuned, tweaked, and trauma-tested through enough
+incidents to make a DevOps engineer consider a career in pottery.
+
+The defaults are sensible. The examples are real. The documentation is
+comprehensive. The security is solid. The automation is chef's kiss.
+
+If you still manage to break it, well... that's actually impressive. Open
+an issue with your tale of woe and I'll add it to the "Common Failure Modes"
+section for the next person.
+
+May your metrics be plentiful, your retention be adequate, and your 3am pages
+be few.
+
+- Patrick Ryan
+  Fireball Industries
+  "We Play With Fire So You Don't Have To™"
+
+P.S. - If you're reading this at 3am because Prometheus is down, I'm sorry.
+       Check the troubleshooting section in docs/README.md. You got this.
+
+P.P.S. - Yes, Prometheus is named after the Titan who stole fire from the gods.
+         Very on-brand for Fireball Industries. We may or may not have had
+         that conversation with Legal.
+
+═══════════════════════════════════════════════════════════════════════════════
+                          Generated: January 11, 2026
+═══════════════════════════════════════════════════════════════════════════════

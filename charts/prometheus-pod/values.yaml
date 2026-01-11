@@ -1,0 +1,606 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Prometheus Pod Configuration
+# Fireball Industries - We Play With Fire So You Don't Have To™
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# This values.yaml file controls your Prometheus deployment. The defaults are
+# SENSIBLE (shocking, I know) and will work for most small-to-medium clusters.
+#
+# If you're tempted to set resources.limits.memory to 128Mi, please don't.
+# Your future self (and your on-call team) will thank you.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ IMAGE CONFIGURATION                                                     │
+# └─────────────────────────────────────────────────────────────────────────┘
+image:
+  # The official Prometheus image - alpine variant for smaller size
+  repository: prom/prometheus
+  tag: v2.49.0  # Pin this in production (don't be a cowboy)
+  pullPolicy: IfNotPresent
+  # pullSecrets:  # Uncomment if using private registry
+  #   - name: regcred
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ DEPLOYMENT MODE                                                         │
+# └─────────────────────────────────────────────────────────────────────────┘
+# Single instance (deployment) vs HA mode (statefulset)
+# For production: use HA with at least 2 replicas + Thanos
+deploymentMode: single  # Options: single, ha
+
+# Number of replicas (only used if deploymentMode: ha)
+# Must be >= 2 for actual high availability
+replicaCount: 2
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ RESOURCE PRESETS                                                        │
+# └─────────────────────────────────────────────────────────────────────────┘
+# Choose a preset based on your target count and retention needs
+# Set to "custom" and configure resources{} section manually for full control
+resourcePreset: medium  # Options: small, medium, large, xlarge, custom
+
+# Preset definitions (DO NOT EDIT - these are templates)
+# To use: set resourcePreset above, adjust retention below
+presets:
+  small:
+    # 1-5 targets, 7d retention, dev/test environments
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    storage: 10Gi
+    retentionTime: 7d
+    retentionSize: 8GB
+  
+  medium:
+    # 5-50 targets, 15d retention, small-medium clusters [DEFAULT]
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    storage: 20Gi
+    retentionTime: 15d
+    retentionSize: 16GB
+  
+  large:
+    # 50-500 targets, 30d retention, serious deployments
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 1000m
+      memory: 4Gi
+    storage: 50Gi
+    retentionTime: 30d
+    retentionSize: 40GB
+  
+  xlarge:
+    # 500+ targets, 60d retention, enterprise scale
+    limits:
+      cpu: 8000m
+      memory: 16Gi
+    requests:
+      cpu: 2000m
+      memory: 8Gi
+    storage: 100Gi
+    retentionTime: 60d
+    retentionSize: 80GB
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ CUSTOM RESOURCES (only used if resourcePreset: custom)                 │
+# └─────────────────────────────────────────────────────────────────────────┘
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ STORAGE CONFIGURATION                                                   │
+# └─────────────────────────────────────────────────────────────────────────┘
+# PERSISTENCE IS REQUIRED - Prometheus without storage is an expensive no-op
+persistence:
+  enabled: true  # Don't even think about setting this to false
+  
+  # Storage class - leave empty for cluster default
+  # Common options: local-path (k3s), gp2 (AWS), standard (GCP)
+  storageClass: ""
+  
+  # Access mode - ReadWriteOnce for most, ReadWriteMany for shared storage HA
+  accessMode: ReadWriteOnce
+  
+  # Size - must be larger than retention.size + overhead (20% recommended)
+  # Override this if using resourcePreset (preset values are starting points)
+  size: 20Gi
+  
+  # Annotations for PVC (useful for backup solutions)
+  annotations: {}
+    # backup.velero.io/backup-volumes: prometheus-data
+  
+  # Existing claim - use this instead of creating new PVC
+  existingClaim: ""
+  
+  # Selector for existing volumes
+  selector: {}
+    # matchLabels:
+    #   app: prometheus
+
+# Data retention configuration
+retention:
+  # Time-based retention (how long to keep data)
+  # Format: Xd (days), Xh (hours), Xm (minutes)
+  time: 15d
+  
+  # Size-based retention (max TSDB size on disk)
+  # Should be ~80% of PVC size to account for overhead
+  # Format: XB, XKB, XMB, XGB, XTB, XPB, XEB
+  size: 16GB
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ PROMETHEUS CONFIGURATION                                                │
+# └─────────────────────────────────────────────────────────────────────────┘
+prometheus:
+  # Scrape interval - how often to scrape targets
+  # Balance between data granularity and resource usage
+  scrapeInterval: 1m
+  
+  # Scrape timeout - must be shorter than scrapeInterval
+  scrapeTimeout: 10s
+  
+  # Evaluation interval - how often to evaluate alerting rules
+  evaluationInterval: 1m
+  
+  # External labels - added to all metrics (useful for federation)
+  externalLabels:
+    cluster: ""  # Set this to your cluster name
+    # environment: production
+    # region: us-west-2
+  
+  # Query logging - logs all queries to stdout (useful for debugging slow queries)
+  enableQueryLog: false
+  
+  # WAL compression - reduces disk usage (enabled by default in modern Prometheus)
+  walCompression: true
+  
+  # Admin API - enables /-/reload and other admin endpoints
+  # SECURITY WARNING: Only enable if you know what you're doing
+  enableAdminAPI: false
+  
+  # Lifecycle API - enables /-/quit endpoint (for graceful shutdown)
+  enableLifecycle: true
+  
+  # Additional command-line arguments
+  extraArgs: []
+    # - --storage.tsdb.max-block-duration=2h
+    # - --storage.tsdb.min-block-duration=2h
+    # - --query.max-concurrency=20
+  
+  # Environment variables
+  extraEnv: []
+    # - name: GOGC
+    #   value: "75"  # Tune Go garbage collector for memory-constrained environments
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ SCRAPE CONFIGURATIONS                                                   │
+# └─────────────────────────────────────────────────────────────────────────┘
+# These are pre-configured scrape jobs for Kubernetes discovery
+# Disable any you don't need to reduce resource usage
+scrapeConfigs:
+  # Scrape Prometheus itself (meta-monitoring, because we're fancy)
+  prometheus:
+    enabled: true
+  
+  # Kubernetes API servers
+  kubernetesApiServers:
+    enabled: true
+  
+  # Kubernetes nodes (kubelet metrics)
+  kubernetesNodes:
+    enabled: true
+  
+  # Kubernetes pods (annotation-based discovery)
+  # Scrapes pods with prometheus.io/scrape: "true" annotation
+  kubernetesPods:
+    enabled: true
+  
+  # Kubernetes service endpoints
+  kubernetesServiceEndpoints:
+    enabled: true
+  
+  # cAdvisor (container metrics from kubelet)
+  kubernetesCadvisor:
+    enabled: true
+  
+  # Custom static configs (add your own here)
+  staticConfigs: []
+    # - job_name: my-app
+    #   static_configs:
+    #     - targets:
+    #         - my-app.default.svc:8080
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ ALERTING RULES                                                          │
+# └─────────────────────────────────────────────────────────────────────────┘
+# Pre-configured alert rules for common failure scenarios
+alerting:
+  enabled: true
+  
+  # Pre-configured rule groups
+  rules:
+    # Node-level alerts (node down, high CPU/memory)
+    nodes:
+      enabled: true
+    
+    # Pod-level alerts (crash loops, restarts)
+    pods:
+      enabled: true
+    
+    # Disk space alerts (running out of room)
+    storage:
+      enabled: true
+    
+    # Prometheus meta-alerts (scrape failures, TSDB issues)
+    prometheus:
+      enabled: true
+  
+  # Alertmanager endpoints (where to send alerts)
+  alertmanagers: []
+    # - static_configs:
+    #     - targets:
+    #         - alertmanager.monitoring.svc:9093
+    #   scheme: http
+    #   timeout: 10s
+  
+  # Custom rule files (mounted from configmap)
+  customRules: {}
+    # custom-alerts.yaml: |
+    #   groups:
+    #     - name: custom
+    #       interval: 30s
+    #       rules:
+    #         - alert: MyCustomAlert
+    #           expr: up == 0
+    #           for: 5m
+    #           labels:
+    #             severity: critical
+    #           annotations:
+    #             summary: "Service {{ $labels.job }} is down"
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ REMOTE WRITE/READ (for federation and long-term storage)               │
+# └─────────────────────────────────────────────────────────────────────────┘
+remoteWrite:
+  enabled: false
+  configs: []
+    # - url: http://cortex.monitoring.svc:9009/api/prom/push
+    #   remote_timeout: 30s
+    #   queue_config:
+    #     capacity: 10000
+    #     max_shards: 50
+    #   write_relabel_configs:
+    #     - source_labels: [__name__]
+    #       regex: 'expensive_metric.*'
+    #       action: drop
+
+remoteRead:
+  enabled: false
+  configs: []
+    # - url: http://cortex.monitoring.svc:9009/api/prom/read
+    #   remote_timeout: 1m
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ THANOS SIDECAR (for HA and long-term storage)                          │
+# └─────────────────────────────────────────────────────────────────────────┘
+# Thanos sidecar uploads blocks to object storage and enables HA query dedup
+thanos:
+  enabled: false
+  
+  image:
+    repository: quay.io/thanos/thanos
+    tag: v0.33.0
+    pullPolicy: IfNotPresent
+  
+  # Object storage configuration (S3, GCS, Azure, etc.)
+  objectStorageConfig:
+    # Create secret with: kubectl create secret generic thanos-objstore-config --from-file=objstore.yml
+    secretName: thanos-objstore-config
+    secretKey: objstore.yml
+  
+  # Thanos sidecar resources
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ SERVICE CONFIGURATION                                                   │
+# └─────────────────────────────────────────────────────────────────────────┘
+service:
+  type: ClusterIP  # Options: ClusterIP, NodePort, LoadBalancer
+  
+  # Web UI port
+  port: 9090
+  targetPort: 9090
+  
+  # NodePort (only used if type: NodePort)
+  # nodePort: 30090
+  
+  # Annotations (useful for cloud load balancers)
+  annotations: {}
+    # service.beta.kubernetes.io/aws-load-balancer-type: nlb
+  
+  # Session affinity (for HA setups with Thanos)
+  sessionAffinity: None  # or ClientIP
+  
+  # Additional ports (for Thanos, etc.)
+  additionalPorts: []
+    # - name: grpc
+    #   port: 10901
+    #   targetPort: 10901
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ INGRESS CONFIGURATION                                                   │
+# └─────────────────────────────────────────────────────────────────────────┘
+ingress:
+  enabled: false
+  
+  # Ingress class (nginx, traefik, etc.)
+  className: nginx
+  
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/auth-type: basic
+    # nginx.ingress.kubernetes.io/auth-secret: prometheus-basic-auth
+  
+  hosts:
+    - host: prometheus.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  
+  tls: []
+    # - secretName: prometheus-tls
+    #   hosts:
+    #     - prometheus.example.com
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ SERVICEMONITOR (for Prometheus Operator)                               │
+# └─────────────────────────────────────────────────────────────────────────┘
+# Self-monitoring - because monitoring the monitor is apparently a thing now
+serviceMonitor:
+  enabled: true
+  
+  # Scrape interval override (leave empty to use default)
+  interval: ""
+  
+  # Labels to match ServiceMonitor selector
+  labels: {}
+  
+  # Additional labels for the ServiceMonitor
+  additionalLabels: {}
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ RBAC CONFIGURATION                                                      │
+# └─────────────────────────────────────────────────────────────────────────┘
+# Prometheus needs cluster-wide permissions for service discovery
+rbac:
+  create: true
+  
+  # Use existing ServiceAccount instead of creating one
+  # serviceAccountName: prometheus
+
+# Service account configuration
+serviceAccount:
+  create: true
+  
+  # Name override (leave empty for auto-generated)
+  name: ""
+  
+  # Annotations (useful for IAM roles in cloud providers)
+  annotations: {}
+    # eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/prometheus-role
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ SECURITY CONTEXT                                                        │
+# └─────────────────────────────────────────────────────────────────────────┘
+# Run as non-root with minimal permissions (because security)
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534  # nobody user
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ PROBES (health checks)                                                  │
+# └─────────────────────────────────────────────────────────────────────────┘
+livenessProbe:
+  enabled: true
+  httpGet:
+    path: /-/healthy
+    port: 9090
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  httpGet:
+    path: /-/ready
+    port: 9090
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+startupProbe:
+  enabled: true
+  httpGet:
+    path: /-/ready
+    port: 9090
+  initialDelaySeconds: 0
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 60  # Allow 5 minutes for slow TSDB recovery
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ POD CONFIGURATION                                                       │
+# └─────────────────────────────────────────────────────────────────────────┘
+# Pod-level settings
+podAnnotations: {}
+  # prometheus.io/scrape: "true"
+  # prometheus.io/port: "9090"
+
+podLabels: {}
+
+# Node selector (schedule pods on specific nodes)
+nodeSelector: {}
+  # kubernetes.io/arch: amd64
+  # node-role.kubernetes.io/monitoring: "true"
+
+# Tolerations (allow scheduling on tainted nodes)
+tolerations: []
+  # - key: monitoring
+  #   operator: Equal
+  #   value: "true"
+  #   effect: NoSchedule
+
+# Affinity rules (control pod placement)
+affinity: {}
+  # podAntiAffinity:
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #     - labelSelector:
+  #         matchExpressions:
+  #           - key: app
+  #             operator: In
+  #             values:
+  #               - prometheus
+  #       topologyKey: kubernetes.io/hostname
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ HIGH AVAILABILITY CONFIGURATION                                         │
+# └─────────────────────────────────────────────────────────────────────────┘
+# Only applicable when deploymentMode: ha
+highAvailability:
+  # Pod disruption budget (prevents all replicas from being evicted at once)
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+    # maxUnavailable: 1
+  
+  # Anti-affinity to spread replicas across nodes
+  # Options: soft, hard, none
+  antiAffinity: soft
+  
+  # Topology spread constraints (for better distribution)
+  topologySpreadConstraints: []
+    # - maxSkew: 1
+    #   topologyKey: topology.kubernetes.io/zone
+    #   whenUnsatisfiable: ScheduleAnyway
+    #   labelSelector:
+    #     matchLabels:
+    #       app: prometheus
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ NETWORK POLICIES                                                        │
+# └─────────────────────────────────────────────────────────────────────────┘
+# Restrict network traffic to/from Prometheus pods
+networkPolicy:
+  enabled: false
+  
+  # Ingress rules (who can talk to Prometheus)
+  ingress:
+    # Allow from Grafana, other monitoring tools
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: monitoring
+      ports:
+      - protocol: TCP
+        port: 9090
+  
+  # Egress rules (what Prometheus can talk to)
+  egress:
+    # DNS
+    - to:
+      - namespaceSelector: {}
+      ports:
+      - protocol: UDP
+        port: 53
+    # Kubernetes API
+    - to:
+      - namespaceSelector: {}
+      ports:
+      - protocol: TCP
+        port: 443
+    # Scrape targets (all pods)
+    - to:
+      - podSelector: {}
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ EXTRA VOLUMES & VOLUME MOUNTS                                           │
+# └─────────────────────────────────────────────────────────────────────────┘
+# For custom configurations, secrets, etc.
+extraVolumes: []
+  # - name: custom-config
+  #   configMap:
+  #     name: prometheus-custom-config
+
+extraVolumeMounts: []
+  # - name: custom-config
+  #   mountPath: /etc/prometheus/custom
+  #   readOnly: true
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ PRIORITY CLASS                                                          │
+# └─────────────────────────────────────────────────────────────────────────┘
+# Set priority for pod scheduling (higher = more important)
+priorityClassName: ""
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ GLOBAL SETTINGS                                                         │
+# └─────────────────────────────────────────────────────────────────────────┘
+nameOverride: ""
+fullnameOverride: ""
+
+# ═══════════════════════════════════════════════════════════════════════════
+# END OF CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Pro tips:
+# 1. Start with defaults, tune based on actual usage
+# 2. Monitor Prometheus memory usage and adjust resources
+# 3. Set retention.size to ~80% of PVC size
+# 4. Use HA mode in production (or explain to CTO why monitoring died)
+# 5. Enable Thanos for long-term storage (cheaper than giant PVCs)
+# 6. Test backup/restore before you need it at 3am
+# 7. Read the docs (seriously, they're comprehensive)
+#
+# Questions? Check:
+#   - docs/README.md (comprehensive guide)
+#   - QUICK_REFERENCE.md (one-page cheat sheet)
+#   - examples/ (real-world configurations)
+#   - NOTES.txt (Patrick's trauma-induced wisdom)
+#
+# Fireball Industries - We Play With Fire So You Don't Have To™
+# ═══════════════════════════════════════════════════════════════════════════

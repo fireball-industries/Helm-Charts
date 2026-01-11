@@ -1,0 +1,299 @@
+# Application Monitoring Configuration
+# Optimized for monitoring custom applications
+#
+# Use case:
+# - Monitor your own applications/services
+# - Custom exporters (MySQL, Redis, RabbitMQ, etc.)
+# - Service discovery for app pods
+# - App-specific alert rules
+#
+# This focuses on application metrics, not infrastructure
+
+deploymentMode: single
+resourcePreset: medium
+
+# Standard storage
+persistence:
+  enabled: true
+  size: 20Gi
+  storageClass: ""
+
+retention:
+  time: 15d
+  size: 16GB
+
+# Scrape configuration focused on applications
+scrapeConfigs:
+  prometheus:
+    enabled: true  # Self-monitoring
+  
+  # Skip infrastructure monitoring
+  kubernetesApiServers:
+    enabled: false
+  kubernetesNodes:
+    enabled: false
+  kubernetesCadvisor:
+    enabled: false
+  
+  # Focus on application pods and services
+  kubernetesPods:
+    enabled: true  # Annotated pods (your apps)
+  
+  kubernetesServiceEndpoints:
+    enabled: true  # Service discovery
+  
+  # Add custom static configs for exporters
+  staticConfigs:
+    # MySQL Exporter
+    - job_name: 'mysql'
+      static_configs:
+        - targets:
+            - mysql-exporter.databases.svc:9104
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: instance
+          regex: '(.*):\\d+'
+          replacement: '${1}'
+        - target_label: environment
+          replacement: production
+    
+    # Redis Exporter
+    - job_name: 'redis'
+      static_configs:
+        - targets:
+            - redis-exporter.caching.svc:9121
+      relabel_configs:
+        - target_label: service
+          replacement: redis
+    
+    # RabbitMQ Exporter
+    - job_name: 'rabbitmq'
+      static_configs:
+        - targets:
+            - rabbitmq-exporter.messaging.svc:9419
+    
+    # Custom application (example)
+    - job_name: 'my-app'
+      kubernetes_sd_configs:
+        - role: service
+          namespaces:
+            names:
+              - production
+              - staging
+      relabel_configs:
+        # Only scrape services with app=my-app label
+        - source_labels: [__meta_kubernetes_service_label_app]
+          action: keep
+          regex: my-app
+        
+        # Use custom port from annotation
+        - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_port]
+          action: replace
+          target_label: __address__
+          regex: (.+)
+          replacement: ${1}:8080
+        
+        # Add namespace label
+        - source_labels: [__meta_kubernetes_namespace]
+          target_label: namespace
+        
+        # Add service name
+        - source_labels: [__meta_kubernetes_service_name]
+          target_label: service
+
+# Custom alert rules for applications
+alerting:
+  enabled: true
+  
+  # Disable infrastructure alerts
+  rules:
+    nodes:
+      enabled: false
+    pods:
+      enabled: false
+    storage:
+      enabled: false
+    prometheus:
+      enabled: true  # Keep Prometheus alerts
+  
+  # Add custom application alerts
+  customRules:
+    app-alerts.yaml: |
+      groups:
+        - name: application-alerts
+          interval: 30s
+          rules:
+            # HTTP error rate
+            - alert: HighHTTPErrorRate
+              expr: |
+                (
+                  sum(rate(http_requests_total{code=~"5.."}[5m])) by (service)
+                  /
+                  sum(rate(http_requests_total[5m])) by (service)
+                ) * 100 > 5
+              for: 5m
+              labels:
+                severity: critical
+                component: application
+              annotations:
+                summary: "High HTTP error rate on {{ $labels.service }}"
+                description: "{{ $labels.service }} has {{ $value }}% error rate for 5 minutes."
+            
+            # Slow HTTP responses
+            - alert: SlowHTTPResponses
+              expr: |
+                histogram_quantile(0.95,
+                  sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)
+                ) > 1
+              for: 10m
+              labels:
+                severity: warning
+                component: application
+              annotations:
+                summary: "Slow HTTP responses on {{ $labels.service }}"
+                description: "{{ $labels.service }} p95 latency is {{ $value }}s."
+            
+            # Database connection pool exhaustion
+            - alert: DatabaseConnectionPoolExhausted
+              expr: |
+                (
+                  sum(db_connections_active) by (service)
+                  /
+                  sum(db_connections_max) by (service)
+                ) > 0.9
+              for: 5m
+              labels:
+                severity: warning
+                component: database
+              annotations:
+                summary: "Database connection pool almost exhausted for {{ $labels.service }}"
+                description: "{{ $labels.service }} using {{ $value }}% of connection pool."
+            
+            # Message queue depth
+            - alert: HighMessageQueueDepth
+              expr: rabbitmq_queue_messages > 10000
+              for: 10m
+              labels:
+                severity: warning
+                component: messaging
+              annotations:
+                summary: "High message queue depth: {{ $labels.queue }}"
+                description: "Queue {{ $labels.queue }} has {{ $value }} messages."
+            
+            # Redis memory usage
+            - alert: RedisHighMemoryUsage
+              expr: |
+                (
+                  redis_memory_used_bytes
+                  /
+                  redis_memory_max_bytes
+                ) * 100 > 85
+              for: 10m
+              labels:
+                severity: warning
+                component: cache
+              annotations:
+                summary: "Redis high memory usage on {{ $labels.instance }}"
+                description: "Redis is using {{ $value }}% of max memory."
+            
+            # Application restart rate
+            - alert: FrequentApplicationRestarts
+              expr: |
+                rate(kube_pod_container_status_restarts_total{
+                  namespace=~"production|staging",
+                  pod=~"my-app-.*"
+                }[15m]) > 0.1
+              for: 5m
+              labels:
+                severity: critical
+                component: application
+              annotations:
+                summary: "Frequent restarts of {{ $labels.pod }}"
+                description: "Pod {{ $labels.pod }} is restarting {{ $value }}/sec."
+  
+  # Alertmanager endpoint
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager.monitoring.svc:9093
+
+# Prometheus configuration
+prometheus:
+  scrapeInterval: 30s  # More frequent for apps
+  scrapeTimeout: 10s
+  evaluationInterval: 30s
+  walCompression: true
+  enableLifecycle: true
+  enableQueryLog: false
+  externalLabels:
+    cluster: app-monitoring
+    environment: production
+
+# Service
+service:
+  type: ClusterIP
+  port: 9090
+
+# Ingress for developers/ops
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: prometheus-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Prometheus Authentication"
+  hosts:
+    - host: app-prometheus.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: app-prometheus-tls
+      hosts:
+        - app-prometheus.example.com
+
+# ServiceMonitor
+serviceMonitor:
+  enabled: true
+
+# Security
+rbac:
+  create: true
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+
+# Usage:
+#
+# 1. Ensure your applications expose metrics:
+#    - Add prometheus.io/scrape: "true" annotation to pods/services
+#    - Expose /metrics endpoint on configured port
+#
+# 2. Deploy exporters for databases/services:
+#    helm install mysql-exporter prometheus-community/prometheus-mysql-exporter
+#    helm install redis-exporter prometheus-community/prometheus-redis-exporter
+#
+# 3. Create basic auth secret (optional):
+#    htpasswd -c auth admin
+#    kubectl create secret generic prometheus-basic-auth \
+#      --from-file=auth=auth -n monitoring
+#
+# 4. Deploy:
+#    helm install app-prometheus fireball/prometheus-pod \
+#      --namespace monitoring \
+#      --create-namespace \
+#      -f examples/app-monitoring.yaml

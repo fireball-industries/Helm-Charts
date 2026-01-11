@@ -1,0 +1,41 @@
+# Helm build artifacts
+*.tgz
+charts/
+Chart.lock
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing and CI
+.test/
+.coverage/
+
+# Backup files
+*.bak
+*.tmp
+*.backup
+
+# Secrets and sensitive data (DO NOT COMMIT THESE)
+secrets.yaml
+*-secret.yaml
+*.pem
+*.key
+*.crt
+auth-config.yaml
+
+# OS files
+Thumbs.db
+desktop.ini
+
+# PowerShell test outputs
+*.log
+test-results/
+
+# Temp directories
+temp/
+tmp/

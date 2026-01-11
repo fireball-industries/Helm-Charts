@@ -1,0 +1,222 @@
+{{- if .Values.alerting.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "prometheus.rulesName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "prometheus.labels" . | nindent 4 }}
+data:
+  {{- if .Values.alerting.rules.nodes.enabled }}
+  node-alerts.yaml: |
+    groups:
+      - name: node-alerts
+        interval: 30s
+        rules:
+          - alert: NodeDown
+            expr: up{job="kubernetes-nodes"} == 0
+            for: 5m
+            labels:
+              severity: critical
+              component: node
+            annotations:
+              summary: "Node {{ $labels.instance }} is down"
+              description: "Kubernetes node {{ $labels.instance }} has been down for more than 5 minutes."
+          
+          - alert: NodeHighCPU
+            expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+            for: 15m
+            labels:
+              severity: warning
+              component: node
+            annotations:
+              summary: "High CPU usage on {{ $labels.instance }}"
+              description: "Node {{ $labels.instance }} has CPU usage above 80% for more than 15 minutes. Current value: {{ $value }}%"
+          
+          - alert: NodeHighMemory
+            expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+            for: 15m
+            labels:
+              severity: warning
+              component: node
+            annotations:
+              summary: "High memory usage on {{ $labels.instance }}"
+              description: "Node {{ $labels.instance }} has memory usage above 85% for more than 15 minutes. Current value: {{ $value }}%"
+          
+          - alert: NodeDiskSpaceLow
+            expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+            for: 10m
+            labels:
+              severity: warning
+              component: node
+            annotations:
+              summary: "Low disk space on {{ $labels.instance }}"
+              description: "Node {{ $labels.instance }} has less than 15% disk space available on root partition. Current value: {{ $value }}%"
+          
+          - alert: NodeDiskSpaceCritical
+            expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 5
+            for: 5m
+            labels:
+              severity: critical
+              component: node
+            annotations:
+              summary: "Critical disk space on {{ $labels.instance }}"
+              description: "Node {{ $labels.instance }} has less than 5% disk space available on root partition. Current value: {{ $value }}%"
+  {{- end }}
+  
+  {{- if .Values.alerting.rules.pods.enabled }}
+  pod-alerts.yaml: |
+    groups:
+      - name: pod-alerts
+        interval: 30s
+        rules:
+          - alert: PodCrashLooping
+            expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+            for: 5m
+            labels:
+              severity: warning
+              component: pod
+            annotations:
+              summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
+              description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} container {{ $labels.container }} is restarting frequently. Current restart rate: {{ $value }}/sec"
+          
+          - alert: PodNotReady
+            expr: kube_pod_status_phase{phase!~"Running|Succeeded"} > 0
+            for: 10m
+            labels:
+              severity: warning
+              component: pod
+            annotations:
+              summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} not ready"
+              description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} has been in {{ $labels.phase }} state for more than 10 minutes."
+          
+          - alert: PodHighMemory
+            expr: (container_memory_working_set_bytes / container_spec_memory_limit_bytes) * 100 > 85
+            for: 10m
+            labels:
+              severity: warning
+              component: pod
+            annotations:
+              summary: "High memory usage in {{ $labels.namespace }}/{{ $labels.pod }}"
+              description: "Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} is using {{ $value }}% of its memory limit."
+          
+          - alert: PodHighCPU
+            expr: (rate(container_cpu_usage_seconds_total[5m]) / container_spec_cpu_quota * 100000) > 80
+            for: 15m
+            labels:
+              severity: warning
+              component: pod
+            annotations:
+              summary: "High CPU usage in {{ $labels.namespace }}/{{ $labels.pod }}"
+              description: "Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} is using {{ $value }}% of its CPU limit."
+  {{- end }}
+  
+  {{- if .Values.alerting.rules.storage.enabled }}
+  storage-alerts.yaml: |
+    groups:
+      - name: storage-alerts
+        interval: 30s
+        rules:
+          - alert: PVCAlmostFull
+            expr: (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes) * 100 < 15
+            for: 10m
+            labels:
+              severity: warning
+              component: storage
+            annotations:
+              summary: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} almost full"
+              description: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} has less than 15% space available. Current: {{ $value }}%"
+          
+          - alert: PVCFull
+            expr: (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes) * 100 < 5
+            for: 5m
+            labels:
+              severity: critical
+              component: storage
+            annotations:
+              summary: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} critically full"
+              description: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} has less than 5% space available. Current: {{ $value }}%"
+  {{- end }}
+  
+  {{- if .Values.alerting.rules.prometheus.enabled }}
+  prometheus-alerts.yaml: |
+    groups:
+      - name: prometheus-alerts
+        interval: 30s
+        rules:
+          - alert: PrometheusConfigReloadFailed
+            expr: prometheus_config_last_reload_successful == 0
+            for: 5m
+            labels:
+              severity: critical
+              component: prometheus
+            annotations:
+              summary: "Prometheus configuration reload failed"
+              description: "Prometheus {{ $labels.instance }} configuration reload has failed. Check logs for details."
+          
+          - alert: PrometheusTSDBCompactionsFailed
+            expr: rate(prometheus_tsdb_compactions_failed_total[5m]) > 0
+            for: 5m
+            labels:
+              severity: warning
+              component: prometheus
+            annotations:
+              summary: "Prometheus TSDB compactions failing"
+              description: "Prometheus {{ $labels.instance }} is experiencing TSDB compaction failures."
+          
+          - alert: PrometheusTargetDown
+            expr: up == 0
+            for: 10m
+            labels:
+              severity: warning
+              component: prometheus
+            annotations:
+              summary: "Target {{ $labels.job }}/{{ $labels.instance }} down"
+              description: "Prometheus target {{ $labels.job }}/{{ $labels.instance }} has been down for more than 10 minutes."
+          
+          - alert: PrometheusTooManyRestarts
+            expr: changes(process_start_time_seconds{job="prometheus"}[15m]) > 2
+            for: 5m
+            labels:
+              severity: warning
+              component: prometheus
+            annotations:
+              summary: "Prometheus restarting frequently"
+              description: "Prometheus {{ $labels.instance }} has restarted more than twice in the last 15 minutes."
+          
+          - alert: PrometheusNotIngestingSamples
+            expr: rate(prometheus_tsdb_head_samples_appended_total[5m]) <= 0
+            for: 10m
+            labels:
+              severity: critical
+              component: prometheus
+            annotations:
+              summary: "Prometheus not ingesting samples"
+              description: "Prometheus {{ $labels.instance }} is not ingesting any samples. Check scrape targets."
+          
+          - alert: PrometheusHighMemoryUsage
+            expr: (process_resident_memory_bytes / prometheus_tsdb_storage_blocks_bytes) > 0.9
+            for: 15m
+            labels:
+              severity: warning
+              component: prometheus
+            annotations:
+              summary: "Prometheus high memory usage"
+              description: "Prometheus {{ $labels.instance }} memory usage is {{ $value }}% of TSDB size. Consider increasing resources."
+          
+          - alert: PrometheusDiskSpaceLow
+            expr: (prometheus_tsdb_storage_blocks_bytes / prometheus_tsdb_retention_limit_bytes) > 0.85
+            for: 10m
+            labels:
+              severity: warning
+              component: prometheus
+            annotations:
+              summary: "Prometheus disk space low"
+              description: "Prometheus {{ $labels.instance }} is using {{ $value }}% of configured retention size."
+  {{- end }}
+  
+  {{- range $name, $content := .Values.alerting.customRules }}
+  {{ $name }}: |
+    {{- $content | nindent 4 }}
+  {{- end }}
+{{- end }}

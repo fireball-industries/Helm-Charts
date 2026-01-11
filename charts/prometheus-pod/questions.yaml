@@ -1,0 +1,464 @@
+# ============================================================================
+# Rancher Questions - Prometheus Pod Configuration Wizard
+# Fireball Industries - "We Play With Fire So You Don't Have To"™
+# ============================================================================
+# Because YAML archaeology shouldn't be a prerequisite for monitoring.
+# ============================================================================
+
+categories:
+  - Monitoring
+  - Observability
+  - Metrics
+
+questions:
+# ============================================================================
+# Deployment Configuration
+# ============================================================================
+- variable: deploymentMode
+  label: Deployment Mode
+  description: "Single instance for dev/test, HA (StatefulSet) for production where monitoring downtime = career-limiting event."
+  type: enum
+  required: true
+  default: "single"
+  group: "Deployment"
+  options:
+    - "single"
+    - "ha"
+
+- variable: replicaCount
+  label: Number of Replicas
+  description: "Number of Prometheus instances for HA (must be >= 2 for actual high availability). Only used in HA mode."
+  type: int
+  required: false
+  default: 2
+  group: "Deployment"
+  show_if: "deploymentMode=ha"
+  min: 2
+  max: 10
+
+- variable: resourcePreset
+  label: Resource Preset
+  description: "Pre-configured resource profiles based on target count and retention needs. Or 'custom' because you know your workload better than we do."
+  type: enum
+  required: true
+  default: "medium"
+  group: "Deployment"
+  options:
+    - "small"
+    - "medium"
+    - "large"
+    - "xlarge"
+    - "custom"
+
+# ============================================================================
+# Storage Configuration
+# ============================================================================
+- variable: persistence.enabled
+  label: Enable Persistent Storage
+  description: "Prometheus WITHOUT storage is an expensive no-op. Seriously, don't disable this unless you enjoy starting over every restart."
+  type: boolean
+  required: true
+  default: true
+  group: "Storage"
+
+- variable: persistence.storageClass
+  label: Storage Class
+  description: "Storage class for PersistentVolumeClaim. Empty uses cluster default. Use fast SSDs for production (your query latency will thank you)."
+  type: storageclass
+  required: false
+  group: "Storage"
+  show_if: "persistence.enabled=true"
+
+- variable: persistence.size
+  label: Storage Size
+  description: "Persistent volume size. Overridden by resource preset unless you chose 'custom'. Must be larger than retention size + 20% overhead."
+  type: string
+  required: false
+  default: "20Gi"
+  group: "Storage"
+  show_if: "persistence.enabled=true&&resourcePreset=custom"
+
+- variable: retention.time
+  label: Data Retention Time
+  description: "How long to keep metrics (format: 7d, 15d, 30d, 60d). Balance between historical data and storage costs."
+  type: string
+  required: true
+  default: "15d"
+  group: "Storage"
+  show_if: "persistence.enabled=true"
+
+- variable: retention.size
+  label: Data Retention Size
+  description: "Maximum TSDB size on disk (e.g., 16GB, 40GB, 80GB). Should be ~80% of PVC size to account for overhead."
+  type: string
+  required: true
+  default: "16GB"
+  group: "Storage"
+  show_if: "persistence.enabled=true"
+
+# ============================================================================
+# Custom Resources (only shown when resourcePreset=custom)
+# ============================================================================
+- variable: resources.requests.memory
+  label: Memory Request
+  description: "Minimum memory allocated to Prometheus pod. Don't go below 256Mi unless you enjoy OOMKilled events."
+  type: string
+  required: false
+  default: "1Gi"
+  group: "Resources"
+  show_if: "resourcePreset=custom"
+
+- variable: resources.requests.cpu
+  label: CPU Request
+  description: "Minimum CPU allocated to Prometheus pod."
+  type: string
+  required: false
+  default: "500m"
+  group: "Resources"
+  show_if: "resourcePreset=custom"
+
+- variable: resources.limits.memory
+  label: Memory Limit
+  description: "Maximum memory allowed for Prometheus pod. Set this too low and Prometheus will OOM. Too high and you waste resources. It's an art."
+  type: string
+  required: false
+  default: "2Gi"
+  group: "Resources"
+  show_if: "resourcePreset=custom"
+
+- variable: resources.limits.cpu
+  label: CPU Limit
+  description: "Maximum CPU allowed for Prometheus pod."
+  type: string
+  required: false
+  default: "2000m"
+  group: "Resources"
+  show_if: "resourcePreset=custom"
+
+# ============================================================================
+# Prometheus Configuration
+# ============================================================================
+- variable: prometheus.scrapeInterval
+  label: Scrape Interval
+  description: "How often to scrape targets (format: 30s, 1m, 5m). More frequent = higher data granularity but more resources."
+  type: string
+  required: true
+  default: "1m"
+  group: "Prometheus Configuration"
+
+- variable: prometheus.scrapeTimeout
+  label: Scrape Timeout
+  description: "Timeout for scraping targets. Must be shorter than scrape interval."
+  type: string
+  required: true
+  default: "10s"
+  group: "Prometheus Configuration"
+
+- variable: prometheus.evaluationInterval
+  label: Evaluation Interval
+  description: "How often to evaluate alerting rules."
+  type: string
+  required: true
+  default: "1m"
+  group: "Prometheus Configuration"
+
+- variable: prometheus.externalLabels.cluster
+  label: Cluster Name
+  description: "Label added to all metrics for multi-cluster federation. Set this to your cluster name (e.g., 'prod-us-west', 'edge-factory-01')."
+  type: string
+  required: false
+  group: "Prometheus Configuration"
+
+- variable: prometheus.walCompression
+  label: Enable WAL Compression
+  description: "Reduces disk usage for Write-Ahead Log. Recommended for most deployments."
+  type: boolean
+  required: true
+  default: true
+  group: "Prometheus Configuration"
+
+- variable: prometheus.enableAdminAPI
+  label: Enable Admin API
+  description: "Enables /-/reload and other admin endpoints. ⚠️ SECURITY WARNING: Only enable if you know what you're doing and have proper network policies."
+  type: boolean
+  required: true
+  default: false
+  group: "Prometheus Configuration"
+
+# ============================================================================
+# Scrape Configurations
+# ============================================================================
+- variable: scrapeConfigs.prometheus.enabled
+  label: Scrape Prometheus Itself
+  description: "Meta-monitoring (because monitoring the monitor is apparently a thing now). Recommended."
+  type: boolean
+  required: true
+  default: true
+  group: "Scrape Configuration"
+
+- variable: scrapeConfigs.kubernetesApiServers.enabled
+  label: Scrape Kubernetes API Servers
+  description: "Monitor control plane API servers."
+  type: boolean
+  required: true
+  default: true
+  group: "Scrape Configuration"
+
+- variable: scrapeConfigs.kubernetesNodes.enabled
+  label: Scrape Kubernetes Nodes
+  description: "Monitor node-level metrics from kubelet."
+  type: boolean
+  required: true
+  default: true
+  group: "Scrape Configuration"
+
+- variable: scrapeConfigs.kubernetesPods.enabled
+  label: Scrape Kubernetes Pods
+  description: "Auto-discover and scrape pods with 'prometheus.io/scrape: true' annotation. Essential for app monitoring."
+  type: boolean
+  required: true
+  default: true
+  group: "Scrape Configuration"
+
+- variable: scrapeConfigs.kubernetesServiceEndpoints.enabled
+  label: Scrape Kubernetes Service Endpoints
+  description: "Scrape metrics from service endpoints."
+  type: boolean
+  required: true
+  default: true
+  group: "Scrape Configuration"
+
+- variable: scrapeConfigs.kubernetesCadvisor.enabled
+  label: Scrape cAdvisor Container Metrics
+  description: "Monitor container-level CPU, memory, network, and disk metrics. Highly recommended."
+  type: boolean
+  required: true
+  default: true
+  group: "Scrape Configuration"
+
+# ============================================================================
+# Alerting Rules
+# ============================================================================
+- variable: alerting.enabled
+  label: Enable Alerting Rules
+  description: "Pre-configured alert rules for common failure scenarios (node down, pod crash loops, disk space, etc.)."
+  type: boolean
+  required: true
+  default: true
+  group: "Alerting"
+
+- variable: alerting.rules.nodes.enabled
+  label: Enable Node Alerts
+  description: "Alerts for node-level issues (node down, high CPU/memory, disk pressure)."
+  type: boolean
+  required: false
+  default: true
+  group: "Alerting"
+  show_if: "alerting.enabled=true"
+
+- variable: alerting.rules.pods.enabled
+  label: Enable Pod Alerts
+  description: "Alerts for pod issues (crash loops, frequent restarts, OOMKilled events)."
+  type: boolean
+  required: false
+  default: true
+  group: "Alerting"
+  show_if: "alerting.enabled=true"
+
+- variable: alerting.rules.storage.enabled
+  label: Enable Storage Alerts
+  description: "Alerts for disk space issues (running out of room before 3am would be nice)."
+  type: boolean
+  required: false
+  default: true
+  group: "Alerting"
+  show_if: "alerting.enabled=true"
+
+- variable: alerting.rules.prometheus.enabled
+  label: Enable Prometheus Meta-Alerts
+  description: "Alerts for Prometheus itself (scrape failures, TSDB issues, high cardinality). Meta-monitoring at its finest."
+  type: boolean
+  required: false
+  default: true
+  group: "Alerting"
+  show_if: "alerting.enabled=true"
+
+# ============================================================================
+# Service Configuration
+# ============================================================================
+- variable: service.type
+  label: Service Type
+  description: "How to expose Prometheus. ClusterIP=internal only, LoadBalancer=external IP, NodePort=static port on nodes."
+  type: enum
+  required: true
+  default: "ClusterIP"
+  group: "Services"
+  options:
+    - "ClusterIP"
+    - "LoadBalancer"
+    - "NodePort"
+
+- variable: service.nodePort
+  label: Node Port
+  description: "Static port on each node (30000-32767). Only used when Service Type is NodePort."
+  type: int
+  required: false
+  default: 30090
+  group: "Services"
+  show_if: "service.type=NodePort"
+  min: 30000
+  max: 32767
+
+# ============================================================================
+# Ingress Configuration
+# ============================================================================
+- variable: ingress.enabled
+  label: Enable Ingress
+  description: "Expose Prometheus via ingress controller (recommended with TLS + basic auth for production). Requires an ingress controller installed."
+  type: boolean
+  required: true
+  default: false
+  group: "Ingress"
+
+- variable: ingress.className
+  label: Ingress Class
+  description: "Ingress controller class (nginx, traefik, etc.)."
+  type: string
+  required: false
+  default: "nginx"
+  group: "Ingress"
+  show_if: "ingress.enabled=true"
+
+- variable: ingress.hosts[0].host
+  label: Hostname
+  description: "Domain name for accessing Prometheus (e.g., prometheus.example.com)."
+  type: hostname
+  required: false
+  default: "prometheus.example.com"
+  group: "Ingress"
+  show_if: "ingress.enabled=true"
+
+- variable: ingress.tls[0].secretName
+  label: TLS Secret Name
+  description: "Kubernetes secret containing TLS certificate. Leave empty to use HTTP (not recommended for production)."
+  type: secret
+  required: false
+  default: "prometheus-tls"
+  group: "Ingress"
+  show_if: "ingress.enabled=true"
+
+# ============================================================================
+# Thanos Sidecar (for HA and long-term storage)
+# ============================================================================
+- variable: thanos.enabled
+  label: Enable Thanos Sidecar
+  description: "Deploy Thanos sidecar for HA query deduplication and long-term object storage. Recommended for production HA deployments."
+  type: boolean
+  required: true
+  default: false
+  group: "Thanos"
+
+- variable: thanos.objectStorageConfig.secretName
+  label: Object Storage Secret Name
+  description: "Name of secret containing Thanos object storage configuration (objstore.yml). Required for Thanos sidecar."
+  type: secret
+  required: false
+  default: "thanos-objstore-config"
+  group: "Thanos"
+  show_if: "thanos.enabled=true"
+
+# ============================================================================
+# Remote Write (for federation and long-term storage)
+# ============================================================================
+- variable: remoteWrite.enabled
+  label: Enable Remote Write
+  description: "Forward metrics to remote storage (Cortex, Thanos, VictoriaMetrics, etc.). Useful for federation and long-term retention."
+  type: boolean
+  required: true
+  default: false
+  group: "Remote Write"
+
+# ============================================================================
+# High Availability Configuration
+# ============================================================================
+- variable: highAvailability.podDisruptionBudget.enabled
+  label: Enable Pod Disruption Budget
+  description: "Prevent all Prometheus replicas from being evicted at once during cluster maintenance. Highly recommended for HA mode."
+  type: boolean
+  required: false
+  default: true
+  group: "High Availability"
+  show_if: "deploymentMode=ha"
+
+- variable: highAvailability.podDisruptionBudget.minAvailable
+  label: Minimum Available Replicas
+  description: "Minimum number of replicas that must stay running during disruptions (e.g., node drains, upgrades)."
+  type: int
+  required: false
+  default: 1
+  group: "High Availability"
+  show_if: "deploymentMode=ha&&highAvailability.podDisruptionBudget.enabled=true"
+  min: 1
+  max: 10
+
+- variable: highAvailability.antiAffinity
+  label: Anti-Affinity Strategy
+  description: "Spread Prometheus replicas across nodes. 'soft'=prefer different nodes, 'hard'=require different nodes (fails if not enough nodes), 'none'=no anti-affinity."
+  type: enum
+  required: false
+  default: "soft"
+  group: "High Availability"
+  show_if: "deploymentMode=ha"
+  options:
+    - "soft"
+    - "hard"
+    - "none"
+
+# ============================================================================
+# Security Configuration
+# ============================================================================
+- variable: networkPolicy.enabled
+  label: Enable Network Policy
+  description: "Restrict network traffic to/from Prometheus pod. Requires a CNI that supports NetworkPolicy (Calico, Cilium, etc.)."
+  type: boolean
+  required: true
+  default: false
+  group: "Security"
+
+- variable: rbac.create
+  label: Create RBAC Resources
+  description: "Create ClusterRole and ClusterRoleBinding for Kubernetes service discovery. Required unless using an existing ServiceAccount."
+  type: boolean
+  required: true
+  default: true
+  group: "Security"
+
+- variable: serviceAccount.create
+  label: Create Service Account
+  description: "Create ServiceAccount for Prometheus pod. Disable if using an existing ServiceAccount."
+  type: boolean
+  required: true
+  default: true
+  group: "Security"
+
+# ============================================================================
+# Monitoring
+# ============================================================================
+- variable: serviceMonitor.enabled
+  label: Enable ServiceMonitor
+  description: "Create ServiceMonitor resource for Prometheus Operator (meta-monitoring). Requires Prometheus Operator installed."
+  type: boolean
+  required: true
+  default: true
+  group: "Monitoring"
+
+# ============================================================================
+# Advanced Configuration
+# ============================================================================
+- variable: prometheus.enableQueryLog
+  label: Enable Query Logging
+  description: "Log all PromQL queries to stdout. Useful for debugging slow queries or identifying expensive dashboards. Can be verbose."
+  type: boolean
+  required: true
+  default: false
+  group: "Advanced"

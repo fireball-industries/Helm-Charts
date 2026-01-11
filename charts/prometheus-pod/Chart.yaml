@@ -1,0 +1,31 @@
+apiVersion: v2
+name: prometheus-pod
+description: Production-grade Prometheus monitoring pod for Kubernetes - Because your apps won't monitor themselves
+type: application
+version: 1.0.0
+appVersion: "2.49.0"
+keywords:
+  - prometheus
+  - monitoring
+  - metrics
+  - observability
+  - timeseries
+  - alerting
+  - kubernetes
+home: https://prometheus.io
+sources:
+  - https://github.com/prometheus/prometheus
+  - https://github.com/fireball-industries/prometheus-pod
+maintainers:
+  - name: Fireball Industries
+    email: devops@fireballindustries.com
+    url: https://fireballindustries.com
+icon: https://prometheus.io/assets/prometheus_logo_grey.svg
+annotations:
+  catalog.cattle.io/certified: partner
+  catalog.cattle.io/display-name: "Prometheus Pod"
+  catalog.cattle.io/release-name: prometheus-pod
+  catalog.cattle.io/namespace: monitoring
+  catalog.cattle.io/type: metrics
+  catalog.cattle.io/os: linux
+  catalog.cattle.io/provides-gvr: monitoring.coreos.com/v1/ServiceMonitor

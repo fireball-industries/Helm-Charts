@@ -1,0 +1,244 @@
+# Thanos-Enabled Prometheus
+# Long-term storage and unlimited retention
+#
+# Use case:
+# - Long-term metrics retention (months/years)
+# - Cost-effective storage (object storage vs PVCs)
+# - Multi-cluster querying
+# - Downsampling for historical data
+#
+# Prerequisites:
+# 1. Object storage bucket (S3, GCS, Azure Blob, etc.)
+# 2. Thanos Query deployment (for unified querying)
+# 3. Optional: Thanos Compactor (for downsampling)
+
+deploymentMode: ha  # HA recommended with Thanos
+replicaCount: 2
+
+resourcePreset: large
+
+# Short local retention (Thanos has long-term)
+persistence:
+  enabled: true
+  size: 30Gi  # Per replica
+  storageClass: fast-ssd
+
+retention:
+  time: 7d  # Local retention only (Thanos has months/years)
+  size: 24GB
+
+# Enable Thanos sidecar
+thanos:
+  enabled: true
+  image:
+    repository: quay.io/thanos/thanos
+    tag: v0.33.0
+  
+  # Object storage configuration
+  objectStorageConfig:
+    secretName: thanos-objstore-config
+    secretKey: objstore.yml
+    # Secret created separately with object storage config:
+    #
+    # For S3:
+    # type: S3
+    # config:
+    #   bucket: prometheus-thanos
+    #   endpoint: s3.amazonaws.com
+    #   region: us-east-1
+    #   access_key: YOUR_ACCESS_KEY
+    #   secret_key: YOUR_SECRET_KEY
+    #
+    # For GCS:
+    # type: GCS
+    # config:
+    #   bucket: prometheus-thanos
+    #   service_account: |-
+    #     {
+    #       "type": "service_account",
+    #       ...
+    #     }
+    #
+    # For Azure:
+    # type: AZURE
+    # config:
+    #   storage_account: prometheusthanos
+    #   storage_account_key: YOUR_KEY
+    #   container: prometheus
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# High availability configuration
+highAvailability:
+  antiAffinity: hard
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+# Full monitoring
+scrapeConfigs:
+  prometheus:
+    enabled: true
+  kubernetesApiServers:
+    enabled: true
+  kubernetesNodes:
+    enabled: true
+  kubernetesPods:
+    enabled: true
+  kubernetesServiceEndpoints:
+    enabled: true
+  kubernetesCadvisor:
+    enabled: true
+
+# Alerting
+alerting:
+  enabled: true
+  rules:
+    nodes:
+      enabled: true
+    pods:
+      enabled: true
+    storage:
+      enabled: true
+    prometheus:
+      enabled: true
+  
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager.monitoring.svc:9093
+
+# Prometheus configuration
+prometheus:
+  scrapeInterval: 1m
+  scrapeTimeout: 10s
+  evaluationInterval: 1m
+  walCompression: true
+  enableLifecycle: true
+  
+  # IMPORTANT: Add replica label for Thanos deduplication
+  externalLabels:
+    cluster: production
+    environment: production
+    prometheus_replica: $(POD_NAME)  # Thanos uses this for dedup
+  
+  # Optimize for Thanos
+  extraArgs:
+    - --storage.tsdb.min-block-duration=2h  # Match Thanos block duration
+    - --storage.tsdb.max-block-duration=2h
+    - --web.enable-admin-api  # Thanos sidecar needs this
+
+# Service with Thanos ports
+service:
+  type: ClusterIP
+  port: 9090
+  additionalPorts:
+    # Thanos gRPC (for Thanos Query)
+    - name: grpc
+      port: 10901
+      targetPort: 10901
+      protocol: TCP
+    # Thanos HTTP (sidecar metrics)
+    - name: http-thanos
+      port: 10902
+      targetPort: 10902
+      protocol: TCP
+
+# Don't expose Prometheus directly (use Thanos Query)
+ingress:
+  enabled: false
+
+# ServiceMonitor
+serviceMonitor:
+  enabled: true
+  interval: 30s
+
+# Security
+rbac:
+  create: true
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+
+# Usage:
+#
+# 1. Create object storage bucket (S3/GCS/Azure)
+#
+# 2. Create objstore.yml configuration file:
+#    cat <<EOF > objstore.yml
+#    type: S3
+#    config:
+#      bucket: prometheus-thanos
+#      endpoint: s3.amazonaws.com
+#      region: us-east-1
+#      access_key: YOUR_ACCESS_KEY
+#      secret_key: YOUR_SECRET_KEY
+#    EOF
+#
+# 3. Create secret:
+#    kubectl create secret generic thanos-objstore-config \
+#      --from-file=objstore.yml=objstore.yml \
+#      -n monitoring
+#    shred -u objstore.yml
+#
+# 4. Deploy Prometheus with Thanos:
+#    helm install prometheus fireball/prometheus-pod \
+#      --namespace monitoring \
+#      --create-namespace \
+#      -f examples/thanos-enabled.yaml
+#
+# 5. Deploy Thanos Query (separate chart):
+#    helm install thanos-query bitnami/thanos \
+#      --set query.enabled=true \
+#      --set query.stores[0]=dnssrv+_grpc._tcp.prometheus-headless.monitoring.svc.cluster.local \
+#      --namespace monitoring
+#
+# 6. Deploy Thanos Compactor (optional, for downsampling):
+#    helm install thanos-compactor bitnami/thanos \
+#      --set compactor.enabled=true \
+#      --set compactor.objstoreConfig=$(kubectl get secret thanos-objstore-config -n monitoring -o jsonpath='{.data.objstore\.yml}' | base64 -d) \
+#      --namespace monitoring
+#
+# 7. Access via Thanos Query:
+#    kubectl port-forward -n monitoring svc/thanos-query 9090:9090
+#    Open: http://localhost:9090
+#
+# Architecture:
+#
+#   Prometheus-0 (+ Thanos Sidecar) ──┐
+#                                      ├──> Thanos Query ──> Grafana
+#   Prometheus-1 (+ Thanos Sidecar) ──┘      │
+#                                             │
+#                                             ▼
+#                                        Object Storage
+#                                        (S3/GCS/Azure)
+#                                             ▲
+#                                             │
+#                                       Thanos Compactor
+#                                       (Downsampling)
+#
+# Benefits:
+# - Unlimited retention (object storage is cheap)
+# - Query deduplication (HA without duplicate data)
+# - Historical data downsampling (reduce storage)
+# - Global query view (multi-cluster support)
+# - Cost-effective (object storage < PVCs)

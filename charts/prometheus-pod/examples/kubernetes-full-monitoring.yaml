@@ -1,0 +1,143 @@
+# Kubernetes Full Monitoring Example
+# Complete Kubernetes cluster monitoring with all components
+#
+# This configuration enables comprehensive monitoring of:
+# - Kubernetes API servers
+# - Nodes (kubelet metrics)
+# - Pods (annotation-based discovery)
+# - Services and endpoints
+# - cAdvisor (container metrics)
+# - All pre-configured alert rules
+#
+# Resource sizing: Medium preset (suitable for 5-50 nodes)
+# Use case: Production Kubernetes monitoring
+
+deploymentMode: single
+resourcePreset: medium
+
+# Storage configuration
+persistence:
+  enabled: true
+  size: 30Gi  # Slightly larger for full K8s monitoring
+  storageClass: ""  # Use default
+
+retention:
+  time: 15d
+  size: 24GB  # 80% of 30Gi
+
+# Enable all Kubernetes scrape configs
+scrapeConfigs:
+  prometheus:
+    enabled: true  # Self-monitoring
+  
+  kubernetesApiServers:
+    enabled: true  # API server metrics
+  
+  kubernetesNodes:
+    enabled: true  # Node/kubelet metrics
+  
+  kubernetesPods:
+    enabled: true  # Pod discovery via annotations
+  
+  kubernetesServiceEndpoints:
+    enabled: true  # Service endpoint discovery
+  
+  kubernetesCadvisor:
+    enabled: true  # Container metrics
+
+# Enable all alert rules
+alerting:
+  enabled: true
+  rules:
+    nodes:
+      enabled: true  # Node alerts (down, high CPU/memory, disk space)
+    pods:
+      enabled: true  # Pod alerts (crash loops, not ready, high resources)
+    storage:
+      enabled: true  # PVC alerts (disk space)
+    prometheus:
+      enabled: true  # Prometheus meta-alerts
+  
+  # Configure Alertmanager endpoint
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager.monitoring.svc:9093
+
+# Prometheus configuration
+prometheus:
+  scrapeInterval: 1m  # Standard interval
+  scrapeTimeout: 10s
+  evaluationInterval: 1m
+  walCompression: true
+  enableLifecycle: true
+  externalLabels:
+    cluster: my-k8s-cluster  # Set to your cluster name
+    environment: production
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 9090
+
+# Enable ServiceMonitor for self-monitoring
+serviceMonitor:
+  enabled: true
+
+# Security
+rbac:
+  create: true
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+
+# Health probes
+livenessProbe:
+  enabled: true
+readinessProbe:
+  enabled: true
+startupProbe:
+  enabled: true
+
+# Optional: Expose via Ingress
+# Uncomment and configure for your domain
+# ingress:
+#   enabled: true
+#   className: nginx
+#   annotations:
+#     cert-manager.io/cluster-issuer: letsencrypt-prod
+#   hosts:
+#     - host: prometheus.example.com
+#       paths:
+#         - path: /
+#           pathType: Prefix
+#   tls:
+#     - secretName: prometheus-tls
+#       hosts:
+#         - prometheus.example.com
+
+# Optional: Network policies for security
+# Uncomment to restrict traffic
+# networkPolicy:
+#   enabled: true
+#   ingress:
+#     - from:
+#       - namespaceSelector:
+#           matchLabels:
+#             name: monitoring
+#       ports:
+#       - protocol: TCP
+#         port: 9090

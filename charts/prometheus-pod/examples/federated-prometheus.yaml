@@ -1,0 +1,206 @@
+# Federated Prometheus Configuration
+# Edge Prometheus that sends data to central instance
+#
+# Use case:
+# - Multi-cluster monitoring
+# - Edge deployments
+# - Hierarchical monitoring architecture
+#
+# Architecture:
+#   Edge Prometheus (this) --remote_write--> Central Prometheus
+#
+# This instance:
+# - Scrapes local cluster
+# - Short local retention (7d)
+# - Sends all data to central Prometheus
+# - Can query local data for troubleshooting
+
+deploymentMode: single
+resourcePreset: medium
+
+# Short local retention (central has long-term)
+persistence:
+  enabled: true
+  size: 20Gi
+  storageClass: ""
+
+retention:
+  time: 7d  # Local retention only
+  size: 16GB
+
+# Full Kubernetes monitoring
+scrapeConfigs:
+  prometheus:
+    enabled: true
+  kubernetesApiServers:
+    enabled: true
+  kubernetesNodes:
+    enabled: true
+  kubernetesPods:
+    enabled: true
+  kubernetesServiceEndpoints:
+    enabled: true
+  kubernetesCadvisor:
+    enabled: true
+
+# Local alerting (for critical edge alerts)
+alerting:
+  enabled: true
+  rules:
+    nodes:
+      enabled: true
+    pods:
+      enabled: true
+    storage:
+      enabled: true
+    prometheus:
+      enabled: true
+  
+  # Local Alertmanager
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager.monitoring.svc:9093
+
+# Prometheus configuration
+prometheus:
+  scrapeInterval: 1m
+  scrapeTimeout: 10s
+  evaluationInterval: 1m
+  walCompression: true
+  enableLifecycle: true
+  
+  # IMPORTANT: Label this edge instance
+  externalLabels:
+    cluster: edge-cluster-us-west-1  # Unique cluster ID
+    region: us-west-1
+    environment: production
+    datacenter: dc-west-1
+
+# Remote write to central Prometheus
+remoteWrite:
+  enabled: true
+  configs:
+    # Central Prometheus endpoint
+    - url: https://central-prometheus.example.com/api/v1/write
+      
+      # Authentication (use bearer token or basic auth)
+      bearer_token: YOUR_API_TOKEN  # Or use bearer_token_file
+      # basic_auth:
+      #   username: edge-prometheus
+      #   password: SECRET_PASSWORD
+      
+      # TLS configuration
+      tls_config:
+        ca_file: /etc/prometheus/certs/central-ca.crt
+        cert_file: /etc/prometheus/certs/edge-client.crt
+        key_file: /etc/prometheus/certs/edge-client.key
+        insecure_skip_verify: false
+      
+      # Queue configuration (tune based on network)
+      queue_config:
+        capacity: 10000  # Buffer size
+        max_shards: 10  # Parallelism
+        min_shards: 1
+        max_samples_per_send: 5000
+        batch_send_deadline: 5s
+        min_backoff: 30ms
+        max_backoff: 100ms
+      
+      # Retry configuration
+      remote_timeout: 30s
+      
+      # Optional: Filter what to send
+      write_relabel_configs:
+        # Don't send high-cardinality metrics
+        - source_labels: [__name__]
+          regex: 'go_.*|process_.*'  # Skip Go runtime metrics
+          action: drop
+        
+        # Sample expensive metrics less frequently
+        - source_labels: [__name__]
+          regex: 'container_.*'
+          action: keep
+          sample_limit: 1000
+        
+        # Add edge-specific labels
+        - target_label: edge_instance
+          replacement: us-west-1-001
+
+# Optional: Remote read from central (for grafana)
+remoteRead:
+  enabled: false  # Usually not needed (query central directly)
+  # configs:
+  #   - url: https://central-prometheus.example.com/api/v1/read
+  #     bearer_token: YOUR_API_TOKEN
+
+# Service
+service:
+  type: ClusterIP
+  port: 9090
+
+# Optional: Local Ingress for edge access
+ingress:
+  enabled: false
+  # enabled: true
+  # className: nginx
+  # hosts:
+  #   - host: edge-prometheus.local
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
+
+# ServiceMonitor
+serviceMonitor:
+  enabled: true
+
+# Security
+rbac:
+  create: true
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+
+# Mount TLS certs for remote write
+extraVolumes:
+  - name: remote-write-certs
+    secret:
+      secretName: prometheus-remote-write-certs
+
+extraVolumeMounts:
+  - name: remote-write-certs
+    mountPath: /etc/prometheus/certs
+    readOnly: true
+
+# Usage:
+#
+# 1. Create TLS secret:
+#    kubectl create secret generic prometheus-remote-write-certs \
+#      --from-file=central-ca.crt=ca.crt \
+#      --from-file=edge-client.crt=client.crt \
+#      --from-file=edge-client.key=client.key \
+#      -n monitoring
+#
+# 2. Update remoteWrite URL and credentials
+#
+# 3. Deploy:
+#    helm install edge-prometheus fireball/prometheus-pod \
+#      --namespace monitoring \
+#      --create-namespace \
+#      -f examples/federated-prometheus.yaml
+#
+# 4. Verify remote write:
+#    kubectl logs -n monitoring edge-prometheus-0 | grep remote_write

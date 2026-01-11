@@ -1,0 +1,154 @@
+🔥 Fireball Industries - We Play With Fire So You Don't Have To™ 🔥
+
+Prometheus Pod v{{ .Chart.AppVersion }} deployed successfully!
+
+📊 DEPLOYMENT SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Release Name:      {{ .Release.Name }}
+Namespace:         {{ .Release.Namespace }}
+Deployment Mode:   {{ .Values.deploymentMode }}
+{{- if eq .Values.deploymentMode "ha" }}
+Replicas:          {{ .Values.replicaCount }}
+{{- end }}
+Resource Preset:   {{ .Values.resourcePreset }}
+Retention Time:    {{ include "prometheus.retentionTime" . }}
+Retention Size:    {{ include "prometheus.retentionSize" . }}
+Storage Size:      {{ include "prometheus.storageSize" . }}
+
+📝 NEXT STEPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Check pod status:
+   kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "prometheus.name" . }}
+
+2. View logs:
+   kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "prometheus.name" . }} -f
+
+3. Access the Prometheus UI:
+   {{- if .Values.ingress.enabled }}
+   
+   Ingress URL: https://{{ (index .Values.ingress.hosts 0).host }}
+   {{- else }}
+   
+   Port-forward to local machine:
+   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "prometheus.fullname" . }} 9090:9090
+   
+   Then open: http://localhost:9090
+   {{- end }}
+
+4. Verify scrape targets:
+   - Open Prometheus UI
+   - Go to Status → Targets
+   - Ensure targets are UP and being scraped
+
+5. Test a query:
+   - Go to Graph tab
+   - Run: up{job="kubernetes-nodes"}
+   - Should see your cluster nodes
+
+⚠️  IMPORTANT CHECKS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{{- if .Values.persistence.enabled }}
+✅ Persistence: ENABLED (good choice!)
+   PVC: {{ default (printf "%s-storage" (include "prometheus.fullname" .)) .Values.persistence.existingClaim }}
+   
+   Check PVC status:
+   kubectl get pvc -n {{ .Release.Namespace }}
+{{- else }}
+⚠️  Persistence: DISABLED (seriously?)
+   
+   Your data will be lost on pod restart. This is only acceptable for:
+   - Development/testing
+   - Quick demos
+   - Situations where you hate your data
+   
+   To enable persistence:
+   helm upgrade {{ .Release.Name }} . --set persistence.enabled=true
+{{- end }}
+
+{{- if eq .Values.deploymentMode "ha" }}
+✅ High Availability: ENABLED
+   Replicas: {{ .Values.replicaCount }}
+   Anti-affinity: {{ .Values.highAvailability.antiAffinity }}
+   
+   {{- if not .Values.thanos.enabled }}
+   ⚠️  WARNING: HA without Thanos = duplicate data
+   
+   Each replica scrapes independently. Use Thanos sidecar for deduplication:
+   helm upgrade {{ .Release.Name }} . --set thanos.enabled=true
+   {{- end }}
+{{- else }}
+⚠️  High Availability: DISABLED
+   
+   Single point of failure. For production, consider:
+   helm upgrade {{ .Release.Name }} . --set deploymentMode=ha --set replicaCount=2
+{{- end }}
+
+{{- if .Values.alerting.enabled }}
+✅ Alerting Rules: ENABLED
+   
+   {{- if not .Values.alerting.alertmanagers }}
+   ⚠️  No Alertmanager configured!
+   
+   Alerts are being evaluated but not sent anywhere. Configure Alertmanager:
+   helm upgrade {{ .Release.Name }} . --set alerting.alertmanagers[0].static_configs[0].targets={alertmanager:9093}
+   {{- end }}
+{{- end }}
+
+🔍 MONITORING PROMETHEUS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Prometheus metrics endpoint:
+http://{{ include "prometheus.fullname" . }}.{{ .Release.Namespace }}.svc:9090/metrics
+
+{{- if .Values.serviceMonitor.enabled }}
+ServiceMonitor created for self-monitoring. Meta!
+{{- end }}
+
+Useful queries for monitoring Prometheus:
+- prometheus_tsdb_storage_blocks_bytes              (disk usage)
+- rate(prometheus_tsdb_head_samples_appended_total[5m])  (ingestion rate)
+- prometheus_tsdb_head_series                       (active series)
+- up{job="prometheus"}                              (health check)
+
+📚 DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Comprehensive docs: https://github.com/fireball-industries/prometheus-pod/blob/main/docs/README.md
+Quick reference:    https://github.com/fireball-industries/prometheus-pod/blob/main/QUICK_REFERENCE.md
+Security guide:     https://github.com/fireball-industries/prometheus-pod/blob/main/docs/SECURITY.md
+Examples:           https://github.com/fireball-industries/prometheus-pod/tree/main/examples
+
+🛠️  TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Pod won't start?
+→ Check PVC: kubectl describe pvc -n {{ .Release.Namespace }}
+→ Check events: kubectl get events -n {{ .Release.Namespace }} --sort-by='.lastTimestamp'
+
+No targets being scraped?
+→ Check RBAC: kubectl auth can-i list pods --as=system:serviceaccount:{{ .Release.Namespace }}:{{ include "prometheus.serviceAccountName" . }}
+→ Check config: kubectl get cm {{ include "prometheus.configName" . }} -n {{ .Release.Namespace }} -o yaml
+
+Out of memory?
+→ Current preset: {{ .Values.resourcePreset }}
+→ Upgrade: helm upgrade {{ .Release.Name }} . --set resourcePreset=large
+
+Need help?
+→ GitHub Issues: https://github.com/fireball-industries/prometheus-pod/issues
+→ Docs: See troubleshooting section in docs/README.md
+
+🎉 YOU'RE ALL SET!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+May your metrics be plentiful, your retention be adequate, and your 3am pages
+be few. If you need help, the docs are actually good (shocking, I know).
+
+- Patrick Ryan
+  Fireball Industries
+  "We Play With Fire So You Don't Have To™"
+
+P.S. - Don't forget to set up Grafana dashboards. Pretty graphs make
+       stakeholders happy, and happy stakeholders = fewer meetings.

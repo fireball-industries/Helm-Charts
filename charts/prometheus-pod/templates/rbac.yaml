@@ -1,0 +1,67 @@
+{{- if .Values.rbac.create -}}
+---
+# ClusterRole for Prometheus service discovery
+# Grants read-only access to Kubernetes API for scraping
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "prometheus.fullname" . }}
+  labels:
+    {{- include "prometheus.labels" . | nindent 4 }}
+rules:
+  # Access to nodes and node metrics
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/metrics
+      - nodes/proxy
+    verbs: ["get", "list", "watch"]
+  
+  # Access to services and endpoints for service discovery
+  - apiGroups: [""]
+    resources:
+      - services
+      - endpoints
+    verbs: ["get", "list", "watch"]
+  
+  # Access to pods for pod discovery
+  - apiGroups: [""]
+    resources:
+      - pods
+    verbs: ["get", "list", "watch"]
+  
+  # Access to configmaps (for SD configs)
+  - apiGroups: [""]
+    resources:
+      - configmaps
+    verbs: ["get"]
+  
+  # Access to ingresses for ingress discovery
+  - apiGroups: ["networking.k8s.io", "extensions"]
+    resources:
+      - ingresses
+    verbs: ["get", "list", "watch"]
+  
+  # Non-resource URLs (for API server metrics)
+  - nonResourceURLs:
+      - /metrics
+      - /metrics/cadvisor
+    verbs: ["get"]
+
+---
+# ClusterRoleBinding to grant ServiceAccount the ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "prometheus.fullname" . }}
+  labels:
+    {{- include "prometheus.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "prometheus.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "prometheus.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
