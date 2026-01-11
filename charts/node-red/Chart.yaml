@@ -1,0 +1,67 @@
+apiVersion: v2
+name: node-red
+description: |
+  Flow-based visual programming for IoT, automation, and integration. Because sometimes
+  wiring diagrams ARE code, and that's perfectly acceptable at 3am.
+  
+  Node-RED is a low-code programming tool for event-driven applications. Perfect for
+  automating workflows, integrating systems, and building IoT solutions without writing
+  traditional code. Features persistent storage, authentication support, and project
+  management capabilities.
+
+type: application
+version: 1.0.0
+appVersion: "3.1.0"
+
+keywords:
+  - node-red
+  - automation
+  - iot
+  - integration
+  - low-code
+  - workflow
+  - mqtt
+  - modbus
+
+home: https://nodered.org
+sources:
+  - https://github.com/node-red/node-red
+  - https://github.com/fireball-industries/helm-charts
+
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireballindustries.com
+    url: https://fireballindustries.com
+
+icon: https://nodered.org/about/resources/media/node-red-icon.svg
+
+# Rancher Questions Annotation
+annotations:
+  catalog.cattle.io/certified: "fireball"
+  catalog.cattle.io/release-name: "node-red"
+  catalog.cattle.io/display-name: "Node-RED - Flow-Based Programming"
+  catalog.cattle.io/provides-gvr: "apps/v1/Deployment"
+  catalog.cattle.io/namespace: "node-red"
+  catalog.cattle.io/os: "linux"
+  catalog.cattle.io/kube-version: ">=1.25.0"
+  catalog.cattle.io/rancher-version: ">=2.6.0"
+  
+  # Auto-install behavior
+  catalog.cattle.io/auto-install: "node-red=match"
+  
+  # UI Categories
+  catalog.cattle.io/categories: |
+    - Automation
+    - IoT
+    - Integration
+    - Development Tools
+  
+  # Feature highlights
+  catalog.cattle.io/featured: "true"
+  catalog.cattle.io/hidden: "false"
+  
+  # Documentation links
+  catalog.cattle.io/upstream-version: "3.1.0"
+  fireball.industries/project-type: "low-code-automation"
+  fireball.industries/multi-tenant: "true"
+  fireball.industries/storage-required: "true"

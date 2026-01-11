@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "node-red.fullname" . }}
+  namespace: {{ include "node-red.namespace" . }}
+  labels:
+    {{- include "node-red.labels" . | nindent 4 }}
+    {{- with .Values.pod.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.pod.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.pod.replicaCount }}
+  strategy:
+    type: {{ .Values.pod.strategy.type }}
+  selector:
+    matchLabels:
+      {{- include "node-red.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "node-red.selectorLabels" . | nindent 8 }}
+        {{- with .Values.pod.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.pod.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "node-red.serviceAccountName" . }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        fsGroup: {{ .Values.nodeRed.securityContext.fsGroup }}
+      containers:
+      - name: node-red
+        image: "{{ .Values.nodeRed.image.repository }}:{{ .Values.nodeRed.image.tag }}"
+        imagePullPolicy: {{ .Values.nodeRed.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.nodeRed.port }}
+          protocol: TCP
+        env:
+        - name: TZ
+          value: {{ .Values.nodeRed.env.timezone | quote }}
+        - name: NODE_RED_ENABLE_SAFE_MODE
+          value: {{ .Values.nodeRed.env.enableSafeMode | quote }}
+        - name: NODE_RED_ENABLE_PROJECTS
+          value: {{ .Values.nodeRed.env.enableProjects | quote }}
+        {{- if .Values.nodeRed.env.credentialSecret }}
+        - name: NODE_RED_CREDENTIAL_SECRET
+          value: {{ .Values.nodeRed.env.credentialSecret | quote }}
+        {{- end }}
+        {{- if .Values.nodeRed.auth.enabled }}
+        - name: NODE_RED_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "node-red.secretName" . }}
+              key: username
+        - name: NODE_RED_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "node-red.secretName" . }}
+              key: password
+        {{- end }}
+        volumeMounts:
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          mountPath: {{ .Values.persistence.mountPath }}
+        {{- end }}
+        {{- if .Values.nodeRed.settings.enabled }}
+        - name: settings
+          mountPath: {{ .Values.persistence.mountPath }}/settings.js
+          subPath: settings.js
+        {{- end }}
+        resources:
+          {{- include "node-red.resources" . | nindent 10 }}
+        {{- if .Values.nodeRed.livenessProbe.enabled }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.nodeRed.livenessProbe.httpGet.path }}
+            port: {{ .Values.nodeRed.livenessProbe.httpGet.port }}
+          initialDelaySeconds: {{ .Values.nodeRed.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.nodeRed.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.nodeRed.livenessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.nodeRed.livenessProbe.failureThreshold }}
+        {{- end }}
+        {{- if .Values.nodeRed.readinessProbe.enabled }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.nodeRed.readinessProbe.httpGet.path }}
+            port: {{ .Values.nodeRed.readinessProbe.httpGet.port }}
+          initialDelaySeconds: {{ .Values.nodeRed.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.nodeRed.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.nodeRed.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.nodeRed.readinessProbe.failureThreshold }}
+        {{- end }}
+        securityContext:
+          runAsUser: {{ .Values.nodeRed.securityContext.runAsUser }}
+          runAsGroup: {{ .Values.nodeRed.securityContext.runAsGroup }}
+          runAsNonRoot: {{ .Values.nodeRed.securityContext.runAsNonRoot }}
+          allowPrivilegeEscalation: {{ .Values.nodeRed.securityContext.allowPrivilegeEscalation }}
+          readOnlyRootFilesystem: {{ .Values.nodeRed.securityContext.readOnlyRootFilesystem }}
+          capabilities:
+            drop:
+              {{- toYaml .Values.nodeRed.securityContext.capabilities.drop | nindent 14 }}
+      volumes:
+      {{- if .Values.persistence.enabled }}
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ include "node-red.pvcName" . }}
+      {{- end }}
+      {{- if .Values.nodeRed.settings.enabled }}
+      - name: settings
+        configMap:
+          name: {{ include "node-red.settingsConfigMapName" . }}
+      {{- end }}
+      restartPolicy: Always

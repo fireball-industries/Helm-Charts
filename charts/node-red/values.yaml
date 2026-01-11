@@ -1,0 +1,292 @@
+# Default values for Node-RED
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Namespace configuration
+namespace:
+  name: node-red
+  create: true
+  labels:
+    app: node-red
+    managed-by: fireball-industries
+    podstore-type: nodered
+
+# Pod configuration
+pod:
+  replicaCount: 1
+  
+  # Update strategy - Recreate is required for single-replica with PVC
+  strategy:
+    type: Recreate
+  
+  annotations: {}
+  labels: {}
+  
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+
+# Node-RED container configuration
+nodeRed:
+  image:
+    repository: nodered/node-red
+    tag: "3.1.0"
+    pullPolicy: IfNotPresent
+  
+  # Container port
+  port: 1880
+  
+  # Environment variables
+  env:
+    timezone: "America/New_York"
+    
+    # Node-RED specific settings
+    enableSafeMode: false
+    enableProjects: true
+    
+    # Optional: Set credential secret
+    # credentialSecret: "your-secret-key-here"
+  
+  # Authentication configuration
+  auth:
+    enabled: true
+    username: "admin"
+    # Password will be auto-generated if not specified
+    # Use: docker run -it nodered/node-red npx node-red admin hash-pw
+    # to generate a bcrypt hash for production
+    password: ""  # Leave empty for auto-generation
+    # passwordHash: "$2b$08$zZWtXTja0fB1pzD4sHCMyOCMYz2Z6dNbM6tl8sJogENOMcxWV9DN."
+  
+  # Node-RED settings.js configuration
+  settings:
+    enabled: false  # Enable to use custom settings.js
+    
+    # Custom settings - will be merged into settings.js
+    custom:
+      # UI configuration
+      editorTheme:
+        projects:
+          enabled: true
+        palette:
+          editable: true
+        header:
+          title: "Node-RED"
+      
+      # Function node external modules
+      functionExternalModules: true
+      
+      # Logging configuration
+      logging:
+        console:
+          level: "info"
+          metrics: false
+          audit: false
+      
+      # Context storage
+      contextStorage:
+        default:
+          module: "localfilesystem"
+      
+      # HTTP CORS
+      httpNodeCors:
+        origin: "*"
+        methods: "GET,PUT,POST,DELETE"
+  
+  # Resource presets (small, medium, large, custom)
+  resources:
+    preset: "medium"
+    
+    # Custom resources (used when preset: custom)
+    custom:
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+    
+    # Preset definitions
+    presets:
+      small:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+        limits:
+          cpu: "500m"
+          memory: "1Gi"
+      
+      medium:
+        requests:
+          cpu: "250m"
+          memory: "512Mi"
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
+      
+      large:
+        requests:
+          cpu: "500m"
+          memory: "1Gi"
+        limits:
+          cpu: "2000m"
+          memory: "4Gi"
+  
+  # Health checks
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: 1880
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: 1880
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  
+  # Security context
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false  # Node-RED needs write access to /tmp
+    capabilities:
+      drop:
+        - ALL
+
+# Persistent storage configuration
+persistence:
+  enabled: true
+  
+  # Storage class (leave empty for default)
+  storageClass: ""
+  
+  # Storage size
+  size: "5Gi"
+  
+  # Access mode
+  accessMode: ReadWriteOnce
+  
+  # Mount path in container
+  mountPath: /data
+  
+  # Annotations
+  annotations: {}
+
+# Service configuration
+service:
+  type: LoadBalancer
+  port: 1880
+  targetPort: 1880
+  protocol: TCP
+  
+  # NodePort (only used if type: NodePort)
+  nodePort: null
+  
+  # LoadBalancer IP (optional)
+  loadBalancerIP: ""
+  
+  # Session affinity for WebSocket support
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800  # 3 hours
+  
+  annotations: {}
+  labels: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # nginx.ingress.kubernetes.io/websocket-services: "node-red"
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+  hosts:
+    - host: node-red.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: node-red-tls
+  #    hosts:
+  #      - node-red.example.com
+
+# Node selector
+nodeSelector: {}
+#  node-role.kubernetes.io/automation: "true"
+
+# Tolerations
+tolerations: []
+#  - key: "automation"
+#    operator: "Equal"
+#    value: "true"
+#    effect: "NoSchedule"
+
+# Affinity
+affinity: {}
+#  podAntiAffinity:
+#    preferredDuringSchedulingIgnoredDuringExecution:
+#      - weight: 100
+#        podAffinityTerm:
+#          labelSelector:
+#            matchExpressions:
+#              - key: app.kubernetes.io/name
+#                operator: In
+#                values:
+#                  - node-red
+#          topologyKey: kubernetes.io/hostname
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 1880
+  
+  egress:
+    - {}  # Allow all egress by default
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: "30s"
+    scrapeTimeout: "10s"
+    labels: {}
+
+# Backup configuration
+backup:
+  enabled: false
+  schedule: "0 2 * * *"  # 2 AM daily
+  retention: 7  # Keep 7 backups
+  destination: ""  # S3/MinIO bucket or PVC path

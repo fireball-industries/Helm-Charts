@@ -1,0 +1,137 @@
+# Development Node-RED Deployment Example
+# Minimal resources for local testing and development
+
+namespace:
+  name: node-red-dev
+  create: true
+
+pod:
+  replicaCount: 1
+
+# Node-RED Configuration
+nodeRed:
+  image:
+    repository: nodered/node-red
+    tag: "3.1.0"
+    pullPolicy: Always  # Always pull latest for dev
+  
+  port: 1880
+  
+  env:
+    timezone: "America/New_York"
+    enableSafeMode: false
+    enableProjects: true
+  
+  # Simple authentication for dev
+  auth:
+    enabled: true
+    username: "admin"
+    password: "admin"  # Simple password for dev (NOT FOR PRODUCTION!)
+  
+  # Enable custom settings with relaxed security
+  settings:
+    enabled: true
+    custom:
+      functionExternalModules: true  # Allow npm imports for development
+      
+      logging:
+        console:
+          level: "debug"  # Verbose logging for debugging
+          metrics: true
+          audit: false
+      
+      editorTheme:
+        projects:
+          enabled: true
+        palette:
+          editable: true
+        header:
+          title: "Node-RED Dev"
+      
+      contextStorage:
+        default:
+          module: "localfilesystem"
+      
+      httpNodeCors:
+        origin: "*"  # Allow all origins in dev
+        methods: "GET,PUT,POST,DELETE"
+  
+  # Minimal resources for dev
+  resources:
+    preset: small  # 100m-500m CPU, 256Mi-1Gi RAM
+  
+  # Health checks
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: 1880
+    initialDelaySeconds: 30
+    periodSeconds: 30
+  
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: 1880
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+# Persistent Storage - Smaller for dev
+persistence:
+  enabled: true
+  storageClass: ""  # Use default storage class
+  size: "2Gi"
+  accessMode: ReadWriteOnce
+  mountPath: /data
+
+# Service Configuration - NodePort for easy access
+service:
+  type: NodePort
+  port: 1880
+  targetPort: 1880
+  nodePort: 30180  # Fixed port for easy access
+  protocol: TCP
+  
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+
+# Ingress - Disabled for dev (use NodePort)
+ingress:
+  enabled: false
+
+# No special node placement for dev
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# No PDB for dev
+podDisruptionBudget:
+  enabled: false
+
+# No network policy for dev
+networkPolicy:
+  enabled: false
+
+# No monitoring for dev
+monitoring:
+  enabled: false
+
+# No backup for dev
+backup:
+  enabled: false
+
+# Quick Access Instructions:
+# After deployment:
+# 1. Get node IP: kubectl get nodes -o wide
+# 2. Access: http://<NODE_IP>:30180
+# 3. Login: admin / admin
+# 4. Start building flows!
+#
+# Useful dev commands:
+# - Logs: kubectl logs -f -n node-red-dev -l app=node-red
+# - Restart: kubectl rollout restart deployment/node-red -n node-red-dev
+# - Shell: kubectl exec -it -n node-red-dev deployment/node-red -- /bin/bash
+# - Copy flows: kubectl cp node-red-dev/<pod-name>:/data/flows.json ./flows.json

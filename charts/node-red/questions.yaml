@@ -1,0 +1,258 @@
+questions:
+# Namespace Configuration
+- variable: namespace.name
+  label: Namespace
+  description: "Kubernetes namespace for Node-RED deployment"
+  type: string
+  default: "node-red"
+  required: true
+  group: "Namespace Settings"
+
+- variable: namespace.create
+  label: Create Namespace
+  description: "Create the namespace if it doesn't exist"
+  type: boolean
+  default: true
+  group: "Namespace Settings"
+
+# Node-RED Configuration
+- variable: nodeRed.image.tag
+  label: Node-RED Version
+  description: "Node-RED version to deploy"
+  type: string
+  default: "3.1.0"
+  required: true
+  group: "Node-RED Settings"
+
+- variable: nodeRed.env.timezone
+  label: Timezone
+  description: "Container timezone (e.g., America/New_York, Europe/London, Asia/Tokyo)"
+  type: string
+  default: "America/New_York"
+  required: true
+  group: "Node-RED Settings"
+
+- variable: nodeRed.env.enableProjects
+  label: Enable Projects
+  description: "Enable Node-RED Projects feature for version control"
+  type: boolean
+  default: true
+  group: "Node-RED Settings"
+
+# Authentication
+- variable: nodeRed.auth.enabled
+  label: Enable Authentication
+  description: "Require login to access Node-RED editor (HIGHLY RECOMMENDED)"
+  type: boolean
+  default: true
+  required: true
+  group: "Security"
+  show_subquestion_if: true
+  subquestions:
+    - variable: nodeRed.auth.username
+      label: Admin Username
+      description: "Username for Node-RED admin user"
+      type: string
+      default: "admin"
+      required: true
+    
+    - variable: nodeRed.auth.password
+      label: Admin Password
+      description: "Password for admin user (leave empty to auto-generate)"
+      type: password
+      default: ""
+
+# Resource Presets
+- variable: nodeRed.resources.preset
+  label: Resource Preset
+  description: "Choose a resource allocation preset or select custom"
+  type: enum
+  default: "medium"
+  required: true
+  group: "Resources"
+  options:
+    - "small"
+    - "medium"
+    - "large"
+    - "custom"
+  show_subquestion_if: "custom"
+  subquestions:
+    - variable: nodeRed.resources.custom.requests.cpu
+      label: CPU Request
+      description: "Guaranteed CPU (e.g., 250m = 0.25 cores)"
+      type: string
+      default: "250m"
+    
+    - variable: nodeRed.resources.custom.requests.memory
+      label: Memory Request
+      description: "Guaranteed memory (e.g., 512Mi)"
+      type: string
+      default: "512Mi"
+    
+    - variable: nodeRed.resources.custom.limits.cpu
+      label: CPU Limit
+      description: "Maximum CPU (e.g., 1000m = 1 core)"
+      type: string
+      default: "1000m"
+    
+    - variable: nodeRed.resources.custom.limits.memory
+      label: Memory Limit
+      description: "Maximum memory (e.g., 2Gi)"
+      type: string
+      default: "2Gi"
+
+# Storage Configuration
+- variable: persistence.enabled
+  label: Enable Persistent Storage
+  description: "Store Node-RED flows and data persistently (REQUIRED for production)"
+  type: boolean
+  default: true
+  required: true
+  group: "Storage"
+  show_subquestion_if: true
+  subquestions:
+    - variable: persistence.size
+      label: Storage Size
+      description: "Size of persistent volume (e.g., 5Gi, 10Gi, 20Gi)"
+      type: string
+      default: "5Gi"
+      required: true
+    
+    - variable: persistence.storageClass
+      label: Storage Class
+      description: "Storage class name (leave empty for default)"
+      type: storageclass
+      default: ""
+
+# Service Configuration
+- variable: service.type
+  label: Service Type
+  description: "How to expose Node-RED to the network"
+  type: enum
+  default: "LoadBalancer"
+  required: true
+  group: "Service & Networking"
+  options:
+    - "ClusterIP"
+    - "NodePort"
+    - "LoadBalancer"
+  show_subquestion_if: "NodePort"
+  subquestions:
+    - variable: service.nodePort
+      label: Node Port
+      description: "Port on each node (30000-32767, leave empty for auto-assign)"
+      type: int
+      min: 30000
+      max: 32767
+
+- variable: service.port
+  label: Service Port
+  description: "External port for Node-RED service"
+  type: int
+  default: 1880
+  required: true
+  group: "Service & Networking"
+
+# Ingress Configuration
+- variable: ingress.enabled
+  label: Enable Ingress
+  description: "Expose Node-RED via ingress controller (requires ingress controller installed)"
+  type: boolean
+  default: false
+  group: "Service & Networking"
+  show_subquestion_if: true
+  subquestions:
+    - variable: ingress.className
+      label: Ingress Class
+      description: "Ingress controller to use (e.g., nginx, traefik)"
+      type: string
+      default: "nginx"
+    
+    - variable: ingress.hosts[0].host
+      label: Hostname
+      description: "Domain name for Node-RED (e.g., node-red.example.com)"
+      type: hostname
+      default: "node-red.local"
+      required: true
+    
+    - variable: ingress.tls[0].enabled
+      label: Enable TLS/SSL
+      description: "Enable HTTPS with TLS certificate"
+      type: boolean
+      default: false
+    
+    - variable: ingress.tls[0].secretName
+      label: TLS Secret Name
+      description: "Name of secret containing TLS certificate"
+      type: secret
+      default: "node-red-tls"
+      show_if: "ingress.tls[0].enabled=true"
+
+# Advanced Settings
+- variable: nodeRed.settings.enabled
+  label: Use Custom Settings
+  description: "Enable advanced Node-RED settings.js configuration"
+  type: boolean
+  default: false
+  group: "Advanced"
+  show_subquestion_if: true
+  subquestions:
+    - variable: nodeRed.settings.custom.functionExternalModules
+      label: Allow External Modules in Functions
+      description: "Let Function nodes import npm modules (security risk if untrusted users)"
+      type: boolean
+      default: true
+    
+    - variable: nodeRed.settings.custom.logging.console.level
+      label: Log Level
+      description: "Logging verbosity"
+      type: enum
+      default: "info"
+      options:
+        - "fatal"
+        - "error"
+        - "warn"
+        - "info"
+        - "debug"
+        - "trace"
+
+# Node Placement
+- variable: nodeSelector
+  label: Node Selector
+  description: "Schedule pod on nodes with specific labels (key=value format)"
+  type: map[string]string
+  default: {}
+  group: "Advanced"
+
+# Monitoring
+- variable: monitoring.enabled
+  label: Enable Monitoring
+  description: "Enable Prometheus ServiceMonitor for metrics collection"
+  type: boolean
+  default: false
+  group: "Monitoring"
+  show_if: "monitoring.serviceMonitor.enabled=true"
+
+- variable: monitoring.serviceMonitor.enabled
+  label: Create ServiceMonitor
+  description: "Create Prometheus ServiceMonitor resource (requires Prometheus Operator)"
+  type: boolean
+  default: false
+  group: "Monitoring"
+  show_if: "monitoring.enabled=true"
+
+# Pod Disruption Budget
+- variable: podDisruptionBudget.enabled
+  label: Enable Pod Disruption Budget
+  description: "Prevent voluntary disruptions during cluster maintenance"
+  type: boolean
+  default: false
+  group: "High Availability"
+
+# Network Policy
+- variable: networkPolicy.enabled
+  label: Enable Network Policy
+  description: "Restrict network traffic to/from Node-RED pod"
+  type: boolean
+  default: false
+  group: "Security"
