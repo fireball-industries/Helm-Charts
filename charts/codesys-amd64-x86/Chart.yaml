@@ -1,0 +1,58 @@
+apiVersion: v2
+name: codesys-x86
+description: A Helm chart for CODESYS Control for Linux runtime on x86 architectures (amd64/386)
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+version: 1.0.0
+
+# This is the version number of the application being deployed.
+appVersion: "3.5.19.0"
+
+keywords:
+  - codesys
+  - plc
+  - automation
+  - x86
+  - industrial
+
+home: https://github.com/YOUR_ORG/YOUR_REPO
+sources:
+  - https://github.com/YOUR_ORG/YOUR_REPO
+
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireballindustries.com
+
+# Icon URL (optional)
+# icon: https://example.com/icon.png
+
+# Kubernetes version requirement
+kubeVersion: ">=1.24.0-0"
+
+# Rancher catalog annotations
+annotations:
+  catalog.cattle.io/display-name: "CODESYS Control x86/AMD64"
+  catalog.cattle.io/release-name: "codesys-x86"
+  catalog.cattle.io/certified: "partner"
+  catalog.cattle.io/namespace: "codesys-x86"
+  catalog.cattle.io/kube-version: ">=1.24.0-0"
+  catalog.cattle.io/os: "linux"
+  catalog.cattle.io/rancher-version: ">=2.6.0-0"
+  
+  # Categories
+  catalog.cattle.io/categories: "Industrial Automation,CODESYS,PLC Runtime,x86,Manufacturing"
+  
+  # Features
+  catalog.cattle.io/provides: "plc-runtime,iec-61131-3,opc-ua,modbus,webvisu"
+  
+  # Architecture support
+  catalog.cattle.io/supported-architectures: "amd64,386"
+  
+  # Auto-install
+  catalog.cattle.io/auto-install: "codesys-x86=match"
+
+
+# Minimum Kubernetes version
+kubeVersion: ">=1.24.0-0"
