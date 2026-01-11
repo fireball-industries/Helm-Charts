@@ -1,0 +1,60 @@
+# Helm
+*.tgz
+.helmignore.bak
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build outputs
+dist/
+build/
+target/
+
+# Logs
+*.log
+logs/
+
+# Secrets (NEVER commit these)
+secrets.yaml
+*secret*.yaml
+*.key
+*.pem
+*.crt
+.env
+.env.local
+
+# InfluxDB data (if running locally)
+influxdb-data/
+*.bolt
+*.db
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Terraform (if using)
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Test outputs
+test-results/
+coverage/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# PowerShell
+*.ps1.log

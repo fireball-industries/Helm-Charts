@@ -1,0 +1,23 @@
+================================================================================
+  _____        __ _       _     _____  ____    ____           _ 
+ |_   _|      / _| |     | |   |  __ \|  _ \  |  _ \         | |
+   | |  _ __ | |_| |_   _| |__ | |  | | |_) | | |_) |__   ___| |
+   | | | '_ \|  _| | | | |_  / | |  | |  _ <  |  __/ _ \ / _ \ |
+  _| |_| | | | | | | |_| |/ /  | |__| | |_) | | | | (_) |  __/_|
+ |_____|_| |_|_| |_|\__,_/___|  |_____/|____/  |_|  \___/ \___(_)
+
+================================================================================
+         Fireball Industries - "Ignite Your Factory Efficiency"™
+================================================================================
+
+🔥 InfluxDB Pod v{{ .Chart.Version }} - Because CSV files aren't a database
+
+Welcome to industrial-grade time-series data storage. Your sensors will thank you.
+
+Chart: {{ .Chart.Name }}
+Version: {{ .Chart.Version }}
+App Version: {{ .Chart.AppVersion }}
+Deployment Mode: {{ .Values.deploymentMode }}
+Resource Preset: {{ .Values.resourcePreset }}
+
+================================================================================

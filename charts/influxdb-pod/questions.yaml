@@ -1,0 +1,513 @@
+# ============================================================================
+# Rancher Questions - InfluxDB Pod Configuration Wizard
+# Fireball Industries - "Ignite Your Factory Efficiency"™
+# ============================================================================
+# This provides a user-friendly UI in Rancher for configuring InfluxDB.
+# Because clicking buttons is easier than YAML archaeology.
+# ============================================================================
+
+categories:
+  - Database
+  - Monitoring
+  - Industrial
+
+questions:
+# ============================================================================
+# Deployment Configuration
+# ============================================================================
+- variable: deploymentMode
+  label: Deployment Mode
+  description: "Single-instance for dev/edge, HA clustering for production factories where downtime costs real money."
+  type: enum
+  required: true
+  default: "single"
+  group: "Deployment"
+  options:
+    - "single"
+    - "ha"
+
+- variable: resourcePreset
+  label: Resource Preset
+  description: "Choose based on sensor count. Or 'custom' if you know your workload better than we do (you probably do)."
+  type: enum
+  required: true
+  default: "medium"
+  group: "Deployment"
+  options:
+    - "edge"
+    - "small"
+    - "medium"
+    - "large"
+    - "xlarge"
+    - "custom"
+
+- variable: highAvailability.replicas
+  label: HA Replicas
+  description: "Number of InfluxDB instances for clustering (must be odd: 3, 5, or 7). Only used when HA mode is enabled."
+  type: int
+  required: false
+  default: 3
+  group: "Deployment"
+  show_if: "deploymentMode=ha"
+  min: 3
+  max: 7
+
+# ============================================================================
+# InfluxDB Configuration
+# ============================================================================
+- variable: influxdb.organization
+  label: Organization Name
+  description: "Your factory/company name. This is used throughout InfluxDB for data organization."
+  type: string
+  required: true
+  default: "factory"
+  group: "InfluxDB Configuration"
+
+- variable: influxdb.bucket
+  label: Default Bucket Name
+  description: "Default bucket for sensor data. Additional industrial buckets (SCADA, production, energy, quality) are created automatically."
+  type: string
+  required: true
+  default: "sensors"
+  group: "InfluxDB Configuration"
+
+- variable: influxdb.adminToken
+  label: Admin Token
+  description: "Initial admin token for InfluxDB access. Leave empty to auto-generate (check pod logs or secret for the generated token)."
+  type: password
+  required: false
+  group: "InfluxDB Configuration"
+
+- variable: influxdb.retention
+  label: Default Retention Period
+  description: "How long to keep data in the default bucket (format: 1h, 24h, 7d, 30d, 365d, inf for infinite)."
+  type: string
+  required: true
+  default: "90d"
+  group: "InfluxDB Configuration"
+
+- variable: influxdb.logLevel
+  label: Log Level
+  description: "Logging verbosity. Use 'debug' if things are broken, 'info' for normal operation."
+  type: enum
+  required: true
+  default: "info"
+  group: "InfluxDB Configuration"
+  options:
+    - "debug"
+    - "info"
+    - "warn"
+    - "error"
+
+# ============================================================================
+# Industrial Buckets
+# ============================================================================
+- variable: industrialBuckets.enabled
+  label: Enable Industrial Buckets
+  description: "Pre-configure buckets for sensors, SCADA, production, energy, and quality data. Recommended for factory deployments."
+  type: boolean
+  required: true
+  default: true
+  group: "Industrial Configuration"
+
+# ============================================================================
+# Data Retention & Downsampling
+# ============================================================================
+- variable: dataRetention.enabled
+  label: Enable Data Downsampling
+  description: "Automatically downsample old data to save storage (hot=full precision, warm=1min avg, cold=1hr avg). Recommended for long-term storage."
+  type: boolean
+  required: true
+  default: true
+  group: "Data Retention"
+
+- variable: dataRetention.hot.duration
+  label: Hot Storage Duration
+  description: "How long to keep full-precision data (format: 1d, 7d, 30d)."
+  type: string
+  required: false
+  default: "7d"
+  group: "Data Retention"
+  show_if: "dataRetention.enabled=true"
+
+- variable: dataRetention.warm.duration
+  label: Warm Storage Duration
+  description: "How long to keep 1-minute averaged data."
+  type: string
+  required: false
+  default: "90d"
+  group: "Data Retention"
+  show_if: "dataRetention.enabled=true"
+
+- variable: dataRetention.cold.duration
+  label: Cold Storage Duration
+  description: "How long to keep 1-hour averaged data (e.g., '730d' for 2 years)."
+  type: string
+  required: false
+  default: "730d"
+  group: "Data Retention"
+  show_if: "dataRetention.enabled=true"
+
+# ============================================================================
+# Storage Configuration
+# ============================================================================
+- variable: persistence.enabled
+  label: Enable Persistent Storage
+  description: "InfluxDB REQUIRES persistent storage. Disabling this is... not recommended unless you enjoy data loss."
+  type: boolean
+  required: true
+  default: true
+  group: "Storage"
+
+- variable: persistence.storageClass
+  label: Storage Class
+  description: "Storage class for PersistentVolumeClaim. Empty uses cluster default. Use fast SSDs for production (seriously)."
+  type: storageclass
+  required: false
+  group: "Storage"
+  show_if: "persistence.enabled=true"
+
+- variable: persistence.size
+  label: Storage Size
+  description: "Persistent volume size. This is overridden by resource preset unless you chose 'custom'."
+  type: string
+  required: false
+  default: "50Gi"
+  group: "Storage"
+  show_if: "persistence.enabled=true&&resourcePreset=custom"
+
+- variable: persistence.retainOnDelete
+  label: Retain Data on Uninstall
+  description: "Keep PersistentVolumeClaim when chart is deleted. Set to 'false' if you want to permanently delete data (scary!)."
+  type: boolean
+  required: true
+  default: true
+  group: "Storage"
+  show_if: "persistence.enabled=true"
+
+# ============================================================================
+# Custom Resources (only shown when resourcePreset=custom)
+# ============================================================================
+- variable: resources.requests.memory
+  label: Memory Request
+  description: "Minimum memory allocated to InfluxDB pod."
+  type: string
+  required: false
+  default: "1Gi"
+  group: "Resources"
+  show_if: "resourcePreset=custom"
+
+- variable: resources.requests.cpu
+  label: CPU Request
+  description: "Minimum CPU allocated to InfluxDB pod."
+  type: string
+  required: false
+  default: "1"
+  group: "Resources"
+  show_if: "resourcePreset=custom"
+
+- variable: resources.limits.memory
+  label: Memory Limit
+  description: "Maximum memory allowed for InfluxDB pod."
+  type: string
+  required: false
+  default: "2Gi"
+  group: "Resources"
+  show_if: "resourcePreset=custom"
+
+- variable: resources.limits.cpu
+  label: CPU Limit
+  description: "Maximum CPU allowed for InfluxDB pod."
+  type: string
+  required: false
+  default: "2"
+  group: "Resources"
+  show_if: "resourcePreset=custom"
+
+# ============================================================================
+# Service Configuration
+# ============================================================================
+- variable: service.type
+  label: Service Type
+  description: "How to expose InfluxDB. ClusterIP=internal only, LoadBalancer=external IP, NodePort=static port on nodes."
+  type: enum
+  required: true
+  default: "ClusterIP"
+  group: "Services"
+  options:
+    - "ClusterIP"
+    - "LoadBalancer"
+    - "NodePort"
+
+- variable: service.nodePort
+  label: Node Port
+  description: "Static port on each node (30000-32767). Only used when Service Type is NodePort."
+  type: int
+  required: false
+  default: 30086
+  group: "Services"
+  show_if: "service.type=NodePort"
+  min: 30000
+  max: 32767
+
+# ============================================================================
+# Ingress Configuration
+# ============================================================================
+- variable: ingress.enabled
+  label: Enable Ingress
+  description: "Expose InfluxDB via ingress controller (recommended with HTTPS for production). Requires an ingress controller installed."
+  type: boolean
+  required: true
+  default: false
+  group: "Ingress"
+
+- variable: ingress.className
+  label: Ingress Class
+  description: "Ingress controller class (nginx, traefik, etc.)."
+  type: string
+  required: false
+  default: "nginx"
+  group: "Ingress"
+  show_if: "ingress.enabled=true"
+
+- variable: ingress.hosts[0].host
+  label: Hostname
+  description: "Domain name for accessing InfluxDB (e.g., influxdb.factory.local)."
+  type: hostname
+  required: false
+  default: "influxdb.factory.local"
+  group: "Ingress"
+  show_if: "ingress.enabled=true"
+
+- variable: ingress.tls[0].secretName
+  label: TLS Secret Name
+  description: "Kubernetes secret containing TLS certificate. Leave empty to use HTTP (not recommended for production)."
+  type: secret
+  required: false
+  default: "influxdb-tls"
+  group: "Ingress"
+  show_if: "ingress.enabled=true"
+
+# ============================================================================
+# Backup Configuration
+# ============================================================================
+- variable: backup.enabled
+  label: Enable Automated Backups
+  description: "Schedule automatic backups of InfluxDB data. Because disasters happen, even in factories."
+  type: boolean
+  required: true
+  default: false
+  group: "Backup"
+
+- variable: backup.schedule
+  label: Backup Schedule
+  description: "Cron schedule for backups (default: 2 AM daily)."
+  type: string
+  required: false
+  default: "0 2 * * *"
+  group: "Backup"
+  show_if: "backup.enabled=true"
+
+- variable: backup.retention
+  label: Backup Retention Count
+  description: "Number of backups to keep before deleting old ones."
+  type: int
+  required: false
+  default: 7
+  group: "Backup"
+  show_if: "backup.enabled=true"
+  min: 1
+  max: 90
+
+- variable: backup.destination.type
+  label: Backup Destination Type
+  description: "Where to store backups: PVC (cluster storage), S3 (AWS/MinIO), or NFS."
+  type: enum
+  required: false
+  default: "pvc"
+  group: "Backup"
+  show_if: "backup.enabled=true"
+  options:
+    - "pvc"
+    - "s3"
+    - "nfs"
+
+- variable: backup.destination.s3.bucket
+  label: S3 Bucket Name
+  description: "AWS S3 bucket name for backups."
+  type: string
+  required: false
+  group: "Backup"
+  show_if: "backup.enabled=true&&backup.destination.type=s3"
+
+- variable: backup.destination.s3.region
+  label: S3 Region
+  description: "AWS region for S3 bucket."
+  type: string
+  required: false
+  default: "us-east-1"
+  group: "Backup"
+  show_if: "backup.enabled=true&&backup.destination.type=s3"
+
+# ============================================================================
+# Telegraf Integration
+# ============================================================================
+- variable: telegraf.enabled
+  label: Enable Telegraf Sidecar
+  description: "Deploy Telegraf alongside InfluxDB for collecting metrics from OPC UA, Modbus, MQTT, etc. Requires custom configuration."
+  type: boolean
+  required: true
+  default: false
+  group: "Telegraf Integration"
+
+# ============================================================================
+# Edge Deployment
+# ============================================================================
+- variable: edge.enabled
+  label: Enable Edge Mode
+  description: "Configure for edge deployment with local buffering and remote write to central InfluxDB. Perfect for remote factory locations."
+  type: boolean
+  required: true
+  default: false
+  group: "Edge Deployment"
+
+- variable: edge.remoteWrite.enabled
+  label: Enable Remote Write
+  description: "Send data to central InfluxDB instance. Useful for aggregating data from multiple edge locations."
+  type: boolean
+  required: false
+  default: false
+  group: "Edge Deployment"
+  show_if: "edge.enabled=true"
+
+- variable: edge.remoteWrite.url
+  label: Central InfluxDB URL
+  description: "URL of central InfluxDB instance (e.g., https://influxdb-central.factory.com)."
+  type: string
+  required: false
+  group: "Edge Deployment"
+  show_if: "edge.enabled=true&&edge.remoteWrite.enabled=true"
+
+- variable: edge.remoteWrite.bucket
+  label: Remote Bucket Name
+  description: "Bucket name on central InfluxDB for edge data."
+  type: string
+  required: false
+  default: "edge-data"
+  group: "Edge Deployment"
+  show_if: "edge.enabled=true&&edge.remoteWrite.enabled=true"
+
+- variable: edge.localBuffer.enabled
+  label: Enable Local Buffering
+  description: "Buffer data locally during network outages. Highly recommended for unreliable connectivity."
+  type: boolean
+  required: false
+  default: true
+  group: "Edge Deployment"
+  show_if: "edge.enabled=true"
+
+# ============================================================================
+# Security Configuration
+# ============================================================================
+- variable: networkPolicy.enabled
+  label: Enable Network Policy
+  description: "Restrict network traffic to/from InfluxDB pod. Requires a CNI that supports NetworkPolicy (Calico, Cilium, etc.)."
+  type: boolean
+  required: true
+  default: false
+  group: "Security"
+
+- variable: security.podSecurityStandard
+  label: Pod Security Standard
+  description: "Pod security profile. 'restricted' is most secure (recommended), 'baseline' allows more privileges."
+  type: enum
+  required: true
+  default: "restricted"
+  group: "Security"
+  options:
+    - "restricted"
+    - "baseline"
+
+# ============================================================================
+# Monitoring
+# ============================================================================
+- variable: monitoring.prometheus.enabled
+  label: Enable Prometheus Metrics
+  description: "Expose Prometheus metrics endpoint for monitoring InfluxDB health."
+  type: boolean
+  required: true
+  default: true
+  group: "Monitoring"
+
+- variable: monitoring.serviceMonitor.enabled
+  label: Enable ServiceMonitor
+  description: "Create ServiceMonitor resource for Prometheus Operator. Requires Prometheus Operator installed."
+  type: boolean
+  required: true
+  default: false
+  group: "Monitoring"
+
+# ============================================================================
+# Grafana Integration
+# ============================================================================
+- variable: grafana.datasource.enabled
+  label: Auto-Create Grafana Datasource
+  description: "Automatically create InfluxDB datasource in Grafana. Requires Grafana installed."
+  type: boolean
+  required: true
+  default: false
+  group: "Grafana Integration"
+
+- variable: grafana.datasource.namespace
+  label: Grafana Namespace
+  description: "Namespace where Grafana is deployed."
+  type: string
+  required: false
+  default: "monitoring"
+  group: "Grafana Integration"
+  show_if: "grafana.datasource.enabled=true"
+
+# ============================================================================
+# Advanced Configuration
+# ============================================================================
+- variable: autoscaling.enabled
+  label: Enable Horizontal Pod Autoscaling
+  description: "Automatically scale InfluxDB pods based on CPU/memory usage. Only works with single deployment mode."
+  type: boolean
+  required: true
+  default: false
+  group: "Advanced"
+  show_if: "deploymentMode=single"
+
+- variable: autoscaling.minReplicas
+  label: Minimum Replicas
+  description: "Minimum number of InfluxDB pods when autoscaling."
+  type: int
+  required: false
+  default: 1
+  group: "Advanced"
+  show_if: "autoscaling.enabled=true&&deploymentMode=single"
+  min: 1
+  max: 10
+
+- variable: autoscaling.maxReplicas
+  label: Maximum Replicas
+  description: "Maximum number of InfluxDB pods when autoscaling."
+  type: int
+  required: false
+  default: 3
+  group: "Advanced"
+  show_if: "autoscaling.enabled=true&&deploymentMode=single"
+  min: 1
+  max: 10
+
+- variable: autoscaling.targetCPUUtilizationPercentage
+  label: Target CPU Utilization
+  description: "Scale up when average CPU exceeds this percentage."
+  type: int
+  required: false
+  default: 80
+  group: "Advanced"
+  show_if: "autoscaling.enabled=true&&deploymentMode=single"
+  min: 50
+  max: 95

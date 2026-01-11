@@ -1,0 +1,190 @@
+================================================================================
+  _____        __ _       _     _____  ____    ____           _ 
+ |_   _|      / _| |     | |   |  __ \|  _ \  |  _ \         | |
+   | |  _ __ | |_| |_   _| |__ | |  | | |_) | | |_) |__   ___| |
+   | | | '_ \|  _| | | | |_  / | |  | |  _ <  |  __/ _ \ / _ \ |
+  _| |_| | | | | | | |_| |/ /  | |__| | |_) | | | | (_) |  __/_|
+ |_____|_| |_|_| |_|\__,_/___|  |_____/|____/  |_|  \___/ \___(_)
+
+================================================================================
+         Fireball Industries - "Ignite Your Factory Efficiency"™
+================================================================================
+
+🔥 InfluxDB {{ .Chart.AppVersion }} has been deployed!
+
+Your industrial time-series database is ready to collect sensor data.
+Because Excel spreadsheets were never meant for 10,000 data points per second.
+
+================================================================================
+📊 DEPLOYMENT DETAILS
+================================================================================
+
+Release Name:      {{ .Release.Name }}
+Namespace:         {{ .Release.Namespace }}
+Deployment Mode:   {{ .Values.deploymentMode }}
+Resource Preset:   {{ .Values.resourcePreset }}
+{{- if eq .Values.deploymentMode "ha" }}
+HA Replicas:       {{ .Values.highAvailability.replicas }}
+{{- end }}
+
+Organization:      {{ .Values.influxdb.organization }}
+Default Bucket:    {{ .Values.influxdb.bucket }}
+Retention:         {{ .Values.influxdb.retention }}
+
+================================================================================
+🔐 ACCESS CREDENTIALS
+================================================================================
+
+Get your admin token (SAVE THIS SOMEWHERE SECURE):
+
+  kubectl get secret {{ include "influxdb-pod.fullname" . }}-auth \
+    -n {{ .Release.Namespace }} \
+    -o jsonpath='{.data.admin-token}' | base64 --decode
+
+Admin Username:
+  kubectl get secret {{ include "influxdb-pod.fullname" . }}-auth \
+    -n {{ .Release.Namespace }} \
+    -o jsonpath='{.data.admin-user}' | base64 --decode
+
+Admin Password:
+  kubectl get secret {{ include "influxdb-pod.fullname" . }}-auth \
+    -n {{ .Release.Namespace }} \
+    -o jsonpath='{.data.admin-password}' | base64 --decode
+
+================================================================================
+🌐 ACCESS INFLUXDB
+================================================================================
+
+{{- if .Values.ingress.enabled }}
+
+InfluxDB UI is available at:
+{{- range .Values.ingress.hosts }}
+  {{- if $.Values.ingress.tls }}
+  https://{{ .host }}
+  {{- else }}
+  http://{{ .host }}
+  {{- end }}
+{{- end }}
+
+{{- else }}
+
+To access InfluxDB UI, run:
+
+  kubectl port-forward -n {{ .Release.Namespace }} \
+    svc/{{ include "influxdb-pod.fullname" . }} 8086:8086
+
+Then open: http://localhost:8086
+
+{{- end }}
+
+================================================================================
+📦 INDUSTRIAL BUCKETS
+================================================================================
+
+{{- if .Values.industrialBuckets.enabled }}
+The following buckets have been created for your factory:
+
+{{- range .Values.industrialBuckets.buckets }}
+  • {{ .name }} ({{ .retention }}) - {{ .description }}
+{{- end }}
+
+Check bucket creation logs:
+  kubectl logs -n {{ .Release.Namespace }} \
+    -l app.kubernetes.io/name={{ include "influxdb-pod.name" . }} \
+    --tail=50
+
+{{- else }}
+Industrial buckets are disabled. Enable in values.yaml.
+{{- end }}
+
+================================================================================
+🚀 QUICK START
+================================================================================
+
+1. Get your admin token (see above)
+
+2. Test the API:
+   curl -I {{ include "influxdb-pod.url" . }}/health
+
+3. Write some data:
+   influx write \
+     --bucket sensors \
+     --org {{ .Values.influxdb.organization }} \
+     --token <YOUR_TOKEN> \
+     --precision s \
+     "temperature,sensor=sensor01,location=factory-floor value=23.5"
+
+4. Query data:
+   influx query \
+     --org {{ .Values.influxdb.organization }} \
+     --token <YOUR_TOKEN> \
+     'from(bucket: "sensors") |> range(start: -1h)'
+
+================================================================================
+📚 DOCUMENTATION
+================================================================================
+
+Full documentation: https://github.com/fireball-industries/influxdb-pod
+Quick Reference:    See QUICK_REFERENCE.md
+Security Guide:     See docs/SECURITY.md
+
+For Telegraf integration (OPC UA, Modbus, MQTT):
+  See examples/scada-integration.yaml
+
+================================================================================
+🔧 TROUBLESHOOTING
+================================================================================
+
+Check pod status:
+  kubectl get pods -n {{ .Release.Namespace }} \
+    -l app.kubernetes.io/name={{ include "influxdb-pod.name" . }}
+
+View logs:
+  kubectl logs -n {{ .Release.Namespace }} \
+    -l app.kubernetes.io/name={{ include "influxdb-pod.name" . }} \
+    --follow
+
+Check health:
+  kubectl exec -n {{ .Release.Namespace }} \
+    deploy/{{ include "influxdb-pod.fullname" . }} -- \
+    influx ping
+
+Describe deployment:
+  kubectl describe {{ if eq .Values.deploymentMode "ha" }}statefulset{{ else }}deployment{{ end }} \
+    -n {{ .Release.Namespace }} \
+    {{ include "influxdb-pod.fullname" . }}
+
+================================================================================
+⚠️  IMPORTANT REMINDERS
+================================================================================
+
+✓ SAVE YOUR ADMIN TOKEN - You'll need it for everything
+✓ Enable backups for production (set backup.enabled=true)
+✓ Use HTTPS in production (configure ingress.tls)
+✓ Consider HA mode for critical factories (deploymentMode=ha)
+✓ Monitor disk usage - time-series data grows fast
+✓ Set up retention policies to manage storage costs
+✓ Don't store tokens in Git (use Kubernetes Secrets or Vault)
+
+================================================================================
+🎯 NEXT STEPS
+================================================================================
+
+1. Configure Grafana datasource for dashboards
+2. Set up Telegraf for sensor data collection
+3. Create additional buckets for different data types
+4. Configure downsampling tasks to save storage
+5. Set up alerting for production anomalies
+6. Test backup and restore procedures
+
+Need help? Patrick Ryan says: "RTFM, but nicely."
+Documentation: https://github.com/fireball-industries/influxdb-pod
+
+================================================================================
+
+🔥 Fireball Industries - Making Industrial IoT Less Painful Since 2026 🔥
+
+Pro tip: This message won't show again. Save it if you need it.
+To redisplay: helm get notes {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+================================================================================

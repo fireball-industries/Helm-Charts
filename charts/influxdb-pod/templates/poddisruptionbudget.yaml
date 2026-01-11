@@ -1,0 +1,14 @@
+{{- if and (eq .Values.deploymentMode "ha") .Values.highAvailability.podDisruptionBudget.enabled -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "influxdb-pod.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "influxdb-pod.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.highAvailability.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "influxdb-pod.selectorLabels" . | nindent 6 }}
+{{- end }}

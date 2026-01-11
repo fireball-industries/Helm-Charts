@@ -1,0 +1,274 @@
+# SCADA Integration InfluxDB Deployment
+# For collecting SCADA system data, alarms, and events
+# Integrates with industrial control systems
+
+deploymentMode: single
+resourcePreset: medium
+
+influxdb:
+  organization: "plant-operations"
+  bucket: "scada"
+  retention: "365d"
+  logLevel: info
+  
+  # Optimized for burst writes from SCADA
+  storage:
+    cacheMaxMemorySize: "1g"
+    walMaxConcurrentWrites: 0  # Use all cores
+  
+  query:
+    concurrency: 15  # High concurrency for dashboards
+
+# SCADA-specific buckets
+industrialBuckets:
+  enabled: true
+  buckets:
+    - name: "scada"
+      retention: "730d"  # 2 years
+      description: "SCADA system metrics and alarms"
+    - name: "alarms"
+      retention: "2555d"  # 7 years (compliance)
+      description: "SCADA alarm history"
+    - name: "events"
+      retention: "2555d"
+      description: "Operator events and actions"
+    - name: "plc_data"
+      retention: "365d"
+      description: "PLC register values"
+    - name: "hmi_metrics"
+      retention: "90d"
+      description: "HMI performance metrics"
+
+# Data retention
+dataRetention:
+  enabled: true
+  hot:
+    duration: "14d"  # 2 weeks full precision
+  warm:
+    duration: "365d"
+    interval: "1m"
+  cold:
+    duration: "2555d"
+    interval: "1h"
+
+# Persistent storage
+persistence:
+  enabled: true
+  storageClass: "fast-ssd"
+  size: "200Gi"
+  retainOnDelete: true
+
+# Daily backups (compliance requirement)
+backup:
+  enabled: true
+  schedule: "0 3 * * *"  # 3 AM (off-shift)
+  retention: 90  # Keep 90 days
+  destination:
+    type: s3
+    s3:
+      bucket: "scada-backups"
+      region: "us-east-1"
+
+# Telegraf for SCADA data collection
+telegraf:
+  enabled: true
+  config: |
+    [agent]
+      interval = "1s"  # Fast polling for SCADA
+      round_interval = true
+      metric_batch_size = 2000
+      metric_buffer_limit = 20000
+      flush_interval = "5s"
+    
+    [[outputs.influxdb_v2]]
+      urls = ["http://localhost:8086"]
+      token = "$INFLUX_TOKEN"
+      organization = "$INFLUX_ORG"
+      bucket = "scada"
+      tagexclude = ["url"]
+    
+    # OPC UA input for SCADA servers
+    [[inputs.opcua]]
+      name = "scada-server-01"
+      endpoint = "opc.tcp://scada-server:4840"
+      security_policy = "None"
+      security_mode = "None"
+      
+      [[inputs.opcua.nodes]]
+        name = "PLC01_Temperature"
+        namespace = "2"
+        identifier_type = "s"
+        identifier = "PLC01.Temperature"
+      
+      [[inputs.opcua.nodes]]
+        name = "PLC01_Pressure"
+        namespace = "2"
+        identifier_type = "s"
+        identifier = "PLC01.Pressure"
+      
+      [[inputs.opcua.nodes]]
+        name = "Line01_Status"
+        namespace = "2"
+        identifier_type = "s"
+        identifier = "Line01.Status"
+    
+    # Modbus TCP for PLCs
+    [[inputs.modbus]]
+      name = "plc-01"
+      slave_id = 1
+      timeout = "1s"
+      controller = "tcp://10.0.10.10:502"
+      
+      holding_registers = [
+        {name = "reactor_temp", byte_order = "AB", data_type = "FLOAT32", scale=1.0, address = [0,1]},
+        {name = "reactor_pressure", byte_order = "AB", data_type = "FLOAT32", scale=1.0, address = [2,3]},
+        {name = "pump_speed", byte_order = "AB", data_type = "UINT16", scale=1.0, address = [4]},
+        {name = "valve_position", byte_order = "AB", data_type = "UINT16", scale=1.0, address = [5]},
+      ]
+    
+    [[inputs.modbus]]
+      name = "plc-02"
+      slave_id = 2
+      timeout = "1s"
+      controller = "tcp://10.0.10.11:502"
+      
+      holding_registers = [
+        {name = "mixer_speed", byte_order = "AB", data_type = "UINT16", scale=1.0, address = [0]},
+        {name = "level_sensor", byte_order = "AB", data_type = "FLOAT32", scale=1.0, address = [1,2]},
+      ]
+    
+    # SNMP for network equipment
+    [[inputs.snmp]]
+      agents = ["10.0.10.20:161"]
+      version = 2
+      community = "public"
+      
+      [[inputs.snmp.field]]
+        name = "hostname"
+        oid = "RFC1213-MIB::sysName.0"
+        is_tag = true
+      
+      [[inputs.snmp.table]]
+        name = "interface"
+        inherit_tags = ["hostname"]
+        oid = "IF-MIB::ifTable"
+        
+        [[inputs.snmp.table.field]]
+          name = "ifDescr"
+          oid = "IF-MIB::ifDescr"
+          is_tag = true
+    
+    # SQL Server for SCADA historian (legacy)
+    [[inputs.sql]]
+      driver = "mssql"
+      dsn = "server=scada-historian;user id=telegraf;password=${SCADA_DB_PASSWORD};database=RuntimeData"
+      
+      [[inputs.sql.query]]
+        query = "SELECT TagName, Value, Timestamp FROM AnalogData WHERE Timestamp > DATEADD(minute, -1, GETDATE())"
+        measurement = "scada_historian"
+        time_column = "Timestamp"
+        tag_columns = ["TagName"]
+        field_columns = ["Value"]
+  
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+
+# Ingress for SCADA operators
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Large payload for batch alarm uploads
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    # Whitelist SCADA network
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.10.0/24,10.0.20.0/24"
+  hosts:
+    - host: scada-influxdb.plant.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: scada-influxdb-tls
+      hosts:
+        - scada-influxdb.plant.local
+
+# Monitoring
+monitoring:
+  prometheus:
+    enabled: true
+  serviceMonitor:
+    enabled: true
+
+# Grafana integration for SCADA dashboards
+grafana:
+  datasource:
+    enabled: true
+    namespace: "scada-hmi"
+
+# Security (OT network isolation)
+security:
+  runAsNonRoot: true
+  podSecurityStandard: restricted
+
+networkPolicy:
+  enabled: true
+  ingress:
+    # Allow from SCADA network
+    - podSelector: {}
+      namespaceSelector:
+        matchLabels:
+          name: scada
+    # Allow from HMI systems
+    - podSelector: {}
+      namespaceSelector:
+        matchLabels:
+          name: hmi
+    # Allow from monitoring
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+
+# Resources
+resources:
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+  requests:
+    cpu: "1"
+    memory: "4Gi"
+
+# Node affinity for OT network nodes
+nodeSelector:
+  network-zone: ot
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8086
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  failureThreshold: 6
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8086
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  failureThreshold: 3
+
+# Extra environment for SCADA DB password
+extraEnv:
+  - name: SCADA_DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: scada-credentials
+        key: db-password

@@ -1,0 +1,226 @@
+# High Availability InfluxDB Deployment
+# For production factories requiring 99.9% uptime
+# StatefulSet with 3 replicas, anti-affinity, PDB
+
+deploymentMode: ha
+resourcePreset: large
+
+influxdb:
+  organization: "global-manufacturing"
+  bucket: "sensors"
+  retention: "365d"
+  logLevel: info
+  
+  http:
+    enabled: true
+    port: 8086
+    httpsEnabled: false  # TLS handled by ingress
+  
+  rpc:
+    port: 8088  # For clustering
+  
+  storage:
+    cacheMaxMemorySize: "2g"
+    cacheSnapshotMemorySize: "50m"
+    maxConcurrentCompactions: 4
+
+# HA configuration
+highAvailability:
+  replicas: 3  # Must be odd (3, 5, 7)
+  
+  # Soft anti-affinity (prefer different nodes)
+  # Use 'hard' if you have enough nodes
+  antiAffinity: soft
+  
+  # Pod disruption budget
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2  # At least 2 pods must be available during updates
+
+# Industrial buckets with longer retention
+industrialBuckets:
+  enabled: true
+  buckets:
+    - name: "sensors"
+      retention: "365d"
+      description: "Raw sensor data"
+    - name: "scada"
+      retention: "730d"  # 2 years
+      description: "SCADA alarms and events"
+    - name: "production"
+      retention: "2555d"  # 7 years for compliance
+      description: "Production records"
+    - name: "energy"
+      retention: "2555d"
+      description: "Energy consumption (compliance)"
+    - name: "quality"
+      retention: "2555d"
+      description: "Quality records (21 CFR Part 11)"
+
+# Data retention with downsampling
+dataRetention:
+  enabled: true
+  hot:
+    duration: "30d"  # Full precision for 30 days (more than default)
+  warm:
+    duration: "365d"  # 1-minute averages for 1 year
+    interval: "1m"
+  cold:
+    duration: "2555d"  # 1-hour averages for 7 years
+    interval: "1h"
+
+# Persistent storage (per-pod PVCs with StatefulSet)
+persistence:
+  enabled: true
+  storageClass: "fast-ssd-retained"
+  size: "500Gi"  # Large storage for HA deployment
+  retainOnDelete: true  # Keep data even if pod deleted
+
+# Automated backups to S3
+backup:
+  enabled: true
+  schedule: "0 1 * * *"  # 1 AM daily
+  retention: 30  # Keep 30 days
+  destination:
+    type: s3
+    s3:
+      bucket: "acme-influxdb-backups"
+      region: "us-east-1"
+      endpoint: ""
+      accessKeySecret: "aws-s3-credentials"
+      secretKeySecret: "aws-s3-credentials"
+  resources:
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+
+# LoadBalancer service for external access
+service:
+  type: LoadBalancer
+  port: 8086
+  annotations:
+    # AWS NLB annotations
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+
+# Ingress with TLS
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    # Rate limiting for production
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+  hosts:
+    - host: influxdb-ha.global-factory.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: influxdb-ha-tls
+      hosts:
+        - influxdb-ha.global-factory.com
+
+# Monitoring
+monitoring:
+  prometheus:
+    enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    labels:
+      release: prometheus-operator
+
+# Security
+security:
+  runAsNonRoot: true
+  runAsUser: 1000
+  podSecurityStandard: restricted
+
+networkPolicy:
+  enabled: true
+  ingress:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - namespaceSelector:
+        matchLabels:
+          name: grafana
+    - namespaceSelector:
+        matchLabels:
+          name: telegraf
+
+# Resources (large preset)
+resources:
+  limits:
+    cpu: "4"
+    memory: "8Gi"
+  requests:
+    cpu: "2"
+    memory: "8Gi"
+
+# Node affinity for production nodes
+nodeSelector:
+  node-role: production
+  disktype: ssd
+
+# Tolerations for dedicated nodes
+tolerations:
+  - key: "production"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+# Custom affinity rules
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role
+          operator: In
+          values:
+          - production
+        - key: disktype
+          operator: In
+          values:
+          - ssd
+
+# Lifecycle hooks
+lifecycle:
+  preStop:
+    exec:
+      command:
+        - /bin/sh
+        - -c
+        - sleep 15  # Graceful shutdown
+
+# Health checks (more aggressive for HA)
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8086
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8086
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 1
+  failureThreshold: 2
+
+# Pod annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9122"

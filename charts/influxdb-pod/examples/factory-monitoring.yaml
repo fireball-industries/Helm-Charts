@@ -1,0 +1,211 @@
+# Complete Factory Monitoring Setup
+# Production-ready configuration for medium-sized factory
+# 50-100 sensors, multiple production lines
+
+deploymentMode: single
+resourcePreset: medium
+
+influxdb:
+  organization: "acme-manufacturing"
+  bucket: "sensors"
+  retention: "90d"
+  logLevel: info
+  
+  # Storage optimization for high-frequency sensor data
+  storage:
+    cacheMaxMemorySize: "1g"
+    cacheSnapshotMemorySize: "25m"
+    compactFullWriteColdDuration: "4h"
+  
+  # Query optimization
+  query:
+    concurrency: 10
+    queueSize: 10
+
+# Pre-configured industrial buckets
+industrialBuckets:
+  enabled: true
+  buckets:
+    - name: "sensors"
+      retention: "90d"
+      description: "Raw sensor data (temperature, pressure, flow)"
+    - name: "production"
+      retention: "365d"
+      description: "Production metrics (OEE, cycle times, downtime)"
+    - name: "energy"
+      retention: "2555d"  # 7 years for energy compliance
+      description: "Energy consumption and demand"
+    - name: "quality"
+      retention: "1095d"  # 3 years
+      description: "Quality control measurements"
+    - name: "maintenance"
+      retention: "730d"  # 2 years
+      description: "Maintenance and vibration data"
+
+# Automatic downsampling to save storage
+dataRetention:
+  enabled: true
+  hot:
+    duration: "7d"  # Full precision for 1 week
+  warm:
+    duration: "90d"  # 1-minute averages for 3 months
+    interval: "1m"
+  cold:
+    duration: "730d"  # 1-hour averages for 2 years
+    interval: "1h"
+
+# Persistent storage
+persistence:
+  enabled: true
+  storageClass: "fast-ssd"  # Use fast storage for time-series
+  size: "100Gi"
+  retainOnDelete: true
+
+# Automated backups
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # 2 AM daily
+  retention: 14  # Keep 2 weeks
+  destination:
+    type: pvc
+    pvc:
+      storageClass: "standard"
+      size: "50Gi"
+
+# Expose via ingress with TLS
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Allow large batch writes from SCADA
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+  hosts:
+    - host: influxdb.factory.acme.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: influxdb-tls
+      hosts:
+        - influxdb.factory.acme.com
+
+# Telegraf for data collection
+telegraf:
+  enabled: true
+  image:
+    repository: telegraf
+    tag: "1.29-alpine"
+  config: |
+    [agent]
+      interval = "10s"
+      round_interval = true
+      metric_batch_size = 1000
+      metric_buffer_limit = 10000
+      flush_interval = "10s"
+    
+    [[outputs.influxdb_v2]]
+      urls = ["http://localhost:8086"]
+      token = "$INFLUX_TOKEN"
+      organization = "$INFLUX_ORG"
+      bucket = "sensors"
+    
+    # MQTT input for sensor data
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://mqtt-broker.factory.svc:1883"]
+      topics = [
+        "factory/+/temperature",
+        "factory/+/pressure",
+        "factory/+/flow"
+      ]
+      data_format = "json"
+      json_time_key = "timestamp"
+      json_time_format = "unix"
+    
+    # System metrics for InfluxDB host
+    [[inputs.cpu]]
+      percpu = true
+      totalcpu = true
+    
+    [[inputs.disk]]
+      ignore_fs = ["tmpfs", "devtmpfs", "devfs", "iso9660", "overlay", "aufs", "squashfs"]
+    
+    [[inputs.mem]]
+    
+    [[inputs.net]]
+    
+    [[inputs.processes]]
+
+# Monitoring
+monitoring:
+  prometheus:
+    enabled: true
+    port: 9122
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    labels:
+      release: prometheus
+
+# Grafana datasource integration
+grafana:
+  datasource:
+    enabled: true
+    namespace: "monitoring"
+
+# Security
+security:
+  runAsNonRoot: true
+  runAsUser: 1000
+  podSecurityStandard: restricted
+
+# Network policies (restrict access)
+networkPolicy:
+  enabled: true
+  ingress:
+    # Allow from Grafana
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    # Allow from same namespace
+    - podSelector: {}
+
+# Resource limits
+resources:
+  limits:
+    cpu: "2"
+    memory: "2Gi"
+  requests:
+    cpu: "1"
+    memory: "2Gi"
+
+# Node affinity (prefer nodes with fast storage)
+nodeSelector:
+  disktype: ssd
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8086
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8086
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 1
+  failureThreshold: 3
+
+# Annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9122"
+  prometheus.io/path: "/metrics"

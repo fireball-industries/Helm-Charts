@@ -1,0 +1,50 @@
+# Minimal InfluxDB Deployment
+# For local development, testing, or learning
+# NOT for production use
+
+deploymentMode: single
+resourcePreset: edge
+
+influxdb:
+  organization: "dev"
+  bucket: "test"
+  retention: "7d"
+  logLevel: debug
+
+persistence:
+  enabled: true
+  size: "5Gi"
+  # Use default storage class
+  storageClass: ""
+
+# Disable extras for minimal deployment
+industrialBuckets:
+  enabled: false
+
+dataRetention:
+  enabled: false
+
+backup:
+  enabled: false
+
+telegraf:
+  enabled: false
+
+monitoring:
+  prometheus:
+    enabled: false
+
+ingress:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+# Minimal resources for laptop/minikube
+resources:
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+  requests:
+    cpu: "250m"
+    memory: "256Mi"

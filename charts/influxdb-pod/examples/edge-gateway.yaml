@@ -1,0 +1,184 @@
+# Edge Gateway InfluxDB Deployment
+# For remote factory locations with unreliable network connectivity
+# Local data collection with remote write to central InfluxDB
+
+deploymentMode: single
+resourcePreset: edge
+
+influxdb:
+  organization: "acme-edge"
+  bucket: "sensors"
+  retention: "7d"  # Only keep 7 days locally (sent to central)
+  logLevel: info
+
+# Edge deployment configuration
+edge:
+  enabled: true
+  
+  # Remote write to central InfluxDB
+  remoteWrite:
+    enabled: true
+    url: "https://influxdb-central.global-factory.com"
+    organization: "global-manufacturing"
+    bucket: "edge-sensors"
+    tokenSecret: "edge-remote-write-token"
+    tokenSecretKey: "token"
+    
+    # Batch settings for unreliable networks
+    batchSize: 5000  # Larger batches for efficiency
+    flushInterval: "30s"  # Less frequent flushes
+    
+    # Retry settings
+    maxRetries: 10  # More retries for poor connectivity
+    retryInterval: "30s"
+  
+  # Local buffering during network outages
+  localBuffer:
+    enabled: true
+    maxSize: "10Gi"  # Buffer up to 10GB when offline
+
+# Minimal industrial buckets
+industrialBuckets:
+  enabled: true
+  buckets:
+    - name: "sensors"
+      retention: "7d"  # Short retention, data sent to central
+      description: "Edge sensor data"
+    - name: "_monitoring"
+      retention: "7d"
+      description: "Edge system health"
+
+# No downsampling (done at central)
+dataRetention:
+  enabled: false
+
+# Local persistence (survive pod restarts during network outages)
+persistence:
+  enabled: true
+  storageClass: "local-path"  # k3s default
+  size: "20Gi"  # Small local storage
+  retainOnDelete: true
+
+# No backups (central InfluxDB handles this)
+backup:
+  enabled: false
+
+# Telegraf for local sensor collection
+telegraf:
+  enabled: true
+  config: |
+    [agent]
+      interval = "10s"
+      round_interval = true
+      metric_batch_size = 1000
+      metric_buffer_limit = 50000  # Large buffer for offline periods
+      flush_interval = "30s"
+    
+    [[outputs.influxdb_v2]]
+      urls = ["http://localhost:8086"]
+      token = "$INFLUX_TOKEN"
+      organization = "$INFLUX_ORG"
+      bucket = "sensors"
+    
+    # Modbus input for local PLCs
+    [[inputs.modbus]]
+      name = "edge-plc-01"
+      slave_id = 1
+      timeout = "1s"
+      controller = "tcp://192.168.1.10:502"
+      
+      holding_registers = [
+        {name = "temperature", byte_order = "AB", data_type = "FLOAT32", scale=1.0, address = [0,1]},
+        {name = "pressure", byte_order = "AB", data_type = "FLOAT32", scale=1.0, address = [2,3]},
+        {name = "flow_rate", byte_order = "AB", data_type = "FLOAT32", scale=1.0, address = [4,5]},
+      ]
+    
+    # MQTT for wireless sensors
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://edge-mqtt:1883"]
+      topics = ["edge/sensors/#"]
+      data_format = "json"
+      json_time_key = "timestamp"
+      json_time_format = "unix"
+    
+    # Local system metrics
+    [[inputs.cpu]]
+    [[inputs.disk]]
+    [[inputs.mem]]
+  
+  resources:
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+# No ingress (internal only)
+ingress:
+  enabled: false
+
+# No external monitoring (report to central)
+monitoring:
+  prometheus:
+    enabled: true  # Expose metrics for local monitoring
+  serviceMonitor:
+    enabled: false
+
+# Minimal security (edge device in isolated network)
+networkPolicy:
+  enabled: false  # Usually isolated edge network
+
+# Edge-optimized resources
+resources:
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+  requests:
+    cpu: "250m"
+    memory: "256Mi"
+
+# Tolerate edge node taints
+tolerations:
+  - key: "edge"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+# Node selector for edge nodes
+nodeSelector:
+  node-type: edge
+
+# Health checks (more lenient for edge)
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8086
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 10  # More tolerant
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8086
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 5
+
+# Init container to wait for network
+initContainers:
+  - name: wait-for-network
+    image: busybox:1.36
+    command:
+      - sh
+      - -c
+      - |
+        echo "Waiting for network connectivity..."
+        until nc -zv 8.8.8.8 53; do
+          echo "Network not ready, waiting..."
+          sleep 5
+        done
+        echo "Network ready!"

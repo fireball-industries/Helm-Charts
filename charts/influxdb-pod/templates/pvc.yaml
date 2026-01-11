@@ -1,0 +1,22 @@
+{{- if and .Values.persistence.enabled (eq .Values.deploymentMode "single") (not .Values.persistence.existingClaim) -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "influxdb-pod.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "influxdb-pod.labels" . | nindent 4 }}
+  {{- if .Values.persistence.retainOnDelete }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ include "influxdb-pod.storageSize" . }}
+{{- end }}
