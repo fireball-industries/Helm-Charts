@@ -1,0 +1,233 @@
+{
+  "dashboard": {
+    "title": "Node Exporter Full - Fireball Industries",
+    "tags": ["node-exporter", "infrastructure", "prometheus"],
+    "timezone": "browser",
+    "editable": true,
+    "graphTooltip": 1,
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "refresh": "30s",
+    "schemaVersion": 38,
+    "version": 1,
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": "-- Grafana --",
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "templating": {
+      "list": [
+        {
+          "current": {},
+          "datasource": "${DS_PROMETHEUS}",
+          "definition": "label_values(node_uname_info, instance)",
+          "hide": 0,
+          "includeAll": false,
+          "label": "Instance",
+          "multi": false,
+          "name": "instance",
+          "options": [],
+          "query": "label_values(node_uname_info, instance)",
+          "refresh": 1,
+          "regex": "",
+          "sort": 1,
+          "type": "query"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "custom": {"axisPlacement": "auto"},
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "id": 1,
+        "options": {
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        },
+        "targets": [
+          {
+            "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{instance=~\"$instance\",mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "CPU Usage",
+            "refId": "A"
+          }
+        ],
+        "title": "CPU Usage %",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "id": 2,
+        "targets": [
+          {
+            "expr": "100 - ((node_memory_MemAvailable_bytes{instance=~\"$instance\"} / node_memory_MemTotal_bytes{instance=~\"$instance\"}) * 100)",
+            "legendFormat": "Memory Usage",
+            "refId": "A"
+          }
+        ],
+        "title": "Memory Usage %",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 85}
+              ]
+            },
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "id": 3,
+        "targets": [
+          {
+            "expr": "100 - ((node_filesystem_avail_bytes{instance=~\"$instance\",mountpoint!~\"/boot.*\"} / node_filesystem_size_bytes{instance=~\"$instance\",mountpoint!~\"/boot.*\"}) * 100)",
+            "legendFormat": "{{ mountpoint }}",
+            "refId": "A"
+          }
+        ],
+        "title": "Disk Usage %",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "Bps"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "id": 4,
+        "targets": [
+          {
+            "expr": "rate(node_network_receive_bytes_total{instance=~\"$instance\",device!~\"lo|veth.*\"}[5m])",
+            "legendFormat": "{{ device }} RX",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(node_network_transmit_bytes_total{instance=~\"$instance\",device!~\"lo|veth.*\"}[5m]) * -1",
+            "legendFormat": "{{ device }} TX",
+            "refId": "B"
+          }
+        ],
+        "title": "Network Traffic",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 6, "w": 8, "x": 0, "y": 16},
+        "id": 5,
+        "targets": [
+          {
+            "expr": "node_load1{instance=~\"$instance\"}",
+            "legendFormat": "1m",
+            "refId": "A"
+          },
+          {
+            "expr": "node_load5{instance=~\"$instance\"}",
+            "legendFormat": "5m",
+            "refId": "B"
+          },
+          {
+            "expr": "node_load15{instance=~\"$instance\"}",
+            "legendFormat": "15m",
+            "refId": "C"
+          }
+        ],
+        "title": "System Load",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 80}
+              ]
+            },
+            "unit": "celsius"
+          }
+        },
+        "gridPos": {"h": 6, "w": 8, "x": 8, "y": 16},
+        "id": 6,
+        "targets": [
+          {
+            "expr": "max(node_hwmon_temp_celsius{instance=~\"$instance\"})",
+            "legendFormat": "Max Temperature",
+            "refId": "A"
+          }
+        ],
+        "title": "Temperature",
+        "type": "gauge"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "s"
+          }
+        },
+        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 16},
+        "id": 7,
+        "targets": [
+          {
+            "expr": "(time() - node_boot_time_seconds{instance=~\"$instance\"}) / 3600",
+            "legendFormat": "Uptime (hours)",
+            "refId": "A"
+          }
+        ],
+        "title": "System Uptime",
+        "type": "stat",
+        "options": {
+          "graphMode": "none",
+          "textMode": "value"
+        }
+      }
+    ]
+  },
+  "description": "Comprehensive Node Exporter dashboard for Fireball Industries infrastructure monitoring. Displays CPU, memory, disk, network, temperature, and system metrics. For use with Prometheus Node Exporter v1.7.0+. Based on popular dashboard ID 1860 with industrial edge enhancements.",
+  "gnetId": null,
+  "uid": "node-exporter-full",
+  "version": 1
+}

@@ -1,0 +1,212 @@
+# Secure Monitoring Configuration
+# Security-hardened deployment with NetworkPolicy, strict RBAC, and minimal permissions
+# Production-ready security posture
+
+deploymentMode: daemonset
+
+resourcePreset: edge-standard
+
+# Standard collectors
+collectors:
+  enabled:
+    - cpu
+    - cpufreq
+    - diskstats
+    - filesystem
+    - hwmon
+    - loadavg
+    - meminfo
+    - netdev
+    - netstat
+    - stat
+    - time
+    - uname
+    - vmstat
+  
+  optional:
+    thermal_zone: true
+    textfile: true
+    systemd: false
+    processes: false
+
+# Textfile collector with restricted permissions
+textfileCollector:
+  enabled: true
+  hostPath: /var/lib/node_exporter/textfile_collector
+
+# Host networking (required for accurate metrics)
+hostNetwork: true
+hostPID: true
+hostIPC: false
+
+# Strict security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  privileged: false
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - SYS_TIME  # Only capability needed
+
+# RBAC - minimal permissions
+rbac:
+  create: true
+  pspEnabled: false  # Deprecated in K8s 1.25+
+
+# Service Account
+serviceAccount:
+  create: true
+  automountServiceAccountToken: true
+  annotations:
+    # Add any security annotations here
+
+# Network Policy - strict ingress rules
+networkPolicy:
+  enabled: true
+  ingress:
+    # Only allow Prometheus to scrape
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: monitoring
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: prometheus
+      ports:
+      - protocol: TCP
+        port: 9100
+    # If using ServiceMonitor from different namespace
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: prometheus-operator
+      ports:
+      - protocol: TCP
+        port: 9100
+
+# ServiceMonitor with security labels
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+  honorLabels: true
+  additionalLabels:
+    prometheus: kube-prometheus
+    security: "hardened"
+  
+  # TLS configuration (if Prometheus supports it)
+  # tlsConfig:
+  #   insecureSkipVerify: false
+
+# Service configuration
+service:
+  type: ClusterIP
+  annotations:
+    # Add any service mesh annotations here
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9100"
+
+# Tolerations - run on all nodes
+tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - key: node-role.kubernetes.io/master
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/control-plane
+    effect: NoSchedule
+
+# Node selector (optional - restrict to specific nodes)
+nodeSelector: {}
+  # security-zone: trusted
+
+# Pod Security Standards labels
+podLabels:
+  pod-security.kubernetes.io/enforce: "restricted"
+  pod-security.kubernetes.io/audit: "restricted"
+  pod-security.kubernetes.io/warn: "restricted"
+
+# Pod annotations
+podAnnotations:
+  seccomp.security.alpha.kubernetes.io/pod: "runtime/default"
+  container.apparmor.security.beta.kubernetes.io/node-exporter: "runtime/default"
+
+# Update strategy - controlled rollout
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+
+# Priority class
+priorityClassName: ""  # Set to appropriate priority class
+
+# Resource quotas
+resources:
+  requests:
+    cpu: 100m
+    memory: 50Mi
+  limits:
+    cpu: 200m
+    memory: 100Mi
+
+# Liveness/Readiness probes
+livenessProbe:
+  httpGet:
+    path: /
+    port: 9100
+    scheme: HTTP
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: 9100
+    scheme: HTTP
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  successThreshold: 1
+  failureThreshold: 3
+
+# Volume mounts - read-only where possible
+hostVolumeMounts:
+  - name: proc
+    hostPath: /proc
+    mountPath: /host/proc
+    readOnly: true
+  
+  - name: sys
+    hostPath: /sys
+    mountPath: /host/sys
+    readOnly: true
+  
+  - name: root
+    hostPath: /
+    mountPath: /host/root
+    readOnly: true
+    mountPropagation: HostToContainer
+
+# Common labels for security tracking
+commonLabels:
+  security: "hardened"
+  compliance: "enabled"
+  monitoring: "node-exporter"
+
+# Common annotations
+commonAnnotations:
+  security.policy: "strict"
+  last-security-audit: "2026-01-11"

@@ -1,0 +1,49 @@
+# Minimal HMI Configuration
+# Small factory HMI with basic features
+# Suitable for: Raspberry Pi 4, simple visualizations, <10 screens
+
+resourcePreset: edge-minimal
+
+targetvisu:
+  image:
+    repository: ghcr.io/fireball-industries/codesys-targetvisu
+    tag: "3.5.20.0"
+  
+  license:
+    type: demo  # Change to 'file' or 'server' for production
+  
+  web:
+    maxClients: 5
+    sessionTimeout: 1800
+
+storage:
+  config:
+    size: 2Gi
+  projects:
+    size: 5Gi
+  logs:
+    size: 1Gi
+
+service:
+  type: NodePort
+  http:
+    nodePort: 30080
+
+protocols:
+  opcua:
+    enabled: false
+  modbusTcp:
+    enabled: true
+    port: 502
+
+security:
+  authentication:
+    enabled: false  # Enable in production!
+
+monitoring:
+  prometheus:
+    enabled: false
+
+# Node selector for Raspberry Pi
+nodeSelector:
+  kubernetes.io/arch: arm64

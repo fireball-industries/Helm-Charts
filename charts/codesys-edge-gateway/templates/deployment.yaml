@@ -1,0 +1,180 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "codesys-edge-gateway.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "codesys-edge-gateway.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "codesys-edge-gateway.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "codesys-edge-gateway.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "codesys-edge-gateway.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      
+      {{- if .Values.network.hostNetwork }}
+      hostNetwork: true
+      dnsPolicy: {{ .Values.network.dnsPolicy }}
+      {{- end }}
+      
+      initContainers:
+        - name: init-gateway
+          image: {{ include "codesys-edge-gateway.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/bash", "/config/init.sh"]
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: data
+              mountPath: /var/opt/codesys-gateway
+          env:
+            - name: AS_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "codesys-edge-gateway.secretName" . }}
+                  key: username
+            - name: AS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "codesys-edge-gateway.secretName" . }}
+                  key: password
+      
+      containers:
+        - name: gateway
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "codesys-edge-gateway.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          
+          ports:
+            - name: gateway
+              containerPort: {{ .Values.service.gatewayPort }}
+              protocol: TCP
+            - name: plc
+              containerPort: {{ .Values.service.plcPort }}
+              protocol: TCP
+            {{- range $index, $port := .Values.service.discoveryPorts }}
+            - name: discovery-{{ $index }}
+              containerPort: {{ $port }}
+              protocol: UDP
+            {{- end }}
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+            {{- end }}
+          
+          env:
+            # Automation Server credentials
+            - name: AS_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "codesys-edge-gateway.secretName" . }}
+                  key: username
+            - name: AS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "codesys-edge-gateway.secretName" . }}
+                  key: password
+            
+            # Automation Server URL
+            - name: AS_URL
+              value: {{ .Values.gateway.automationServerUrl | quote }}
+            
+            # Gateway configuration
+            - name: GATEWAY_CONFIG
+              value: "/var/opt/codesys-gateway/config/gateway.conf"
+            
+            # Logging
+            - name: LOG_LEVEL
+              value: {{ .Values.logging.level | quote }}
+            
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            - name: config
+              mountPath: /config
+              readOnly: true
+            {{- if and .Values.timeSync.enabled (eq .Values.timeSync.method "hostPath") }}
+            - name: timezone
+              mountPath: /etc/localtime
+              readOnly: true
+            {{- end }}
+          
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "codesys-edge-gateway.configMapName" . }}
+            defaultMode: 0755
+        
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "codesys-edge-gateway.pvcName" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        
+        {{- if and .Values.timeSync.enabled (eq .Values.timeSync.method "hostPath") }}
+        - name: timezone
+          hostPath:
+            path: {{ .Values.timeSync.hostTimezonePath }}
+            type: File
+        {{- end }}
+      
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        kubernetes.io/arch: {{ $.Values.image.architecture }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

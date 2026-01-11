@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<visualization>
+  <settings>
+    <updaterate>100</updaterate>
+    <maxcachedimages>50</maxcachedimages>
+    <compression>true</compression>
+  </settings>
+  <webvisu>
+    <enabled>true</enabled>
+    <port>8081</port>
+    <clientlimit>10</clientlimit>
+  </webvisu>
+  <trends>
+    <enabled>true</enabled>
+    <maxtrends>50</maxtrends>
+    <samplerate>1000</samplerate>
+    <historyduration>86400</historyduration>
+  </trends>
+  <alarms>
+    <enabled>true</enabled>
+    <historysize>1000</historysize>
+    <acknowledgmentrequired>true</acknowledgmentrequired>
+  </alarms>
+  <recipes>
+    <enabled>true</enabled>
+    <maxrecipes>100</maxrecipes>
+    <path>/projects/recipes</path>
+  </recipes>
+</visualization>

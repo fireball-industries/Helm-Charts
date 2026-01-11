@@ -1,0 +1,294 @@
+---
+# Node Affinity Examples for Selective Node Exporter Deployment
+# Use these patterns to deploy Node Exporter only on specific nodes
+
+# Example 1: Deploy only on edge devices (with label "node-role=edge")
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter-edge-only
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role
+                    operator: In
+                    values:
+                      - edge
+                      - iot
+      containers:
+        - name: node-exporter
+          image: quay.io/prometheus/node-exporter:v1.7.0
+          args:
+            - --path.procfs=/host/proc
+            - --path.sysfs=/host/sys
+            - --path.rootfs=/host/root
+            - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+            - --collector.hwmon
+            - --collector.thermal_zone
+
+---
+# Example 2: Deploy only on worker nodes (exclude control plane)
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter-workers-only
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
+                  - key: node-role.kubernetes.io/master
+                    operator: DoesNotExist
+
+---
+# Example 3: Deploy only on nodes with specific hardware (GPU nodes)
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter-gpu-nodes
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: accelerator
+                    operator: In
+                    values:
+                      - nvidia-gpu
+                      - amd-gpu
+      containers:
+        - name: node-exporter
+          image: quay.io/prometheus/node-exporter:v1.7.0
+          # Enable additional collectors for GPU monitoring
+          args:
+            - --collector.textfile.directory=/var/lib/node_exporter/textfile_collector
+
+---
+# Example 4: Prefer certain zones but allow all nodes
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter-zone-preference
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      affinity:
+        nodeAffinity:
+          # Required: Must have zone label
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: topology.kubernetes.io/zone
+                    operator: Exists
+          # Preferred: Prioritize us-east-1a
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: topology.kubernetes.io/zone
+                    operator: In
+                    values:
+                      - us-east-1a
+            - weight: 50
+              preference:
+                matchExpressions:
+                  - key: topology.kubernetes.io/zone
+                    operator: In
+                    values:
+                      - us-east-1b
+
+---
+# Example 5: Deploy on production nodes with high availability
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter-production
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  # Only production nodes
+                  - key: environment
+                    operator: In
+                    values:
+                      - production
+                  # Must have SSD storage
+                  - key: storage-type
+                    operator: In
+                    values:
+                      - ssd
+                      - nvme
+                  # Exclude spot instances
+                  - key: node.kubernetes.io/instance-type
+                    operator: NotIn
+                    values:
+                      - spot
+
+---
+# Example 6: Helm values.yaml configuration for node affinity
+# Use this in your values.yaml to configure node affinity via Helm
+
+# Deploy only on edge nodes
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role
+              operator: In
+              values:
+                - edge
+                - iot
+
+# Alternative: Simple node selector (deprecated but still supported)
+nodeSelector:
+  node-role: edge
+  environment: production
+
+# Tolerations for tainted nodes
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "monitoring"
+    effect: "NoSchedule"
+  - key: "edge-device"
+    operator: "Exists"
+    effect: "NoExecute"
+
+---
+# Example 7: Anti-affinity to avoid colocation with other monitoring tools
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter-anti-affinity
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      affinity:
+        podAntiAffinity:
+          # Avoid nodes running heavy monitoring agents
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - datadog-agent
+                        - newrelic-agent
+                topologyKey: kubernetes.io/hostname
+
+---
+# Example 8: Combining multiple affinity rules
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter-complex-affinity
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      affinity:
+        nodeAffinity:
+          # Must be Linux amd64 or arm64
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - arm64
+          # Prefer nodes with more CPU
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 80
+              preference:
+                matchExpressions:
+                  - key: node.kubernetes.io/instance-type
+                    operator: In
+                    values:
+                      - m5.2xlarge
+                      - m5.4xlarge
+                      - c5.2xlarge
+            - weight: 20
+              preference:
+                matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - compute-optimized
+      tolerations:
+        - key: "monitoring"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"

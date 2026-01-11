@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "codesys-targetvisu.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "codesys-targetvisu.labels" . | nindent 4 }}
+  annotations:
+    {{- include "codesys-targetvisu.annotations" . | nindent 4 }}
+    {{- with .Values.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if and (eq .Values.service.type "LoadBalancer") .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.service.loadBalancerIP }}
+  {{- end }}
+  {{- if and (eq .Values.service.type "LoadBalancer") .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.service.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
+  ports:
+    - name: http
+      port: {{ .Values.service.http.port | default 8080 }}
+      targetPort: http
+      protocol: TCP
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.http.nodePort }}
+      nodePort: {{ .Values.service.http.nodePort }}
+      {{- end }}
+    - name: https
+      port: {{ .Values.service.https.port | default 8443 }}
+      targetPort: https
+      protocol: TCP
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.https.nodePort }}
+      nodePort: {{ .Values.service.https.nodePort }}
+      {{- end }}
+    - name: webvisu
+      port: {{ .Values.service.webvisu.port | default 8081 }}
+      targetPort: webvisu
+      protocol: TCP
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.webvisu.nodePort }}
+      nodePort: {{ .Values.service.webvisu.nodePort }}
+      {{- end }}
+    {{- include "codesys-targetvisu.protocolPorts" . | nindent 4 }}
+  selector:
+    {{- include "codesys-targetvisu.selectorLabels" . | nindent 4 }}

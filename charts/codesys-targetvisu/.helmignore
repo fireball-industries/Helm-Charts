@@ -1,0 +1,74 @@
+# Patterns to ignore when building packages.
+# This supports shell glob matching, relative path matching, and
+# negation (prefixed with !). Only one pattern per line.
+.DS_Store
+# Common VCS dirs
+.git/
+.gitignore
+.bzr/
+.bzrignore
+.hg/
+.hgignore
+.svn/
+# Common backup files
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+# Various IDEs
+.project
+.idea/
+*.tmproj
+.vscode/
+
+# Docker files (not needed in chart)
+docker/
+Dockerfile
+.dockerignore
+
+# Scripts (distributed separately)
+scripts/
+
+# Documentation (except README)
+INSTALLATION.md
+PROTOCOLS.md
+PROJECTS.md
+TROUBLESHOOTING.md
+QUICK_REFERENCE.md
+
+# Examples (distributed separately)
+examples/
+
+# Config templates (distributed separately)
+config-templates/
+
+# Monitoring (distributed separately)
+alerts/
+dashboards/
+integration/
+
+# Sample projects (distributed separately)
+sample-projects/
+
+# Testing
+test-results/
+*.test
+
+# License files and CODESYS packages
+*.deb
+*.rpm
+*.tar.gz
+*.lic
+*.dat
+codesys-targetvisu-*
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Logs
+*.log
+logs/

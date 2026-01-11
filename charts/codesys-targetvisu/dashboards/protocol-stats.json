@@ -1,0 +1,48 @@
+{
+  "dashboard": {
+    "title": "CODESYS TargetVisu - Protocol Statistics",
+    "tags": ["codesys", "opcua", "modbus", "protocols"],
+    "panels": [
+      {
+        "title": "OPC UA Connections",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "codesys_opcua_active_sessions",
+            "legendFormat": "Active Sessions"
+          }
+        ]
+      },
+      {
+        "title": "OPC UA Requests",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(codesys_opcua_requests_total[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ]
+      },
+      {
+        "title": "Modbus Transactions",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(codesys_modbus_transactions_total[5m])",
+            "legendFormat": "Transactions/sec"
+          }
+        ]
+      },
+      {
+        "title": "Protocol Errors",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(codesys_protocol_errors_total[5m])",
+            "legendFormat": "{{protocol}}"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,180 @@
+# ============================================================================
+# Home Assistant Alert Rules
+# ============================================================================
+# Fireball Industries - Patrick Ryan
+# "Because finding out your home is down via angry spouse is not ideal"
+# ============================================================================
+
+groups:
+  - name: homeassistant
+    interval: 30s
+    rules:
+      # ========================================================================
+      # AVAILABILITY ALERTS
+      # ========================================================================
+      
+      - alert: HomeAssistantDown
+        expr: up{job="home-assistant"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: home-assistant
+        annotations:
+          summary: "Home Assistant is down"
+          description: "Home Assistant has been down for more than 2 minutes. Your smart home is now dumb home."
+      
+      - alert: HomeAssistantAPISlowResponse
+        expr: histogram_quantile(0.95, rate(homeassistant_http_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: home-assistant
+        annotations:
+          summary: "Home Assistant API responding slowly"
+          description: "95th percentile API response time is {{ $value }}s (threshold: 5s). Time to optimize those automations."
+      
+      - alert: HomeAssistantHighRestartCount
+        expr: increase(kube_pod_container_status_restarts_total{pod=~"home-assistant.*", container="home-assistant"}[1h]) > 3
+        for: 5m
+        labels:
+          severity: warning
+          component: home-assistant
+        annotations:
+          summary: "Home Assistant restarting frequently"
+          description: "Home Assistant has restarted {{ $value }} times in the last hour. Something's crashy."
+      
+      # ========================================================================
+      # RESOURCE ALERTS
+      # ========================================================================
+      
+      - alert: HomeAssistantHighCPU
+        expr: rate(container_cpu_usage_seconds_total{pod=~"home-assistant.*", container="home-assistant"}[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          component: home-assistant
+        annotations:
+          summary: "Home Assistant using high CPU"
+          description: "CPU usage is {{ $value | humanizePercentage }}. Check for runaway integrations."
+      
+      - alert: HomeAssistantHighMemory
+        expr: container_memory_usage_bytes{pod=~"home-assistant.*", container="home-assistant"} / container_spec_memory_limit_bytes{pod=~"home-assistant.*", container="home-assistant"} > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          component: home-assistant
+        annotations:
+          summary: "Home Assistant using high memory"
+          description: "Memory usage is {{ $value | humanizePercentage }} of limit. OOM kill incoming."
+      
+      - alert: HomeAssistantDiskSpaceLow
+        expr: (kubelet_volume_stats_available_bytes{persistentvolumeclaim=~".*home-assistant-config.*"} / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~".*home-assistant-config.*"}) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: home-assistant
+        annotations:
+          summary: "Home Assistant disk space low"
+          description: "Config volume has less than 10% free space. Time to clean up those database backups."
+      
+      - alert: HomeAssistantDiskSpaceCritical
+        expr: (kubelet_volume_stats_available_bytes{persistentvolumeclaim=~".*home-assistant-config.*"} / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~".*home-assistant-config.*"}) < 0.05
+        for: 2m
+        labels:
+          severity: critical
+          component: home-assistant
+        annotations:
+          summary: "Home Assistant disk space critical"
+          description: "Config volume has less than 5% free space. Database writes may fail!"
+      
+      # ========================================================================
+      # DATABASE ALERTS
+      # ========================================================================
+      
+      - alert: HomeAssistantDatabaseSizeLarge
+        expr: homeassistant_database_size_bytes / 1024 / 1024 / 1024 > 5
+        for: 1h
+        labels:
+          severity: info
+          component: home-assistant
+        annotations:
+          summary: "Home Assistant database is large"
+          description: "Database is {{ $value }}GB. Consider purging old data or reducing recorder retention."
+      
+      - alert: PostgreSQLDown
+        expr: up{job="postgresql"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: postgresql
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "PostgreSQL has been down for 2 minutes. Home Assistant will fail to record data."
+      
+      - alert: PostgreSQLHighConnections
+        expr: sum(pg_stat_database_numbackends) / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: postgresql
+        annotations:
+          summary: "PostgreSQL connection pool near limit"
+          description: "Using {{ $value | humanizePercentage }} of max connections. Connection exhaustion imminent."
+      
+      # ========================================================================
+      # MQTT ALERTS
+      # ========================================================================
+      
+      - alert: MQTTBrokerDown
+        expr: up{job="mqtt"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: mqtt
+        annotations:
+          summary: "MQTT broker is down"
+          description: "MQTT broker has been down for 2 minutes. All MQTT devices are offline."
+      
+      - alert: MQTTHighMessageRate
+        expr: rate(mosquitto_messages_received_total[5m]) > 1000
+        for: 10m
+        labels:
+          severity: info
+          component: mqtt
+        annotations:
+          summary: "MQTT broker receiving high message rate"
+          description: "Receiving {{ $value }} messages/sec. Some device may be chatty."
+      
+      - alert: MQTTHighClientCount
+        expr: mosquitto_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: mqtt
+        annotations:
+          summary: "MQTT broker has many connected clients"
+          description: "{{ $value }} clients connected. Verify this is expected."
+      
+      # ========================================================================
+      # INTEGRATION ALERTS
+      # ========================================================================
+      
+      - alert: HomeAssistantIntegrationFailed
+        expr: increase(homeassistant_integration_setup_failed_total[10m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: home-assistant
+        annotations:
+          summary: "Integration failed to load"
+          description: "Integration {{ $labels.integration }} failed to load. Check logs."
+      
+      - alert: HomeAssistantEntityUnavailable
+        expr: homeassistant_entity_available{entity_id=~"sensor\\.critical_.*|binary_sensor\\.critical_.*"} == 0
+        for: 10m
+        labels:
+          severity: warning
+          component: home-assistant
+        annotations:
+          summary: "Critical entity unavailable"
+          description: "Entity {{ $labels.entity_id }} has been unavailable for 10 minutes."

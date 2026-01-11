@@ -1,0 +1,125 @@
+# Full Server Monitoring Configuration
+# All collectors enabled for comprehensive server monitoring
+# Suitable for VMs, bare metal servers, cloud instances
+
+deploymentMode: daemonset
+
+resourcePreset: server
+
+# All standard collectors plus optional ones
+collectors:
+  enabled:
+    - cpu
+    - cpufreq
+    - diskstats
+    - filesystem
+    - hwmon
+    - loadavg
+    - meminfo
+    - netdev
+    - netstat
+    - stat
+    - time
+    - uname
+    - vmstat
+  
+  optional:
+    systemd: true         # Service health monitoring
+    processes: true       # Process metrics
+    textfile: true        # Custom metrics
+    ntp: true            # Time synchronization
+    tcpstat: true        # TCP connection states
+    thermal_zone: true   # Temperature sensors
+    interrupts: false    # Can be high cardinality
+    rapl: true           # Power consumption (Intel only)
+
+# Filesystem collector - exclude common virtual filesystems
+collectors:
+  collectorArgs:
+    filesystem:
+      mount-points-exclude: "^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+|var/lib/containerd/.+)($|/)"
+      fs-types-exclude: "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|tmpfs)$"
+    
+    netdev:
+      device-exclude: "^(veth.*|docker.*|br-.*|cni.*|flannel.*|cilium.*|lo)$"
+    
+    diskstats:
+      device-exclude: "^(ram|loop|fd|(h|s|v|xv)d[a-z]|nvme\\d+n\\d+p)\\d+$"
+
+# Textfile collector
+textfileCollector:
+  enabled: true
+  hostPath: /var/lib/node_exporter/textfile_collector
+
+# Host networking
+hostNetwork: true
+hostPID: true
+hostIPC: false
+
+# Security
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - SYS_TIME
+
+# ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+  honorLabels: true
+  additionalLabels:
+    prometheus: kube-prometheus
+  relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod
+
+# Alert rules
+prometheusRule:
+  enabled: false  # Set to true and configure rules
+
+# Network policy
+networkPolicy:
+  enabled: false  # Enable for production
+
+# Run on all nodes
+tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - key: node-role.kubernetes.io/master
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/control-plane
+    effect: NoSchedule
+
+# Node selector (optional - run on specific nodes)
+nodeSelector: {}
+  # kubernetes.io/role: worker
+
+# Update strategy
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+
+# Priority class for important monitoring
+priorityClassName: ""  # Set to "system-node-critical" if needed
+
+# Additional labels
+commonLabels:
+  monitoring: "node-exporter"
+  tier: "infrastructure"

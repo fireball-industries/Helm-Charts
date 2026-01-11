@@ -1,0 +1,202 @@
+# Example Custom Values for CODESYS Edge Gateway
+
+# This file demonstrates various configuration scenarios
+# Copy and modify for your specific deployment
+
+# =============================================================================
+# Scenario 1: Development Environment (ARM64, Local Storage)
+# =============================================================================
+# image:
+#   architecture: arm64
+#   repository: localhost:5000/codesys-edge-gateway
+#   tag: "4.18.0.0"
+#
+# gateway:
+#   automationServerUrl: "http://192.168.1.100:4410"
+#   automationServer:
+#     username: "admin"
+#     password: "dev-password"
+#   networkInterface: "eth0"
+#
+# service:
+#   type: NodePort
+#
+# persistence:
+#   enabled: true
+#   storageClass: local-path
+#   size: 1Gi
+#
+# resources:
+#   requests:
+#     memory: 128Mi
+#     cpu: 100m
+#   limits:
+#     memory: 512Mi
+#     cpu: 500m
+
+# =============================================================================
+# Scenario 2: Production Environment (x64, NFS Storage, High Availability)
+# =============================================================================
+# image:
+#   architecture: x64
+#   repository: ghcr.io/YOUR_ORG/codesys-edge-gateway
+#   tag: "4.18.0.0"
+#
+# gateway:
+#   automationServerUrl: "https://automation-server.prod.example.com:4410"
+#   automationServer:
+#     existingSecret: "prod-gateway-credentials"  # Use existing secret
+#   enableSsl: true
+#   networkInterface: "eth0"
+#   enablePlcDiscovery: true
+#
+# service:
+#   type: LoadBalancer
+#   annotations:
+#     metallb.universe.tf/address-pool: production
+#     metallb.universe.tf/allow-shared-ip: "codesys-gateway"
+#
+# persistence:
+#   enabled: true
+#   storageClass: nfs-client
+#   size: 5Gi
+#
+# resources:
+#   requests:
+#     memory: 256Mi
+#     cpu: 200m
+#   limits:
+#     memory: 1Gi
+#     cpu: 1000m
+#
+# # Enable monitoring
+# metrics:
+#   enabled: true
+#   serviceMonitor:
+#     enabled: true
+#
+# # Network policies for security
+# networkPolicy:
+#   enabled: true
+
+# =============================================================================
+# Scenario 3: Multi-Tenant Deployment
+# =============================================================================
+# namespace: tenant-customer-a
+#
+# image:
+#   architecture: arm64
+#
+# gateway:
+#   name: "Gateway-CustomerA"
+#   automationServerUrl: "https://as.example.com:4410"
+#   automationServer:
+#     username: "customer-a"
+#     password: "secure-password-a"
+#
+# service:
+#   type: LoadBalancer
+#
+# persistence:
+#   enabled: true
+#   storageClass: local-path
+#   size: 1Gi
+#
+# # Enable network isolation
+# networkPolicy:
+#   enabled: true
+#   ingress:
+#     - from:
+#       - namespaceSelector:
+#           matchLabels:
+#             customer: customer-a
+#       ports:
+#       - protocol: TCP
+#         port: 2455
+#       - protocol: TCP
+#         port: 1217
+#
+# # Resource quotas
+# resourceQuota:
+#   enabled: true
+#   hard:
+#     requests.cpu: "1"
+#     requests.memory: 1Gi
+#     limits.cpu: "2"
+#     limits.memory: 2Gi
+#     persistentvolumeclaims: "1"
+
+# =============================================================================
+# Scenario 4: Edge Deployment with Host Network for PLC Discovery
+# =============================================================================
+# image:
+#   architecture: arm32
+#   repository: localhost:5000/codesys-edge-gateway
+#   tag: "4.18.0.0"
+#
+# gateway:
+#   automationServerUrl: "https://cloud-as.example.com:4410"
+#   automationServer:
+#     username: "edge-gateway"
+#     password: "edge-secret"
+#   networkInterface: "eth0"
+#   enablePlcDiscovery: true
+#   discoveryInterval: 15  # More frequent discovery for edge
+#
+# # Use host network for better UDP broadcast support
+# network:
+#   hostNetwork: true
+#   dnsPolicy: ClusterFirstWithHostNet
+#
+# service:
+#   type: LoadBalancer
+#
+# persistence:
+#   enabled: true
+#   storageClass: local-path
+#   size: 2Gi
+#
+# # Lower resource limits for edge devices
+# resources:
+#   requests:
+#     memory: 128Mi
+#     cpu: 100m
+#   limits:
+#     memory: 384Mi
+#     cpu: 400m
+#
+# # Time synchronization for edge
+# timeSync:
+#   enabled: true
+#   method: hostPath
+
+# =============================================================================
+# Scenario 5: Debugging/Testing Configuration
+# =============================================================================
+# image:
+#   architecture: x64
+#   pullPolicy: Always  # Always pull latest for testing
+#
+# gateway:
+#   automationServerUrl: "http://localhost:4410"
+#   automationServer:
+#     username: "test"
+#     password: "test"
+#
+# service:
+#   type: NodePort
+#
+# persistence:
+#   enabled: false  # Use emptyDir for testing
+#
+# logging:
+#   level: DEBUG
+#   format: json
+#
+# resources:
+#   requests:
+#     memory: 64Mi
+#     cpu: 50m
+#   limits:
+#     memory: 256Mi
+#     cpu: 250m

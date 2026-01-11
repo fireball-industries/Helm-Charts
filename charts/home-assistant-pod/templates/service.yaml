@@ -1,0 +1,187 @@
+{{/*
+============================================================================
+Home Assistant Services
+============================================================================
+Fireball Industries - Patrick Ryan
+
+Multiple services for accessing Home Assistant and its add-ons:
+1. Main Service - LoadBalancer/NodePort/ClusterIP for web UI access
+2. Headless Service - For StatefulSet stable network identity
+3. Add-on Services - MQTT, Node-RED, ESPHome, Zigbee2MQTT (if not sidecar)
+
+Fun fact: Kubernetes services are like phone numbers for your pods.
+Except they don't change every time you move apartments.
+============================================================================
+*/}}
+
+# ===========================================================================
+# MAIN SERVICE - Home Assistant Web UI
+# ===========================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "home-assistant.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web-ui
+  {{- with .Values.service.main.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.main.type }}
+  {{- if and (eq .Values.service.main.type "LoadBalancer") .Values.service.main.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.service.main.loadBalancerIP }}
+  {{- end }}
+  ports:
+    - port: {{ .Values.service.main.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+      {{- if and (eq .Values.service.main.type "NodePort") .Values.service.main.nodePort }}
+      nodePort: {{ .Values.service.main.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "home-assistant.selectorLabels" . | nindent 4 }}
+
+---
+{{- if .Values.service.headless.enabled }}
+# ===========================================================================
+# HEADLESS SERVICE - StatefulSet Network Identity
+# ===========================================================================
+# This service provides stable DNS names for StatefulSet pods
+# Format: <pod-name>.<service-name>.<namespace>.svc.cluster.local
+# Example: home-assistant-0.home-assistant-headless.default.svc.cluster.local
+# ===========================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "home-assistant.fullname" . }}-headless
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: headless
+spec:
+  type: ClusterIP
+  clusterIP: None  # Headless service
+  ports:
+    - port: {{ .Values.service.main.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "home-assistant.selectorLabels" . | nindent 4 }}
+{{- end }}
+
+---
+{{- if and .Values.mqtt.enabled (eq .Values.mqtt.deployment "separate") }}
+# ===========================================================================
+# MQTT BROKER SERVICE
+# ===========================================================================
+# Separate service for MQTT broker (only if deployed separately)
+# ===========================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "home-assistant.fullname" . }}-mqtt
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mqtt
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.mqtt.ports.mqtt }}
+      targetPort: mqtt
+      protocol: TCP
+      name: mqtt
+    - port: {{ .Values.mqtt.ports.websocket }}
+      targetPort: websocket
+      protocol: TCP
+      name: websocket
+  selector:
+    {{- include "home-assistant.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mqtt
+{{- end }}
+
+---
+{{- if and .Values.nodered.enabled (eq .Values.nodered.deployment "separate") }}
+# ===========================================================================
+# NODE-RED SERVICE
+# ===========================================================================
+# Separate service for Node-RED (only if deployed separately)
+# ===========================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "home-assistant.fullname" . }}-nodered
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nodered
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.nodered.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "home-assistant.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: nodered
+{{- end }}
+
+---
+{{- if and .Values.esphome.enabled (eq .Values.esphome.deployment "separate") }}
+# ===========================================================================
+# ESPHOME SERVICE
+# ===========================================================================
+# Separate service for ESPHome (only if deployed separately)
+# ===========================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "home-assistant.fullname" . }}-esphome
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: esphome
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.esphome.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "home-assistant.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: esphome
+{{- end }}
+
+---
+{{- if and .Values.zigbee2mqtt.enabled (eq .Values.zigbee2mqtt.deployment "separate") }}
+# ===========================================================================
+# ZIGBEE2MQTT SERVICE
+# ===========================================================================
+# Separate service for Zigbee2MQTT (only if deployed separately)
+# ===========================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "home-assistant.fullname" . }}-zigbee2mqtt
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: zigbee2mqtt
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.zigbee2mqtt.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "home-assistant.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: zigbee2mqtt
+{{- end }}

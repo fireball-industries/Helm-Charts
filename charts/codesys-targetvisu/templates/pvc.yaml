@@ -1,0 +1,66 @@
+{{- if .Values.storage.config.enabled -}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "codesys-targetvisu.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "codesys-targetvisu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+  annotations:
+    {{- include "codesys-targetvisu.annotations" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.storage.config.accessMode | default "ReadWriteOnce" }}
+  {{- if .Values.storage.config.storageClass }}
+  storageClassName: {{ .Values.storage.config.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ include "codesys-targetvisu.storage.config.size" . }}
+{{- end }}
+---
+{{- if .Values.storage.projects.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "codesys-targetvisu.fullname" . }}-projects
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "codesys-targetvisu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+  annotations:
+    {{- include "codesys-targetvisu.annotations" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.storage.projects.accessMode | default "ReadWriteOnce" }}
+  {{- if .Values.storage.projects.storageClass }}
+  storageClassName: {{ .Values.storage.projects.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ include "codesys-targetvisu.storage.projects.size" . }}
+{{- end }}
+---
+{{- if .Values.storage.logs.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "codesys-targetvisu.fullname" . }}-logs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "codesys-targetvisu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+  annotations:
+    {{- include "codesys-targetvisu.annotations" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.storage.logs.accessMode | default "ReadWriteOnce" }}
+  {{- if .Values.storage.logs.storageClass }}
+  storageClassName: {{ .Values.storage.logs.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ include "codesys-targetvisu.storage.logs.size" . }}
+{{- end }}

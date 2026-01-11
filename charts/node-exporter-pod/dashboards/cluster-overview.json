@@ -1,0 +1,300 @@
+{
+  "dashboard": {
+    "title": "Cluster Overview - All Nodes",
+    "tags": ["node-exporter", "cluster", "overview"],
+    "timezone": "browser",
+    "editable": true,
+    "graphTooltip": 1,
+    "time": {
+      "from": "now-30m",
+      "to": "now"
+    },
+    "refresh": "1m",
+    "schemaVersion": 38,
+    "version": 1,
+    "panels": [
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "fixed", "fixedColor": "green"},
+            "unit": "short"
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Offline"},
+              "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]
+            }
+          ]
+        },
+        "gridPos": {"h": 6, "w": 24, "x": 0, "y": 0},
+        "id": 1,
+        "options": {
+          "graphMode": "none",
+          "orientation": "horizontal",
+          "textMode": "value_and_name"
+        },
+        "targets": [
+          {
+            "expr": "count(up{job=~\".*node-exporter.*\"} == 1)",
+            "instant": true,
+            "legendFormat": "Online Nodes",
+            "refId": "A"
+          },
+          {
+            "expr": "count(up{job=~\".*node-exporter.*\"} == 0)",
+            "instant": true,
+            "legendFormat": "Offline Nodes",
+            "refId": "B"
+          },
+          {
+            "expr": "count(up{job=~\".*node-exporter.*\"})",
+            "instant": true,
+            "legendFormat": "Total Nodes",
+            "refId": "C"
+          }
+        ],
+        "title": "Cluster Health Summary",
+        "type": "stat"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+        "id": 2,
+        "targets": [
+          {
+            "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "{{ instance }}",
+            "refId": "A"
+          }
+        ],
+        "title": "CPU Usage by Node",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+        "id": 3,
+        "targets": [
+          {
+            "expr": "100 - ((node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100)",
+            "legendFormat": "{{ instance }}",
+            "refId": "A"
+          }
+        ],
+        "title": "Memory Usage by Node",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "max": 100,
+            "min": 0,
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 7, "w": 12, "x": 0, "y": 14},
+        "id": 4,
+        "options": {
+          "displayMode": "gradient",
+          "orientation": "horizontal",
+          "showUnfilled": true
+        },
+        "targets": [
+          {
+            "expr": "100 - ((node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}) * 100)",
+            "instant": true,
+            "legendFormat": "{{ instance }}",
+            "refId": "A"
+          }
+        ],
+        "title": "Disk Usage by Node (Current)",
+        "type": "bargauge"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 60},
+                {"color": "orange", "value": 70},
+                {"color": "red", "value": 80}
+              ]
+            },
+            "unit": "celsius"
+          }
+        },
+        "gridPos": {"h": 7, "w": 12, "x": 12, "y": 14},
+        "id": 5,
+        "options": {
+          "displayMode": "gradient",
+          "orientation": "horizontal"
+        },
+        "targets": [
+          {
+            "expr": "max by (instance) (node_hwmon_temp_celsius)",
+            "instant": true,
+            "legendFormat": "{{ instance }}",
+            "refId": "A"
+          }
+        ],
+        "title": "Max Temperature by Node",
+        "type": "bargauge"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "Bps"
+          }
+        },
+        "gridPos": {"h": 7, "w": 12, "x": 0, "y": 21},
+        "id": 6,
+        "targets": [
+          {
+            "expr": "sum by (instance) (rate(node_network_receive_bytes_total{device!~\"lo|veth.*|docker.*\"}[5m]))",
+            "legendFormat": "{{ instance }}",
+            "refId": "A"
+          }
+        ],
+        "title": "Network RX by Node",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "Bps"
+          }
+        },
+        "gridPos": {"h": 7, "w": 12, "x": 12, "y": 21},
+        "id": 7,
+        "targets": [
+          {
+            "expr": "sum by (instance) (rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|docker.*\"}[5m]))",
+            "legendFormat": "{{ instance }}",
+            "refId": "A"
+          }
+        ],
+        "title": "Network TX by Node",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 6, "w": 24, "x": 0, "y": 28},
+        "id": 8,
+        "targets": [
+          {
+            "expr": "node_load5",
+            "legendFormat": "{{ instance }}",
+            "refId": "A"
+          }
+        ],
+        "title": "System Load (5m Average) - All Nodes",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "custom": {
+              "align": "auto",
+              "displayMode": "color-background"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 85}
+              ]
+            },
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 34},
+        "id": 9,
+        "options": {
+          "showHeader": true
+        },
+        "targets": [
+          {
+            "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          },
+          {
+            "expr": "100 - ((node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100)",
+            "format": "table",
+            "instant": true,
+            "refId": "B"
+          },
+          {
+            "expr": "100 - ((node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}) * 100)",
+            "format": "table",
+            "instant": true,
+            "refId": "C"
+          },
+          {
+            "expr": "max by (instance) (node_hwmon_temp_celsius)",
+            "format": "table",
+            "instant": true,
+            "refId": "D"
+          }
+        ],
+        "title": "Node Summary Table",
+        "transformations": [
+          {
+            "id": "merge",
+            "options": {}
+          },
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {"Time": true},
+              "renameByName": {
+                "Value #A": "CPU %",
+                "Value #B": "Memory %",
+                "Value #C": "Disk %",
+                "Value #D": "Temp °C",
+                "instance": "Node"
+              }
+            }
+          }
+        ],
+        "type": "table"
+      }
+    ]
+  },
+  "description": "Multi-node cluster overview dashboard showing aggregated metrics across all nodes running Prometheus Node Exporter. Provides quick health status, resource usage comparison, and anomaly detection across the entire Kubernetes/K3s cluster.",
+  "uid": "cluster-overview",
+  "version": 1
+}

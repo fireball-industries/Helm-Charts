@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "codesys-edge-gateway.configMapName" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "codesys-edge-gateway.labels" . | nindent 4 }}
+data:
+  gateway.conf: |
+    # CODESYS Edge Gateway Configuration
+    # Gateway identification
+    GatewayName={{ .Values.gateway.name }}
+    
+    # Automation Server connection
+    AutomationServerUrl={{ .Values.gateway.automationServerUrl }}
+    AutomationServerSsl={{ .Values.gateway.enableSsl }}
+    
+    # Network configuration
+    NetworkInterface={{ .Values.gateway.networkInterface }}
+    GatewayPort={{ .Values.service.gatewayPort }}
+    PlcPort={{ .Values.service.plcPort }}
+    
+    # PLC Discovery settings
+    EnablePlcDiscovery={{ .Values.gateway.enablePlcDiscovery }}
+    DiscoveryInterval={{ .Values.gateway.discoveryInterval }}
+    DiscoveryPorts={{ join "," .Values.service.discoveryPorts }}
+    
+    # Logging
+    LogLevel={{ .Values.logging.level }}
+    LogFormat={{ .Values.logging.format }}
+    
+    {{- if .Values.gateway.customConfig }}
+    # Custom configuration
+    {{- range $key, $value := .Values.gateway.customConfig }}
+    {{ $key }}={{ $value }}
+    {{- end }}
+    {{- end }}
+  
+  init.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "Initializing CODESYS Edge Gateway..."
+    
+    # Create required directories
+    mkdir -p /var/opt/codesys-gateway/{config,cache,logs}
+    
+    # Copy configuration file
+    if [ ! -f /var/opt/codesys-gateway/config/gateway.conf ]; then
+      cp /config/gateway.conf /var/opt/codesys-gateway/config/
+      echo "Configuration file created"
+    else
+      echo "Configuration file already exists, skipping"
+    fi
+    
+    # Set permissions
+    chmod -R 755 /var/opt/codesys-gateway
+    
+    # Load credentials from secret
+    if [ -n "$AS_USERNAME" ] && [ -n "$AS_PASSWORD" ]; then
+      echo "Automation Server credentials loaded"
+    else
+      echo "WARNING: Automation Server credentials not found"
+    fi
+    
+    echo "Initialization complete"

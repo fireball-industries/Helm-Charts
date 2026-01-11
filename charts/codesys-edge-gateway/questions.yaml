@@ -1,0 +1,423 @@
+categories:
+  - Industrial Automation
+  - CODESYS
+  - Gateway
+  - PLC Integration
+
+questions:
+  # ========================================
+  # IMAGE CONFIGURATION
+  # ========================================
+  - variable: image.repository
+    label: Container Image Repository
+    description: "CODESYS Edge Gateway container image"
+    type: string
+    default: "ghcr.io/YOUR_ORG/codesys-edge-gateway"
+    required: true
+    group: "Image Configuration"
+
+  - variable: image.tag
+    label: Image Tag
+    description: "CODESYS Gateway version (e.g., 4.18.0.0)"
+    type: string
+    default: "4.18.0.0"
+    required: true
+    group: "Image Configuration"
+
+  - variable: image.architecture
+    label: Target Architecture
+    description: "CPU architecture for node selection"
+    type: enum
+    default: arm64
+    required: true
+    group: "Image Configuration"
+    options:
+      - arm32
+      - arm64
+      - x86
+      - x64
+
+  # ========================================
+  # AUTOMATION SERVER CONNECTION
+  # ========================================
+  - variable: gateway.automationServerUrl
+    label: Automation Server URL
+    description: "CODESYS Automation Server URL (e.g., https://automation-server.example.com:4410)"
+    type: string
+    default: ""
+    required: true
+    group: "Automation Server"
+
+  - variable: gateway.automationServer.username
+    label: Automation Server Username
+    description: "Username for Automation Server authentication"
+    type: string
+    default: ""
+    required: true
+    group: "Automation Server"
+
+  - variable: gateway.automationServer.password
+    label: Automation Server Password
+    description: "Password for Automation Server authentication"
+    type: password
+    default: ""
+    required: true
+    group: "Automation Server"
+
+  - variable: gateway.enableSsl
+    label: Enable SSL/TLS
+    description: "Use SSL/TLS for Automation Server connection"
+    type: boolean
+    default: true
+    group: "Automation Server"
+
+  # ========================================
+  # GATEWAY CONFIGURATION
+  # ========================================
+  - variable: gateway.name
+    label: Gateway Name
+    description: "Gateway identifier visible in Automation Server"
+    type: string
+    default: "CODESYS-Edge-Gateway"
+    required: true
+    group: "Gateway Configuration"
+
+  - variable: gateway.networkInterface
+    label: Network Interface
+    description: "Network interface for gateway binding (e.g., eth0, wlan0)"
+    type: string
+    default: "eth0"
+    required: true
+    group: "Gateway Configuration"
+
+  - variable: gateway.enablePlcDiscovery
+    label: Enable PLC Discovery
+    description: "Enable automatic PLC discovery via UDP broadcast"
+    type: boolean
+    default: true
+    group: "Gateway Configuration"
+
+  - variable: gateway.discoveryInterval
+    label: Discovery Interval (seconds)
+    description: "How often to scan for PLCs on the network"
+    type: int
+    default: 30
+    min: 10
+    max: 300
+    show_if: "gateway.enablePlcDiscovery=true"
+    group: "Gateway Configuration"
+
+  # ========================================
+  # NETWORK CONFIGURATION
+  # ========================================
+  - variable: network.hostNetwork
+    label: Enable Host Network
+    description: "Use host network for UDP broadcast discovery (may be required for PLC discovery)"
+    type: boolean
+    default: false
+    group: "Network"
+    show_subquestion_if: true
+    subquestions:
+      - variable: hostNetworkWarning
+        label: Host Network Warning
+        description: |
+          **⚠️ Security Warning**: Host network bypasses NetworkPolicy and uses host IP.
+          
+          **Enable if:**
+          - PLC discovery requires UDP broadcast on local subnet
+          - Gateway must be on same network as PLCs
+          
+          **Alternative**: Use LoadBalancer with specific IP in PLC subnet
+        type: string
+
+  - variable: service.type
+    label: Service Type
+    description: "Kubernetes service type for gateway access"
+    type: enum
+    default: LoadBalancer
+    required: true
+    group: "Network"
+    options:
+      - LoadBalancer
+      - NodePort
+      - ClusterIP
+    show_subquestion_if: true
+    subquestions:
+      - variable: serviceTypeDescription
+        label: Service Type Details
+        description: |
+          **LoadBalancer**: Automatic external IP (MetalLB/cloud)
+          - Best for production with dedicated IP
+          - Recommended for multi-tenant environments
+          
+          **NodePort**: Access via node IP and port
+          - Direct access without load balancer
+          - Good for edge deployments
+          
+          **ClusterIP**: Internal cluster access only
+          - Use with port-forwarding for testing
+        type: string
+
+  - variable: service.gatewayPort
+    label: Gateway Port
+    description: "CODESYS gateway communication port (default: 2455)"
+    type: int
+    default: 2455
+    required: true
+    group: "Network"
+
+  - variable: service.plcPort
+    label: PLC Communication Port
+    description: "PLC/Runtime communication port (default: 1217)"
+    type: int
+    default: 1217
+    required: true
+    group: "Network"
+
+  - variable: service.annotations
+    label: Service Annotations
+    description: "Service annotations in JSON format (e.g., MetalLB IP pool)"
+    type: string
+    default: "{}"
+    group: "Network"
+
+  # ========================================
+  # STORAGE CONFIGURATION
+  # ========================================
+  - variable: persistence.enabled
+    label: Enable Persistent Storage
+    description: "Enable persistent volume for gateway configuration and cache"
+    type: boolean
+    default: true
+    required: true
+    group: "Storage"
+
+  - variable: persistence.size
+    label: Storage Size
+    description: "Size of persistent volume for gateway data"
+    type: string
+    default: "1Gi"
+    show_if: "persistence.enabled=true"
+    group: "Storage"
+
+  - variable: persistence.storageClass
+    label: Storage Class
+    description: "Storage class name (leave empty for default, use 'local-path' for K3s)"
+    type: string
+    default: "local-path"
+    show_if: "persistence.enabled=true"
+    group: "Storage"
+
+  # ========================================
+  # RESOURCES
+  # ========================================
+  - variable: resources.requests.cpu
+    label: CPU Request
+    description: "Guaranteed CPU allocation (e.g., 100m = 0.1 cores)"
+    type: string
+    default: "100m"
+    group: "Resources"
+
+  - variable: resources.requests.memory
+    label: Memory Request
+    description: "Guaranteed memory allocation (e.g., 128Mi)"
+    type: string
+    default: "128Mi"
+    group: "Resources"
+
+  - variable: resources.limits.cpu
+    label: CPU Limit
+    description: "Maximum CPU usage (e.g., 500m = 0.5 cores)"
+    type: string
+    default: "500m"
+    group: "Resources"
+
+  - variable: resources.limits.memory
+    label: Memory Limit
+    description: "Maximum memory usage (e.g., 512Mi)"
+    type: string
+    default: "512Mi"
+    group: "Resources"
+
+  # ========================================
+  # TIME SYNCHRONIZATION
+  # ========================================
+  - variable: timeSync.enabled
+    label: Enable Time Synchronization
+    description: "Synchronize container time with host (important for PLC communication)"
+    type: boolean
+    default: true
+    group: "Time Sync"
+
+  - variable: timeSync.method
+    label: Time Sync Method
+    description: "Method for time synchronization"
+    type: enum
+    default: hostPath
+    show_if: "timeSync.enabled=true"
+    group: "Time Sync"
+    options:
+      - hostPath
+      - sidecar
+
+  # ========================================
+  # HEALTH PROBES
+  # ========================================
+  - variable: livenessProbe.initialDelaySeconds
+    label: Liveness Probe Initial Delay (seconds)
+    description: "Wait time before starting liveness probe"
+    type: int
+    default: 20
+    min: 10
+    max: 120
+    group: "Health Checks"
+
+  - variable: livenessProbe.periodSeconds
+    label: Liveness Probe Period (seconds)
+    description: "How often to perform liveness probe"
+    type: int
+    default: 10
+    min: 5
+    max: 60
+    group: "Health Checks"
+
+  - variable: readinessProbe.initialDelaySeconds
+    label: Readiness Probe Initial Delay (seconds)
+    description: "Wait time before starting readiness probe"
+    type: int
+    default: 15
+    min: 5
+    max: 120
+    group: "Health Checks"
+
+  - variable: readinessProbe.periodSeconds
+    label: Readiness Probe Period (seconds)
+    description: "How often to perform readiness probe"
+    type: int
+    default: 10
+    min: 5
+    max: 60
+    group: "Health Checks"
+
+  # ========================================
+  # MONITORING
+  # ========================================
+  - variable: metrics.enabled
+    label: Enable Metrics
+    description: "Expose Prometheus metrics endpoint"
+    type: boolean
+    default: false
+    group: "Monitoring"
+
+  - variable: metrics.port
+    label: Metrics Port
+    description: "Port for Prometheus metrics"
+    type: int
+    default: 9090
+    show_if: "metrics.enabled=true"
+    group: "Monitoring"
+
+  - variable: metrics.serviceMonitor.enabled
+    label: Enable ServiceMonitor
+    description: "Create ServiceMonitor for Prometheus Operator (requires Prometheus Operator)"
+    type: boolean
+    default: false
+    show_if: "metrics.enabled=true"
+    group: "Monitoring"
+
+  - variable: metrics.serviceMonitor.interval
+    label: Prometheus Scrape Interval
+    description: "How often Prometheus scrapes metrics"
+    type: string
+    default: "30s"
+    show_if: "metrics.serviceMonitor.enabled=true"
+    group: "Monitoring"
+
+  # ========================================
+  # LOGGING
+  # ========================================
+  - variable: logging.level
+    label: Log Level
+    description: "Logging verbosity"
+    type: enum
+    default: INFO
+    group: "Logging"
+    options:
+      - DEBUG
+      - INFO
+      - WARN
+      - ERROR
+
+  - variable: logging.format
+    label: Log Format
+    description: "Log output format (JSON recommended for parsing)"
+    type: enum
+    default: json
+    group: "Logging"
+    options:
+      - text
+      - json
+
+  # ========================================
+  # NETWORK POLICY
+  # ========================================
+  - variable: networkPolicy.enabled
+    label: Enable Network Policy
+    description: "Restrict pod network traffic with Kubernetes NetworkPolicy (multi-tenant isolation)"
+    type: boolean
+    default: false
+    group: "Security"
+
+  # ========================================
+  # RESOURCE QUOTA
+  # ========================================
+  - variable: resourceQuota.enabled
+    label: Enable Resource Quota
+    description: "Apply resource quotas to namespace (multi-tenant deployments)"
+    type: boolean
+    default: false
+    group: "Multi-Tenancy"
+
+  # ========================================
+  # SERVICE ACCOUNT
+  # ========================================
+  - variable: serviceAccount.create
+    label: Create Service Account
+    description: "Create dedicated Kubernetes ServiceAccount"
+    type: boolean
+    default: true
+    group: "Advanced"
+
+  - variable: serviceAccount.name
+    label: Service Account Name
+    description: "Custom ServiceAccount name (leave empty for auto-generated)"
+    type: string
+    default: ""
+    show_if: "serviceAccount.create=true"
+    group: "Advanced"
+
+  # ========================================
+  # POD CONFIGURATION
+  # ========================================
+  - variable: replicaCount
+    label: Replica Count
+    description: "Number of gateway replicas (should be 1 per network segment)"
+    type: int
+    default: 1
+    min: 1
+    max: 1
+    group: "Advanced"
+
+  - variable: nodeSelector
+    label: Node Selector
+    description: "Kubernetes node labels for pod placement (JSON format)"
+    type: string
+    default: "{}"
+    group: "Advanced"
+
+  - variable: tolerations
+    label: Tolerations
+    description: "Kubernetes tolerations for pod scheduling (JSON array format)"
+    type: string
+    default: "[]"
+    group: "Advanced"

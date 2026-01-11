@@ -1,0 +1,747 @@
+categories:
+  - HMI/SCADA
+  - Industrial Automation
+  - Visualization
+  - Edge Computing
+
+questions:
+  # ========================================
+  # RESOURCE PRESET
+  # ========================================
+  - variable: resourcePreset
+    label: Resource Preset
+    description: "Quick configuration for common deployment scenarios"
+    type: enum
+    default: edge-standard
+    group: "Resource Configuration"
+    options:
+      - edge-minimal
+      - edge-standard
+      - industrial
+    show_subquestion_if: true
+    subquestions:
+      - variable: presetDescription
+        label: Preset Details
+        description: |
+          **edge-minimal**: 500m-1000m CPU, 512Mi-1Gi RAM, 8Gi storage
+          - Raspberry Pi 4, <10 screens
+          - Small HMI projects, basic visualization
+          
+          **edge-standard**: 1000m-2000m CPU, 1Gi-2Gi RAM, 17Gi storage (default)
+          - Industrial PC, 10-50 screens
+          - Standard factory HMI, moderate complexity
+          
+          **industrial**: 2000m-4000m CPU, 2Gi-4Gi RAM, 35Gi storage
+          - Large SCADA systems, >50 screens
+          - Complex visualizations, high concurrency
+        type: string
+        show_if: "resourcePreset!=custom"
+
+  # ========================================
+  # IMAGE CONFIGURATION
+  # ========================================
+  - variable: targetvisu.image.repository
+    label: Container Image Repository
+    description: "CODESYS TargetVisu container image (requires licensed runtime)"
+    type: string
+    default: "ghcr.io/fireball-industries/codesys-targetvisu"
+    required: true
+    group: "Image Configuration"
+
+  - variable: targetvisu.image.tag
+    label: Image Tag
+    description: "CODESYS TargetVisu version (e.g., 3.5.20.0)"
+    type: string
+    default: "3.5.20.0"
+    required: true
+    group: "Image Configuration"
+
+  # ========================================
+  # LICENSE CONFIGURATION
+  # ========================================
+  - variable: targetvisu.license.type
+    label: License Type
+    description: "How to provide CODESYS runtime license"
+    type: enum
+    default: file
+    required: true
+    group: "License Configuration"
+    options:
+      - file
+      - server
+      - demo
+    show_subquestion_if: true
+    subquestions:
+      - variable: licenseTypeDescription
+        label: License Type Details
+        description: |
+          **file**: Upload license file via Kubernetes Secret
+          - Best for: Single deployment, offline environments
+          - Requires: Valid CODESYS license file
+          
+          **server**: Connect to network license server (CodeMeter)
+          - Best for: Multiple deployments, centralized management
+          - Requires: CodeMeter license server on network
+          
+          **demo**: Trial/demo mode (limited features)
+          - Best for: Testing, development
+          - Duration: 30 days, limited clients
+        type: string
+
+  - variable: targetvisu.license.licenseSecret
+    label: License Secret Name
+    description: "Kubernetes Secret containing license file (key: license.lic)"
+    type: string
+    default: "codesys-license"
+    show_if: "targetvisu.license.type=file"
+    group: "License Configuration"
+
+  - variable: targetvisu.license.licenseServer.host
+    label: License Server Host
+    description: "CodeMeter license server hostname/IP"
+    type: string
+    default: "license.example.com"
+    show_if: "targetvisu.license.type=server"
+    group: "License Configuration"
+
+  - variable: targetvisu.license.licenseServer.port
+    label: License Server Port
+    description: "CodeMeter server port (default: 1947)"
+    type: int
+    default: 1947
+    show_if: "targetvisu.license.type=server"
+    group: "License Configuration"
+
+  - variable: targetvisu.license.demo.duration
+    label: Demo Duration (days)
+    description: "Trial period duration in days"
+    type: int
+    default: 30
+    min: 1
+    max: 90
+    show_if: "targetvisu.license.type=demo"
+    group: "License Configuration"
+
+  # ========================================
+  # WEB CONFIGURATION
+  # ========================================
+  - variable: targetvisu.web.httpPort
+    label: HTTP Port
+    description: "Web interface HTTP port (internal)"
+    type: int
+    default: 8080
+    required: true
+    group: "Web Configuration"
+
+  - variable: targetvisu.web.httpsPort
+    label: HTTPS Port
+    description: "Web interface HTTPS port (internal)"
+    type: int
+    default: 8443
+    required: true
+    group: "Web Configuration"
+
+  - variable: targetvisu.web.maxClients
+    label: Maximum Concurrent Clients
+    description: "Number of simultaneous web visualization clients (license-dependent)"
+    type: int
+    default: 10
+    min: 1
+    max: 100
+    group: "Web Configuration"
+
+  - variable: targetvisu.web.sessionTimeout
+    label: Session Timeout (seconds)
+    description: "Web session inactivity timeout"
+    type: int
+    default: 3600
+    min: 300
+    max: 86400
+    group: "Web Configuration"
+
+  - variable: targetvisu.web.compression
+    label: Enable Compression
+    description: "Enable HTTP compression for faster loading (recommended)"
+    type: boolean
+    default: true
+    group: "Web Configuration"
+
+  - variable: targetvisu.web.websocket.enabled
+    label: Enable WebSocket
+    description: "Enable WebSocket for real-time updates (recommended)"
+    type: boolean
+    default: true
+    group: "Web Configuration"
+
+  # ========================================
+  # RUNTIME CONFIGURATION
+  # ========================================
+  - variable: targetvisu.runtime.cycleTime
+    label: Task Cycle Time (ms)
+    description: "Main task cycle time in milliseconds"
+    type: int
+    default: 20
+    min: 1
+    max: 1000
+    group: "Runtime Configuration"
+
+  - variable: targetvisu.runtime.logLevel
+    label: Runtime Log Level
+    description: "Verbosity of runtime logging"
+    type: enum
+    default: info
+    group: "Runtime Configuration"
+    options:
+      - debug
+      - info
+      - warn
+      - error
+
+  - variable: targetvisu.runtime.diagnostics
+    label: Enable Runtime Diagnostics
+    description: "Enable diagnostic features for troubleshooting (may impact performance)"
+    type: boolean
+    default: true
+    group: "Runtime Configuration"
+
+  # ========================================
+  # FEATURES
+  # ========================================
+  - variable: targetvisu.recipes.enabled
+    label: Enable Recipe Management
+    description: "Enable recipe management for production settings"
+    type: boolean
+    default: true
+    group: "Features"
+
+  - variable: targetvisu.dataLogging.enabled
+    label: Enable Data Logging
+    description: "Enable process data logging and CSV export"
+    type: boolean
+    default: true
+    group: "Features"
+
+  - variable: targetvisu.dataLogging.interval
+    label: Data Logging Interval (ms)
+    description: "How often to log data points"
+    type: int
+    default: 1000
+    min: 100
+    max: 60000
+    show_if: "targetvisu.dataLogging.enabled=true"
+    group: "Features"
+
+  - variable: targetvisu.alarms.enabled
+    label: Enable Alarm System
+    description: "Enable alarm/event management and history"
+    type: boolean
+    default: true
+    group: "Features"
+
+  - variable: targetvisu.alarms.historySize
+    label: Alarm History Size
+    description: "Number of alarms/events to store in history"
+    type: int
+    default: 1000
+    min: 100
+    max: 10000
+    show_if: "targetvisu.alarms.enabled=true"
+    group: "Features"
+
+  - variable: targetvisu.trends.enabled
+    label: Enable Trend Charts
+    description: "Enable real-time trend visualization"
+    type: boolean
+    default: true
+    group: "Features"
+
+  # ========================================
+  # STORAGE CONFIGURATION
+  # ========================================
+  - variable: storage.config.enabled
+    label: Enable Config Storage
+    description: "Persistent storage for CODESYS configuration and license"
+    type: boolean
+    default: true
+    required: true
+    group: "Storage"
+
+  - variable: storage.config.size
+    label: Config Storage Size
+    description: "Size of persistent volume for configuration"
+    type: string
+    default: "5Gi"
+    show_if: "storage.config.enabled=true"
+    group: "Storage"
+
+  - variable: storage.projects.enabled
+    label: Enable Project Storage
+    description: "Persistent storage for HMI projects and visualizations"
+    type: boolean
+    default: true
+    required: true
+    group: "Storage"
+
+  - variable: storage.projects.size
+    label: Project Storage Size
+    description: "Size of persistent volume for HMI projects"
+    type: string
+    default: "10Gi"
+    show_if: "storage.projects.enabled=true"
+    group: "Storage"
+
+  - variable: storage.logs.enabled
+    label: Enable Log Storage
+    description: "Persistent storage for runtime logs and diagnostics"
+    type: boolean
+    default: true
+    group: "Storage"
+
+  - variable: storage.logs.size
+    label: Log Storage Size
+    description: "Size of persistent volume for logs"
+    type: string
+    default: "2Gi"
+    show_if: "storage.logs.enabled=true"
+    group: "Storage"
+
+  # ========================================
+  # NETWORK CONFIGURATION
+  # ========================================
+  - variable: service.type
+    label: Service Type
+    description: "Kubernetes service type for web access"
+    type: enum
+    default: NodePort
+    required: true
+    group: "Network"
+    options:
+      - ClusterIP
+      - NodePort
+      - LoadBalancer
+    show_subquestion_if: true
+    subquestions:
+      - variable: serviceTypeDescription
+        label: Service Type Details
+        description: |
+          **ClusterIP**: Internal cluster access only
+          - Use with Ingress for external access
+          
+          **NodePort**: Access via node IP and port
+          - Best for edge deployments, direct access
+          - Ports exposed on all cluster nodes
+          
+          **LoadBalancer**: External load balancer (cloud/MetalLB)
+          - Best for cloud environments
+          - Automatic external IP assignment
+        type: string
+
+  - variable: service.http.nodePort
+    label: HTTP NodePort
+    description: "External port for HTTP access (30000-32767)"
+    type: int
+    default: 30080
+    min: 30000
+    max: 32767
+    show_if: "service.type=NodePort"
+    group: "Network"
+
+  - variable: service.https.nodePort
+    label: HTTPS NodePort
+    description: "External port for HTTPS access (30000-32767)"
+    type: int
+    default: 30443
+    min: 30000
+    max: 32767
+    show_if: "service.type=NodePort"
+    group: "Network"
+
+  - variable: ingress.enabled
+    label: Enable Ingress
+    description: "Enable Ingress for SSL termination and hostname routing"
+    type: boolean
+    default: false
+    group: "Network"
+
+  - variable: ingress.host
+    label: Ingress Hostname
+    description: "Hostname for HMI access (e.g., hmi.example.com)"
+    type: string
+    default: "hmi.example.com"
+    show_if: "ingress.enabled=true"
+    group: "Network"
+
+  - variable: ingress.tls.enabled
+    label: Enable Ingress TLS
+    description: "Enable HTTPS for Ingress (requires certificate)"
+    type: boolean
+    default: false
+    show_if: "ingress.enabled=true"
+    group: "Network"
+
+  - variable: ingress.tls.secretName
+    label: TLS Secret Name
+    description: "Kubernetes Secret with TLS certificate (tls.crt, tls.key)"
+    type: string
+    default: "codesys-tls"
+    show_if: "ingress.tls.enabled=true"
+    group: "Network"
+
+  - variable: hostNetwork
+    label: Enable Host Network
+    description: "Use host network (required for some industrial protocols like PROFINET)"
+    type: boolean
+    default: false
+    group: "Network"
+
+  # ========================================
+  # INDUSTRIAL PROTOCOLS
+  # ========================================
+  - variable: protocols.opcua.enabled
+    label: Enable OPC UA Server
+    description: "Enable built-in OPC UA server for tag access"
+    type: boolean
+    default: true
+    group: "Protocols"
+
+  - variable: protocols.opcua.port
+    label: OPC UA Port
+    description: "OPC UA server port"
+    type: int
+    default: 4840
+    show_if: "protocols.opcua.enabled=true"
+    group: "Protocols"
+
+  - variable: protocols.opcua.security.mode
+    label: OPC UA Security Mode
+    description: "Security mode for OPC UA connections"
+    type: enum
+    default: SignAndEncrypt
+    show_if: "protocols.opcua.enabled=true"
+    group: "Protocols"
+    options:
+      - None
+      - Sign
+      - SignAndEncrypt
+
+  - variable: protocols.modbusTcp.enabled
+    label: Enable Modbus TCP
+    description: "Enable Modbus TCP client/server"
+    type: boolean
+    default: true
+    group: "Protocols"
+
+  - variable: protocols.modbusTcp.port
+    label: Modbus TCP Port
+    description: "Modbus TCP server port (default: 502)"
+    type: int
+    default: 502
+    show_if: "protocols.modbusTcp.enabled=true"
+    group: "Protocols"
+
+  - variable: protocols.ethernetIp.enabled
+    label: Enable EtherNet/IP
+    description: "Enable EtherNet/IP (Allen-Bradley) protocol"
+    type: boolean
+    default: false
+    group: "Protocols"
+
+  - variable: protocols.profinet.enabled
+    label: Enable PROFINET
+    description: "Enable PROFINET (requires hostNetwork: true)"
+    type: boolean
+    default: false
+    group: "Protocols"
+
+  - variable: protocols.bacnet.enabled
+    label: Enable BACnet
+    description: "Enable BACnet protocol for building automation"
+    type: boolean
+    default: false
+    group: "Protocols"
+
+  - variable: protocols.canbus.enabled
+    label: Enable CAN Bus
+    description: "Enable CAN bus via SocketCAN (requires host device access)"
+    type: boolean
+    default: false
+    group: "Protocols"
+
+  # ========================================
+  # PLC INTEGRATION
+  # ========================================
+  - variable: plc.enabled
+    label: Enable PLC Runtime Integration
+    description: "Integrate with CODESYS runtime PLC (local or remote)"
+    type: boolean
+    default: false
+    group: "PLC Integration"
+
+  - variable: plc.connection.type
+    label: PLC Connection Type
+    description: "How to connect to PLC runtime"
+    type: enum
+    default: local
+    show_if: "plc.enabled=true"
+    group: "PLC Integration"
+    options:
+      - local
+      - remote
+    show_subquestion_if: true
+    subquestions:
+      - variable: plcConnectionDescription
+        label: Connection Type Details
+        description: |
+          **local**: PLC runtime in same pod/node (shared memory)
+          - Best for: Combined HMI+PLC deployments
+          - Lowest latency, no network overhead
+          
+          **remote**: PLC runtime on different pod/node/device
+          - Best for: Separate HMI and PLC deployments
+          - Connect via network (CODESYS protocol)
+        type: string
+
+  - variable: plc.connection.remote.host
+    label: Remote PLC Host
+    description: "Hostname or IP of remote PLC"
+    type: string
+    default: "plc.example.com"
+    show_if: "plc.connection.type=remote&&plc.enabled=true"
+    group: "PLC Integration"
+
+  - variable: plc.connection.remote.port
+    label: Remote PLC Port
+    description: "CODESYS protocol port (default: 11740)"
+    type: int
+    default: 11740
+    show_if: "plc.connection.type=remote&&plc.enabled=true"
+    group: "PLC Integration"
+
+  - variable: plc.connection.remote.encryption
+    label: Enable PLC Connection Encryption
+    description: "Use encrypted connection to PLC"
+    type: boolean
+    default: true
+    show_if: "plc.connection.type=remote&&plc.enabled=true"
+    group: "PLC Integration"
+
+  - variable: gateway.enabled
+    label: Enable CODESYS Gateway
+    description: "Enable gateway for CODESYS IDE connections (online mode)"
+    type: boolean
+    default: true
+    group: "PLC Integration"
+
+  - variable: gateway.port
+    label: Gateway Port
+    description: "CODESYS gateway port (default: 11740)"
+    type: int
+    default: 11740
+    show_if: "gateway.enabled=true"
+    group: "PLC Integration"
+
+  - variable: gateway.allowRemote
+    label: Allow Remote IDE Connections
+    description: "Allow CODESYS IDE to connect from external networks"
+    type: boolean
+    default: true
+    show_if: "gateway.enabled=true"
+    group: "PLC Integration"
+
+  # ========================================
+  # SECURITY
+  # ========================================
+  - variable: security.authentication.enabled
+    label: Enable Web Authentication
+    description: "Require login for web interface access"
+    type: boolean
+    default: true
+    group: "Security"
+
+  - variable: security.authentication.type
+    label: Authentication Type
+    description: "User authentication method"
+    type: enum
+    default: basic
+    show_if: "security.authentication.enabled=true"
+    group: "Security"
+    options:
+      - basic
+      - ldap
+      - active-directory
+
+  - variable: security.tls.enabled
+    label: Enable TLS/SSL
+    description: "Enable HTTPS with TLS certificate"
+    type: boolean
+    default: false
+    group: "Security"
+
+  - variable: security.tls.selfSigned
+    label: Use Self-Signed Certificate
+    description: "Generate self-signed certificate if no cert Secret provided (for testing)"
+    type: boolean
+    default: true
+    show_if: "security.tls.enabled=true"
+    group: "Security"
+
+  - variable: security.ipWhitelist.enabled
+    label: Enable IP Whitelisting
+    description: "Restrict access to specific IP ranges (RFC1918 private networks by default)"
+    type: boolean
+    default: false
+    group: "Security"
+
+  - variable: security.rbac.enabled
+    label: Enable Role-Based Access Control
+    description: "Configure user roles with different permissions (admin, operator, readonly)"
+    type: boolean
+    default: true
+    show_if: "security.authentication.enabled=true"
+    group: "Security"
+
+  # ========================================
+  # VNC REMOTE ACCESS
+  # ========================================
+  - variable: vnc.enabled
+    label: Enable VNC Server
+    description: "Enable VNC for remote desktop access to HMI (for troubleshooting)"
+    type: boolean
+    default: false
+    group: "VNC Access"
+
+  - variable: vnc.port
+    label: VNC Port
+    description: "VNC server port (default: 5900)"
+    type: int
+    default: 5900
+    show_if: "vnc.enabled=true"
+    group: "VNC Access"
+
+  - variable: vnc.resolution
+    label: VNC Display Resolution
+    description: "Virtual display resolution (e.g., 1920x1080, 1280x720)"
+    type: string
+    default: "1920x1080"
+    show_if: "vnc.enabled=true"
+    group: "VNC Access"
+
+  # ========================================
+  # MONITORING
+  # ========================================
+  - variable: monitoring.prometheus.enabled
+    label: Enable Prometheus Metrics
+    description: "Export runtime metrics for Prometheus monitoring"
+    type: boolean
+    default: true
+    group: "Monitoring"
+
+  - variable: monitoring.serviceMonitor.enabled
+    label: Enable ServiceMonitor
+    description: "Create ServiceMonitor for Prometheus Operator (requires Prometheus Operator)"
+    type: boolean
+    default: false
+    show_if: "monitoring.prometheus.enabled=true"
+    group: "Monitoring"
+
+  - variable: monitoring.grafana.enabled
+    label: Enable Grafana Dashboards
+    description: "Deploy pre-built Grafana dashboards via ConfigMap"
+    type: boolean
+    default: true
+    group: "Monitoring"
+
+  - variable: monitoring.healthcheck.enabled
+    label: Enable Health Checks
+    description: "Enable liveness/readiness/startup probes"
+    type: boolean
+    default: true
+    group: "Monitoring"
+
+  - variable: monitoring.logging.level
+    label: Log Level
+    description: "Logging verbosity"
+    type: enum
+    default: info
+    group: "Monitoring"
+    options:
+      - debug
+      - info
+      - warn
+      - error
+
+  - variable: monitoring.logging.format
+    label: Log Format
+    description: "Log output format (JSON recommended for parsing)"
+    type: enum
+    default: json
+    group: "Monitoring"
+    options:
+      - text
+      - json
+
+  # ========================================
+  # RESOURCES (CUSTOM)
+  # ========================================
+  - variable: resources.requests.cpu
+    label: CPU Request
+    description: "Guaranteed CPU allocation (e.g., 1000m = 1 core)"
+    type: string
+    default: "1000m"
+    show_if: "resourcePreset=custom"
+    group: "Custom Resources"
+
+  - variable: resources.requests.memory
+    label: Memory Request
+    description: "Guaranteed memory allocation (e.g., 1Gi)"
+    type: string
+    default: "1Gi"
+    show_if: "resourcePreset=custom"
+    group: "Custom Resources"
+
+  - variable: resources.limits.cpu
+    label: CPU Limit
+    description: "Maximum CPU usage (e.g., 2000m = 2 cores)"
+    type: string
+    default: "2000m"
+    show_if: "resourcePreset=custom"
+    group: "Custom Resources"
+
+  - variable: resources.limits.memory
+    label: Memory Limit
+    description: "Maximum memory usage (e.g., 2Gi)"
+    type: string
+    default: "2Gi"
+    show_if: "resourcePreset=custom"
+    group: "Custom Resources"
+
+  # ========================================
+  # ADVANCED
+  # ========================================
+  - variable: nodeSelector
+    label: Node Selector
+    description: "Kubernetes node labels for pod placement (JSON format)"
+    type: string
+    default: "{}"
+    group: "Advanced"
+
+  - variable: tolerations
+    label: Tolerations
+    description: "Kubernetes tolerations for pod scheduling (JSON array format)"
+    type: string
+    default: "[]"
+    group: "Advanced"
+
+  - variable: priorityClassName
+    label: Priority Class
+    description: "Pod priority class for scheduling (leave empty for default)"
+    type: string
+    default: ""
+    group: "Advanced"
+
+  - variable: networkPolicy.enabled
+    label: Enable Network Policy
+    description: "Restrict network traffic with Kubernetes NetworkPolicy"
+    type: boolean
+    default: false
+    group: "Advanced"

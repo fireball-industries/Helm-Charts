@@ -1,0 +1,21 @@
+{{- if and .Values.monitoring.prometheus.enabled .Values.monitoring.serviceMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "codesys-targetvisu.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "codesys-targetvisu.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "codesys-targetvisu.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: metrics
+      path: {{ .Values.monitoring.prometheus.path | default "/metrics" }}
+      interval: {{ .Values.monitoring.prometheus.interval | default "30s" }}
+      scrapeTimeout: 10s
+{{- end }}

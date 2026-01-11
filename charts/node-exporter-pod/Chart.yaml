@@ -1,0 +1,62 @@
+apiVersion: v2
+name: fireball-node-exporter
+description: |
+  Production-ready Prometheus Node Exporter for comprehensive node-level monitoring.
+  Optimized for industrial edge computing where knowing your hardware is dying 
+  BEFORE it catches fire is surprisingly useful.
+  
+  Fireball Industries - Because uptime matters when downtime costs actual money.
+type: application
+version: 1.0.0
+appVersion: "1.7.0"
+kubeVersion: ">=1.19.0-0"
+home: https://github.com/fireball-industries/node-exporter-pod
+sources:
+  - https://github.com/prometheus/node_exporter
+  - https://github.com/fireball-industries/node-exporter-pod
+keywords:
+  - prometheus
+  - monitoring
+  - metrics
+  - node-exporter
+  - hardware
+  - observability
+  - edge-computing
+  - industrial
+  - k3s
+  - kubernetes
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireballindustries.com
+    url: https://github.com/fireball-industries
+icon: https://raw.githubusercontent.com/prometheus/prometheus/main/documentation/images/prometheus-logo.svg
+annotations:
+  # Rancher Apps & Marketplace
+  catalog.cattle.io/certified: partner
+  catalog.cattle.io/display-name: "Fireball Node Exporter"
+  catalog.cattle.io/release-name: node-exporter
+  catalog.cattle.io/os: linux
+  catalog.cattle.io/type: cluster-tool
+  catalog.cattle.io/namespace: monitoring
+  
+  # Artifact Hub
+  artifacthub.io/category: monitoring-logging
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/operator: "false"
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/changes: |
+    - Initial release
+    - DaemonSet, Deployment, and StatefulSet modes
+    - 25+ collectors with industrial edge optimizations
+    - Textfile collector for custom metrics
+    - Temperature and hardware monitoring
+    - Resource presets for edge, standard, and server workloads
+    - Comprehensive RBAC and NetworkPolicy support
+    - ServiceMonitor for Prometheus Operator
+  artifacthub.io/recommendations: |
+    - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
+  
+  # Chart metadata
+  charts.helm.sh/provider: Fireball Industries
+  charts.helm.sh/stability: stable

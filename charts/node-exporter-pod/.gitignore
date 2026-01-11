@@ -1,0 +1,28 @@
+# Helm
+*.tgz
+*.lock
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Test outputs
+test-results/
+coverage/
+
+# Local development
+local-values.yaml
+override-values.yaml
+secrets.yaml

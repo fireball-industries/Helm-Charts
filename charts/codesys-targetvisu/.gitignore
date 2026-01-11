@@ -1,0 +1,55 @@
+# Helm chart artifacts
+*.tgz
+charts/
+*.lock
+
+# CODESYS packages (user provides these)
+*.deb
+*.rpm
+*.tar.gz
+codesys-targetvisu-*
+
+# License files (sensitive)
+*.lic
+*.dat
+license.txt
+CODESYSLicense.bin
+
+# Secrets and credentials
+*.key
+*.pem
+*.crt
+secrets/
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Build artifacts
+build/
+dist/
+target/
+
+# Docker
+.dockerignore
+
+# Testing
+test-results/
+coverage/

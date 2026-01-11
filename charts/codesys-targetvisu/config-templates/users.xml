@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<users>
+  <user>
+    <name>admin</name>
+    <description>Administrator</description>
+    <groups>
+      <group>Administrators</group>
+    </groups>
+    <rights>
+      <right>View</right>
+      <right>Edit</right>
+      <right>Configure</right>
+      <right>Acknowledge</right>
+      <right>ManageUsers</right>
+    </rights>
+  </user>
+  <user>
+    <name>operator</name>
+    <description>Operator</description>
+    <groups>
+      <group>Operators</group>
+    </groups>
+    <rights>
+      <right>View</right>
+      <right>Edit</right>
+      <right>Acknowledge</right>
+    </rights>
+  </user>
+  <user>
+    <name>readonly</name>
+    <description>Read-Only User</description>
+    <groups>
+      <group>Viewers</group>
+    </groups>
+    <rights>
+      <right>View</right>
+    </rights>
+  </user>
+</users>

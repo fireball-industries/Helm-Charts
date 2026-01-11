@@ -1,0 +1,35 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Shell scripts should use LF
+*.sh text eol=lf
+
+# PowerShell scripts should use CRLF
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+
+# YAML files
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# Markdown
+*.md text eol=lf
+
+# JSON
+*.json text eol=lf
+
+# Dockerfile
+Dockerfile text eol=lf
+
+# Templates
+*.tpl text eol=lf
+*.tmpl text eol=lf
+
+# Binary files
+*.deb binary
+*.rpm binary
+*.tar.gz binary
+*.tgz binary
+*.lic binary
+*.dat binary

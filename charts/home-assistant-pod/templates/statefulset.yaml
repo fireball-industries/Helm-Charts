@@ -1,0 +1,436 @@
+{{/*
+============================================================================
+Home Assistant StatefulSet
+============================================================================
+Fireball Industries - Patrick Ryan
+
+StatefulSet ensures stable network identity and ordered deployment.
+Home Assistant Core cannot run in HA mode (ironic, right?), so we use
+a single replica with persistent storage.
+
+Why StatefulSet instead of Deployment?
+- Stable network identity for integrations that cache the hostname
+- Ordered, graceful deployment and scaling
+- Stable persistent storage claims
+- Your automations won't freak out when the pod restarts
+
+Side note: If you're running multiple replicas of this, you're doing it wrong.
+Home Assistant Core explicitly does NOT support high availability.
+If you need HA, look into Home Assistant Operating System clustering
+(just kidding, that doesn't exist either).
+============================================================================
+*/}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "home-assistant.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "home-assistant.fullname" . }}-headless
+  replicas: 1  # DO NOT CHANGE THIS. Home Assistant != High Availability (despite the name)
+  selector:
+    matchLabels:
+      {{- include "home-assistant.selectorLabels" . | nindent 6 }}
+  {{- if .Values.updateStrategy }}
+  updateStrategy:
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "home-assistant.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- include "home-assistant.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "home-assistant.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.homeassistant.hostNetwork }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
+      {{- with .Values.homeassistant.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.homeassistant.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.homeassistant.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      {{- if .Values.initContainers }}
+      initContainers:
+        {{- toYaml .Values.initContainers | nindent 8 }}
+      {{- end }}
+
+      containers:
+        # ====================================================================
+        # PRIMARY CONTAINER: Home Assistant Core
+        # ====================================================================
+        - name: home-assistant
+          image: "{{ .Values.homeassistant.image.repository }}:{{ .Values.homeassistant.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.homeassistant.image.pullPolicy }}
+          {{- with .Values.homeassistant.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 8123
+              protocol: TCP
+          env:
+            - name: TZ
+              value: {{ .Values.global.timezone | quote }}
+            {{- if eq .Values.database.type "postgresql" }}
+            - name: DB_URL
+              value: {{ include "home-assistant.databaseUrl" . | quote }}
+            {{- else if eq .Values.database.type "external" }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.external.passwordSecret }}
+                  key: {{ .Values.database.external.passwordKey }}
+            - name: DB_URL
+              value: {{ include "home-assistant.databaseUrl" . | quote }}
+            {{- end }}
+            {{- with .Values.homeassistant.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if .Values.probes.startup.enabled }}
+          startupProbe:
+            {{- toYaml .Values.probes.startup.httpGet | nindent 12 }}
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.liveness.enabled }}
+          livenessProbe:
+            {{- toYaml .Values.probes.liveness.httpGet | nindent 12 }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.readiness.enabled }}
+          readinessProbe:
+            {{- toYaml .Values.probes.readiness.httpGet | nindent 12 }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          {{- end }}
+          {{- include "home-assistant.resources" . | nindent 10 }}
+          volumeMounts:
+            {{- if .Values.persistence.config.enabled }}
+            - name: config
+              mountPath: {{ .Values.persistence.config.mountPath }}
+            {{- end }}
+            {{- if .Values.persistence.media.enabled }}
+            - name: media
+              mountPath: {{ .Values.persistence.media.mountPath }}
+            {{- end }}
+            {{- if .Values.persistence.share.enabled }}
+            - name: share
+              mountPath: {{ .Values.persistence.share.mountPath }}
+            {{- end }}
+            {{- if .Values.persistence.backups.enabled }}
+            - name: backups
+              mountPath: {{ .Values.persistence.backups.mountPath }}
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+        {{- if and .Values.mqtt.enabled (eq .Values.mqtt.deployment "sidecar") }}
+        # ====================================================================
+        # SIDECAR: MQTT Broker (Mosquitto)
+        # ====================================================================
+        # The nervous system of your smart home
+        # All your devices whispering to each other about your questionable life choices
+        # ====================================================================
+        - name: mqtt
+          image: "{{ .Values.mqtt.image.repository }}:{{ .Values.mqtt.image.tag }}"
+          imagePullPolicy: {{ .Values.mqtt.image.pullPolicy }}
+          ports:
+            - name: mqtt
+              containerPort: {{ .Values.mqtt.ports.mqtt }}
+              protocol: TCP
+            - name: websocket
+              containerPort: {{ .Values.mqtt.ports.websocket }}
+              protocol: TCP
+          env:
+            - name: TZ
+              value: {{ .Values.global.timezone | quote }}
+          resources:
+            {{- toYaml .Values.mqtt.resources | nindent 12 }}
+          volumeMounts:
+            - name: mqtt-config
+              mountPath: /mosquitto/config
+            {{- if .Values.mqtt.persistence.enabled }}
+            - name: mqtt-data
+              mountPath: /mosquitto/data
+            {{- end }}
+        {{- end }}
+
+        {{- if and .Values.nodered.enabled (eq .Values.nodered.deployment "sidecar") }}
+        # ====================================================================
+        # SIDECAR: Node-RED
+        # ====================================================================
+        # Visual programming for people who think YAML is too mainstream
+        # Drag, drop, and pretend you're not writing code
+        # ====================================================================
+        - name: nodered
+          image: "{{ .Values.nodered.image.repository }}:{{ .Values.nodered.image.tag }}"
+          imagePullPolicy: {{ .Values.nodered.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.nodered.port }}
+              protocol: TCP
+          env:
+            - name: TZ
+              value: {{ .Values.global.timezone | quote }}
+          resources:
+            {{- toYaml .Values.nodered.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.nodered.persistence.enabled }}
+            - name: nodered-data
+              mountPath: /data
+            {{- end }}
+        {{- end }}
+
+        {{- if and .Values.esphome.enabled (eq .Values.esphome.deployment "sidecar") }}
+        # ====================================================================
+        # SIDECAR: ESPHome
+        # ====================================================================
+        # For managing your army of ESP32/ESP8266 devices
+        # Because buying pre-made IoT devices is for quitters
+        # ====================================================================
+        - name: esphome
+          image: "{{ .Values.esphome.image.repository }}:{{ .Values.esphome.image.tag }}"
+          imagePullPolicy: {{ .Values.esphome.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.esphome.port }}
+              protocol: TCP
+          env:
+            - name: TZ
+              value: {{ .Values.global.timezone | quote }}
+            - name: ESPHOME_DASHBOARD_USE_PING
+              value: "true"
+          resources:
+            {{- toYaml .Values.esphome.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.esphome.persistence.enabled }}
+            - name: esphome-config
+              mountPath: /config
+            {{- end }}
+        {{- end }}
+
+        {{- if and .Values.zigbee2mqtt.enabled (eq .Values.zigbee2mqtt.deployment "sidecar") }}
+        # ====================================================================
+        # SIDECAR: Zigbee2MQTT
+        # ====================================================================
+        # Bridge for Zigbee devices
+        # Because WiFi is too mainstream for lightbulbs
+        # WARNING: Requires USB Zigbee coordinator access
+        # ====================================================================
+        - name: zigbee2mqtt
+          image: "{{ .Values.zigbee2mqtt.image.repository }}:{{ .Values.zigbee2mqtt.image.tag }}"
+          imagePullPolicy: {{ .Values.zigbee2mqtt.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.zigbee2mqtt.port }}
+              protocol: TCP
+          env:
+            - name: TZ
+              value: {{ .Values.global.timezone | quote }}
+          resources:
+            {{- toYaml .Values.zigbee2mqtt.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.zigbee2mqtt.persistence.enabled }}
+            - name: zigbee2mqtt-data
+              mountPath: /app/data
+            {{- end }}
+            - name: zigbee-usb
+              mountPath: {{ .Values.zigbee2mqtt.usbDevice }}
+          securityContext:
+            privileged: true
+        {{- end }}
+
+        {{- with .Values.sidecars }}
+        # ====================================================================
+        # ADDITIONAL SIDECARS
+        # ====================================================================
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+
+      volumes:
+        # Configuration volumes
+        {{- if and .Values.mqtt.enabled (eq .Values.mqtt.deployment "sidecar") }}
+        - name: mqtt-config
+          configMap:
+            name: {{ include "home-assistant.fullname" . }}-mqtt
+        {{- end }}
+        
+        # USB device volumes (for Zigbee/Z-Wave)
+        {{- if and .Values.zigbee2mqtt.enabled (eq .Values.zigbee2mqtt.deployment "sidecar") }}
+        - name: zigbee-usb
+          hostPath:
+            path: {{ .Values.zigbee2mqtt.usbDevice }}
+        {{- end }}
+
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+
+  # ==========================================================================
+  # VOLUME CLAIM TEMPLATES
+  # ==========================================================================
+  # Persistent storage for Home Assistant and add-ons
+  # These are dynamically provisioned per StatefulSet replica
+  # ==========================================================================
+  volumeClaimTemplates:
+    {{- if and .Values.persistence.config.enabled (not .Values.persistence.config.existingClaim) }}
+    - metadata:
+        name: config
+        labels:
+          {{- include "home-assistant.labels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - {{ .Values.persistence.config.accessMode }}
+        {{- if .Values.persistence.config.storageClass }}
+        storageClassName: {{ .Values.persistence.config.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.config.size }}
+    {{- end }}
+
+    {{- if and .Values.persistence.media.enabled (not .Values.persistence.media.existingClaim) }}
+    - metadata:
+        name: media
+        labels:
+          {{- include "home-assistant.labels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - {{ .Values.persistence.media.accessMode }}
+        {{- if .Values.persistence.media.storageClass }}
+        storageClassName: {{ .Values.persistence.media.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.media.size }}
+    {{- end }}
+
+    {{- if and .Values.persistence.share.enabled (not .Values.persistence.share.existingClaim) }}
+    - metadata:
+        name: share
+        labels:
+          {{- include "home-assistant.labels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - {{ .Values.persistence.share.accessMode }}
+        {{- if .Values.persistence.share.storageClass }}
+        storageClassName: {{ .Values.persistence.share.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.share.size }}
+    {{- end }}
+
+    {{- if and .Values.persistence.backups.enabled (not .Values.persistence.backups.existingClaim) }}
+    - metadata:
+        name: backups
+        labels:
+          {{- include "home-assistant.labels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - {{ .Values.persistence.backups.accessMode }}
+        {{- if .Values.persistence.backups.storageClass }}
+        storageClassName: {{ .Values.persistence.backups.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.backups.size }}
+    {{- end }}
+
+    {{- if and .Values.mqtt.enabled (eq .Values.mqtt.deployment "sidecar") .Values.mqtt.persistence.enabled (not .Values.mqtt.persistence.existingClaim) }}
+    - metadata:
+        name: mqtt-data
+        labels:
+          {{- include "home-assistant.labels" . | nindent 10 }}
+          app.kubernetes.io/component: mqtt
+      spec:
+        accessModes:
+          - {{ .Values.mqtt.persistence.accessMode }}
+        {{- if .Values.mqtt.persistence.storageClass }}
+        storageClassName: {{ .Values.mqtt.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.mqtt.persistence.size }}
+    {{- end }}
+
+    {{- if and .Values.nodered.enabled (eq .Values.nodered.deployment "sidecar") .Values.nodered.persistence.enabled (not .Values.nodered.persistence.existingClaim) }}
+    - metadata:
+        name: nodered-data
+        labels:
+          {{- include "home-assistant.labels" . | nindent 10 }}
+          app.kubernetes.io/component: nodered
+      spec:
+        accessModes:
+          - {{ .Values.nodered.persistence.accessMode }}
+        {{- if .Values.nodered.persistence.storageClass }}
+        storageClassName: {{ .Values.nodered.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.nodered.persistence.size }}
+    {{- end }}
+
+    {{- if and .Values.esphome.enabled (eq .Values.esphome.deployment "sidecar") .Values.esphome.persistence.enabled (not .Values.esphome.persistence.existingClaim) }}
+    - metadata:
+        name: esphome-config
+        labels:
+          {{- include "home-assistant.labels" . | nindent 10 }}
+          app.kubernetes.io/component: esphome
+      spec:
+        accessModes:
+          - {{ .Values.esphome.persistence.accessMode }}
+        {{- if .Values.esphome.persistence.storageClass }}
+        storageClassName: {{ .Values.esphome.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.esphome.persistence.size }}
+    {{- end }}
+
+    {{- if and .Values.zigbee2mqtt.enabled (eq .Values.zigbee2mqtt.deployment "sidecar") .Values.zigbee2mqtt.persistence.enabled (not .Values.zigbee2mqtt.persistence.existingClaim) }}
+    - metadata:
+        name: zigbee2mqtt-data
+        labels:
+          {{- include "home-assistant.labels" . | nindent 10 }}
+          app.kubernetes.io/component: zigbee2mqtt
+      spec:
+        accessModes:
+          - {{ .Values.zigbee2mqtt.persistence.accessMode }}
+        {{- if .Values.zigbee2mqtt.persistence.storageClass }}
+        storageClassName: {{ .Values.zigbee2mqtt.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.zigbee2mqtt.persistence.size }}
+    {{- end }}

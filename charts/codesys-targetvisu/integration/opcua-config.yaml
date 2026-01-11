@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opcua-server-config
+  namespace: industrial
+data:
+  opcua-config.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <opcua>
+      <server>
+        <endpoint>opc.tcp://0.0.0.0:4840</endpoint>
+        <applicationuri>urn:codesys:targetvisu:opcua</applicationuri>
+        <applicationname>CODESYS TargetVisu OPC UA Server</applicationname>
+        <security>
+          <mode>SignAndEncrypt</mode>
+          <policy>Basic256Sha256</policy>
+          <certificate>/etc/ssl/opcua/server-cert.der</certificate>
+          <privatekey>/etc/ssl/opcua/server-key.pem</privatekey>
+        </security>
+        <limits>
+          <maxsessions>10</maxsessions>
+          <maxsubscriptions>100</maxsubscriptions>
+          <maxmonitoreditemspersubscription>1000</maxmonitoreditemspersubscription>
+        </limits>
+        <namespaces>
+          <namespace uri="http://codesys.com/targetvisu" index="2"/>
+        </namespaces>
+      </server>
+    </opcua>

@@ -1,0 +1,46 @@
+# Example Custom Metrics File
+# Prometheus text format for custom metrics
+# Place in: /var/lib/node_exporter/textfile_collector/
+
+# HELP my_custom_metric Example custom metric
+# TYPE my_custom_metric gauge
+my_custom_metric{label="value",environment="production"} 42
+
+# HELP backup_last_success_timestamp Unix timestamp of last successful backup
+# TYPE backup_last_success_timestamp gauge
+backup_last_success_timestamp{backup_type="full",target="database"} 1737446400
+
+# HELP hardware_health_status Hardware component health (1=healthy, 0=unhealthy)
+# TYPE hardware_health_status gauge
+hardware_health_status{component="raid",status="healthy"} 1
+hardware_health_status{component="power_supply",status="healthy"} 1
+hardware_health_status{component="battery_backup",status="degraded"} 0
+
+# HELP license_expiry_days Days until software license expires
+# TYPE license_expiry_days gauge
+license_expiry_days{software="monitoring_tool",license_type="enterprise"} 45
+
+# HELP batch_job_duration_seconds Duration of last batch job execution
+# TYPE batch_job_duration_seconds gauge
+batch_job_duration_seconds{job_name="daily_report",status="success"} 127.5
+
+# HELP batch_job_records_processed Number of records processed in last batch job
+# TYPE batch_job_records_processed counter
+batch_job_records_processed{job_name="daily_report"} 15234
+
+# HELP application_version_info Application version information
+# TYPE application_version_info gauge
+application_version_info{version="2.5.1",commit="abc123def"} 1
+
+# HELP custom_temperature_celsius Custom temperature reading
+# TYPE custom_temperature_celsius gauge
+custom_temperature_celsius{sensor="external_probe",location="factory_floor"} 28.5
+
+# Notes:
+# - Metric names must match: [a-zA-Z_:][a-zA-Z0-9_:]*
+# - Label names must match: [a-zA-Z_][a-zA-Z0-9_]*
+# - Always include HELP and TYPE comments
+# - Timestamps are optional (Prometheus adds scrape time)
+# - Use gauges for values that can go up/down
+# - Use counters for monotonically increasing values
+# - Use histograms/summaries for distributions (advanced)

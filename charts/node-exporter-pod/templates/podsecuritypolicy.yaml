@@ -1,0 +1,86 @@
+{{- if .Values.rbac.pspEnabled }}
+apiVersion: {{ include "node-exporter.psp.apiVersion" . }}
+kind: PodSecurityPolicy
+metadata:
+  name: {{ include "node-exporter.fullname" . }}
+  labels:
+    {{- include "node-exporter.labels" . | nindent 4 }}
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'runtime/default'
+    apparmor.security.beta.kubernetes.io/allowedProfileNames: 'runtime/default'
+    seccomp.security.alpha.kubernetes.io/defaultProfileName:  'runtime/default'
+    apparmor.security.beta.kubernetes.io/defaultProfileName:  'runtime/default'
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  allowedCapabilities:
+    - SYS_TIME
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'hostPath'
+  allowedHostPaths:
+    - pathPrefix: "/proc"
+      readOnly: true
+    - pathPrefix: "/sys"
+      readOnly: true
+    - pathPrefix: "/"
+      readOnly: true
+    {{- if .Values.textfileCollector.enabled }}
+    - pathPrefix: {{ .Values.textfileCollector.hostPath | quote }}
+      readOnly: true
+    {{- end }}
+  hostNetwork: true
+  hostIPC: false
+  hostPID: true
+  hostPorts:
+    - min: 0
+      max: 65535
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'RunAsAny'
+  fsGroup:
+    rule: 'RunAsAny'
+  readOnlyRootFilesystem: true
+---
+apiVersion: {{ include "node-exporter.rbac.apiVersion" . }}
+kind: Role
+metadata:
+  name: {{ include "node-exporter.fullname" . }}-psp
+  namespace: {{ include "node-exporter.namespace" . }}
+  labels:
+    {{- include "node-exporter.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - policy
+    resources:
+      - podsecuritypolicies
+    verbs:
+      - use
+    resourceNames:
+      - {{ include "node-exporter.fullname" . }}
+---
+apiVersion: {{ include "node-exporter.rbac.apiVersion" . }}
+kind: RoleBinding
+metadata:
+  name: {{ include "node-exporter.fullname" . }}-psp
+  namespace: {{ include "node-exporter.namespace" . }}
+  labels:
+    {{- include "node-exporter.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "node-exporter.fullname" . }}-psp
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "node-exporter.serviceAccountName" . }}
+    namespace: {{ include "node-exporter.namespace" . }}
+{{- end }}

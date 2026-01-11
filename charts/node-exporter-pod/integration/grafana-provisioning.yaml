@@ -1,0 +1,213 @@
+---
+# Grafana Dashboard Provisioning Configuration
+# Place in /etc/grafana/provisioning/dashboards/ on Grafana server
+
+apiVersion: 1
+
+providers:
+  # Node Exporter dashboards provider
+  - name: 'Node Exporter Dashboards'
+    orgId: 1
+    folder: 'Infrastructure'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/node-exporter
+      foldersFromFilesStructure: true
+
+---
+# Grafana Datasource Configuration for Prometheus
+# Place in /etc/grafana/provisioning/datasources/ on Grafana server
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus-server.monitoring.svc.cluster.local:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      httpMethod: POST
+      timeInterval: 30s
+      queryTimeout: 60s
+      exemplarTraceIdDestinations:
+        - datasourceUid: tempo
+          name: trace_id
+    version: 1
+
+  - name: Prometheus (Production)
+    type: prometheus
+    access: proxy
+    url: http://prometheus-production.monitoring.svc.cluster.local:9090
+    editable: true
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s
+      queryTimeout: 60s
+    version: 1
+
+---
+# Kubernetes ConfigMap for dashboard provisioning
+# Use this to deploy dashboards via Kubernetes
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-node-exporter
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  node-exporter-full.json: |
+    # Content of node-exporter-full.json dashboard
+    # (See dashboards/node-exporter-full.json)
+
+---
+# Grafana Deployment with dashboard sidecar
+# Auto-discovers ConfigMaps with label grafana_dashboard=1
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:10.2.0
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-credentials
+                  key: admin-password
+            - name: GF_INSTALL_PLUGINS
+              value: "grafana-piechart-panel,grafana-clock-panel"
+          volumeMounts:
+            - name: grafana-storage
+              mountPath: /var/lib/grafana
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+        
+        # Sidecar container to auto-load dashboards from ConfigMaps
+        - name: dashboard-sidecar
+          image: kiwigrid/k8s-sidecar:1.25.2
+          env:
+            - name: LABEL
+              value: "grafana_dashboard"
+            - name: FOLDER
+              value: "/var/lib/grafana/dashboards"
+            - name: NAMESPACE
+              value: "monitoring"
+            - name: RESOURCE
+              value: "configmap"
+          volumeMounts:
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+      
+      volumes:
+        - name: grafana-storage
+          persistentVolumeClaim:
+            claimName: grafana-storage
+        - name: dashboards
+          emptyDir: {}
+
+---
+# Useful Grafana API calls for dashboard management
+
+# Import dashboard via API
+# curl -X POST http://admin:password@grafana.example.com/api/dashboards/db \
+#   -H "Content-Type: application/json" \
+#   -d @dashboards/node-exporter-full.json
+
+# Export dashboard via API
+# curl http://admin:password@grafana.example.com/api/dashboards/uid/node-exporter-full | \
+#   jq '.dashboard' > node-exporter-full.json
+
+# List all dashboards
+# curl http://admin:password@grafana.example.com/api/search?query=node
+
+---
+# Helm values for Grafana with Node Exporter dashboards
+
+grafana:
+  enabled: true
+  adminPassword: changeme
+  
+  persistence:
+    enabled: true
+    size: 10Gi
+  
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus-server:9090
+          access: proxy
+          isDefault: true
+  
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'node-exporter'
+          orgId: 1
+          folder: 'Infrastructure'
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/node-exporter
+  
+  dashboards:
+    node-exporter:
+      node-exporter-full:
+        url: https://raw.githubusercontent.com/fireball-industries/node-exporter-pod/main/dashboards/node-exporter-full.json
+      industrial-edge:
+        url: https://raw.githubusercontent.com/fireball-industries/node-exporter-pod/main/dashboards/industrial-edge.json
+
+  # Alternative: Import from grafana.com
+  dashboardsConfigMaps:
+    node-exporter: grafana-dashboard-node-exporter
+
+---
+# Quick reference: Popular Grafana dashboards for Node Exporter
+
+# 1. Node Exporter Full (Official)
+#    Dashboard ID: 1860
+#    URL: https://grafana.com/grafana/dashboards/1860
+#    Description: Comprehensive overview of all node metrics
+
+# 2. Node Exporter for Prometheus Dashboard EN (Alternative)
+#    Dashboard ID: 11074
+#    URL: https://grafana.com/grafana/dashboards/11074
+#    Description: Clean, English-only version with good visualizations
+
+# 3. Kubernetes Cluster Monitoring (via Prometheus)
+#    Dashboard ID: 315
+#    URL: https://grafana.com/grafana/dashboards/315
+#    Description: Multi-node cluster overview
+
+# Import via Grafana UI:
+# 1. Go to Dashboards > Import
+# 2. Enter dashboard ID (e.g., 1860)
+# 3. Select Prometheus datasource
+# 4. Click Import

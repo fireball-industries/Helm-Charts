@@ -1,0 +1,264 @@
+# Default values for CODESYS Edge Gateway
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Image configuration
+image:
+  # Repository for the CODESYS Edge Gateway image
+  # Options: ghcr.io/YOUR_ORG/codesys-edge-gateway or localhost:5000/codesys-edge-gateway
+  repository: ghcr.io/YOUR_ORG/codesys-edge-gateway
+  # Image tag - corresponds to CODESYS Gateway version
+  tag: "4.18.0.0"
+  # Image pull policy
+  pullPolicy: IfNotPresent
+  # Target architecture: arm32, arm64, x86, x64
+  # This is used for node selection and image tagging
+  architecture: arm64
+
+# Image pull secrets for private registries
+imagePullSecrets: []
+# - name: regcred
+
+# Name override for the chart
+nameOverride: ""
+fullnameOverride: ""
+
+# Replica count - Gateway should be singleton per network segment
+replicaCount: 1
+
+# Service configuration
+service:
+  # Service type - LoadBalancer for k3s, NodePort for other clusters
+  type: LoadBalancer
+  # CODESYS Gateway communication port (default: 2455)
+  gatewayPort: 2455
+  # PLC/Runtime communication port
+  plcPort: 1217
+  # Gateway discovery UDP ports
+  discoveryPorts:
+    - 1740
+    - 1741
+    - 1742
+    - 1743
+  # Session affinity to maintain gateway connections
+  sessionAffinity: ClientIP
+  # Annotations for service (e.g., metallb config)
+  annotations: {}
+  # loadBalancerIP: "192.168.1.100"  # Uncomment to set specific IP
+
+# Persistent storage configuration
+persistence:
+  # Enable persistent volume for gateway configuration and cache
+  enabled: true
+  # Storage class - use 'local-path' for k3s, adjust for other providers
+  storageClass: local-path
+  # Access mode
+  accessMode: ReadWriteOnce
+  # Size of persistent volume
+  size: 1Gi
+  # Existing claim name (optional)
+  existingClaim: ""
+  # Mount path inside container
+  mountPath: /var/opt/codesys-gateway
+  # Annotations for PVC
+  annotations: {}
+
+# Gateway configuration
+gateway:
+  # CODESYS Automation Server URL (required)
+  # Example: https://automation-server.example.com:4410
+  automationServerUrl: ""
+  
+  # Automation Server connection credentials (stored in secret)
+  # Leave empty to use existing secret
+  automationServer:
+    username: ""
+    password: ""
+    # Name of existing secret containing credentials
+    # Expected keys: username, password
+    existingSecret: ""
+  
+  # Network interface for gateway binding
+  networkInterface: "eth0"
+  
+  # Enable PLC discovery via UDP broadcast
+  enablePlcDiscovery: true
+  
+  # PLC discovery interval in seconds
+  discoveryInterval: 30
+  
+  # Gateway name/identifier
+  name: "CODESYS-Edge-Gateway"
+  
+  # Enable SSL/TLS for Automation Server connection
+  enableSsl: true
+  
+  # Custom gateway configuration (optional)
+  # Will be merged into gateway config file
+  customConfig: {}
+
+# Security context for the gateway pod
+securityContext:
+  capabilities:
+    add:
+      # Required for network configuration
+      - NET_ADMIN
+    drop:
+      - ALL
+  # Run as non-root user when possible
+  runAsNonRoot: false
+  runAsUser: 0  # Gateway may require root for network operations
+  privileged: false
+  readOnlyRootFilesystem: false
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Resource management
+resources:
+  requests:
+    # Minimum memory required
+    memory: 128Mi
+    # Minimum CPU required
+    cpu: 100m
+  limits:
+    # Maximum memory allowed
+    memory: 512Mi
+    # Maximum CPU allowed
+    cpu: 500m
+
+# Node selector for architecture-specific deployment
+nodeSelector:
+  # kubernetes.io/arch: arm64  # Dynamically set based on image.architecture
+
+# Tolerations for node taints
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
+
+# Health probes configuration
+livenessProbe:
+  tcpSocket:
+    port: gateway
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  tcpSocket:
+    port: gateway
+  initialDelaySeconds: 15
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Startup probe (for slow-starting gateways)
+startupProbe:
+  tcpSocket:
+    port: gateway
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 5
+  failureThreshold: 12
+
+# Environment variables
+env: []
+# - name: TZ
+#   value: "UTC"
+
+# Environment variables from secrets/configmaps
+envFrom: []
+
+# Multi-tenancy configuration
+namespace: codesys-gateway
+
+# Labels applied to all resources
+labels:
+  app: codesys-edge-gateway
+  component: gateway
+
+# Network configuration
+network:
+  # Use host network for UDP broadcast discovery
+  # May be required for PLC discovery to work properly
+  hostNetwork: false
+  # DNS policy when using hostNetwork
+  dnsPolicy: ClusterFirst
+
+# Time synchronization configuration
+timeSync:
+  # Enable time synchronization
+  enabled: true
+  # Method: hostPath or sidecar
+  method: hostPath
+  # Host timezone path (for hostPath method)
+  hostTimezonePath: /etc/localtime
+
+# Service account
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Network policy (for multi-tenant isolation)
+networkPolicy:
+  # Enable network policy
+  enabled: false
+  # Ingress rules
+  ingress:
+    # Allow traffic from specific namespaces
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: codesys-plc
+      ports:
+      - protocol: TCP
+        port: 2455
+      - protocol: TCP
+        port: 1217
+  # Egress rules
+  egress:
+    # Allow DNS
+    - to:
+      - namespaceSelector: {}
+      ports:
+      - protocol: UDP
+        port: 53
+
+# Resource quotas (for multi-tenant deployments)
+resourceQuota:
+  enabled: false
+  hard:
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+    persistentvolumeclaims: "1"
+
+# Monitoring and metrics
+metrics:
+  enabled: false
+  port: 9090
+  path: /metrics
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Logging configuration
+logging:
+  level: INFO
+  format: json

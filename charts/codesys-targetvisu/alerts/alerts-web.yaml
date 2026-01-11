@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: targetvisu-web-alerts
+  labels:
+    app: prometheus
+data:
+  alerts.yml: |
+    groups:
+    - name: codesys_targetvisu_web
+      interval: 30s
+      rules:
+      
+      # Web interface not responding
+      - alert: TargetVisuWebDown
+        expr: probe_success{job="codesys-targetvisu-web"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: web
+        annotations:
+          summary: "TargetVisu web interface is down"
+          description: "The HMI web interface at {{ $labels.instance }} is not responding. Operators cannot access the HMI."
+      
+      # Slow response time
+      - alert: TargetVisuSlowResponse
+        expr: probe_http_duration_seconds{job="codesys-targetvisu-web"} > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: web
+        annotations:
+          summary: "TargetVisu slow response time"
+          description: "Web interface response time is {{ $value }}s. Should be <500ms. Check CPU/memory usage or network."
+      
+      # SSL certificate expiring
+      - alert: TargetVisuCertificateExpiring
+        expr: probe_ssl_earliest_cert_expiry{job="codesys-targetvisu-web"} - time() < 86400 * 7
+        for: 1h
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}. Renew it before your security team notices."
+      
+      # Too many concurrent clients
+      - alert: TargetVisuMaxClientsReached
+        expr: codesys_visu_connected_clients >= codesys_visu_max_clients
+        for: 5m
+        labels:
+          severity: warning
+          component: web
+        annotations:
+          summary: "TargetVisu max clients reached"
+          description: "{{ $value }} clients connected (max: {{ codesys_visu_max_clients }}). New connections will be rejected."
+      
+      # HTTP errors
+      - alert: TargetVisuHighHTTPErrors
+        expr: rate(codesys_http_requests_total{code=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: web
+        annotations:
+          summary: "High HTTP 5xx error rate"
+          description: "{{ $value | humanizePercentage }} of HTTP requests are returning 5xx errors. Something is broken."

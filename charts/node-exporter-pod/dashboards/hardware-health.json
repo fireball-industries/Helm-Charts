@@ -1,0 +1,305 @@
+{
+  "dashboard": {
+    "title": "Hardware Health Monitor",
+    "tags": ["node-exporter", "hardware", "temperature", "disk-health"],
+    "timezone": "browser",
+    "editable": true,
+    "graphTooltip": 1,
+    "time": {
+      "from": "now-3h",
+      "to": "now"
+    },
+    "refresh": "30s",
+    "schemaVersion": 38,
+    "version": 1,
+    "templating": {
+      "list": [
+        {
+          "current": {},
+          "datasource": "${DS_PROMETHEUS}",
+          "definition": "label_values(node_uname_info, instance)",
+          "hide": 0,
+          "includeAll": false,
+          "label": "Node",
+          "multi": false,
+          "name": "instance",
+          "query": "label_values(node_uname_info, instance)",
+          "refresh": 1,
+          "type": "query"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "blue", "value": null},
+                {"color": "green", "value": 40},
+                {"color": "yellow", "value": 60},
+                {"color": "orange", "value": 70},
+                {"color": "red", "value": 80},
+                {"color": "dark-red", "value": 90}
+              ]
+            },
+            "unit": "celsius"
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0},
+        "id": 1,
+        "options": {
+          "displayMode": "gradient",
+          "orientation": "horizontal",
+          "showUnfilled": true
+        },
+        "targets": [
+          {
+            "expr": "node_hwmon_temp_celsius{instance=~\"$instance\"}",
+            "instant": true,
+            "legendFormat": "{{ chip }} - {{ sensor }}",
+            "refId": "A"
+          },
+          {
+            "expr": "node_thermal_zone_temp{instance=~\"$instance\"}",
+            "instant": true,
+            "legendFormat": "Thermal {{ zone }} - {{ type }}",
+            "refId": "B"
+          }
+        ],
+        "title": "Temperature Sensors (Current) - Industrial Sauna Edition",
+        "type": "bargauge"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "celsius"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "id": 2,
+        "targets": [
+          {
+            "expr": "node_hwmon_temp_celsius{instance=~\"$instance\"}",
+            "legendFormat": "{{ chip }} - {{ sensor }}",
+            "refId": "A"
+          }
+        ],
+        "title": "Temperature History (hwmon)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "celsius"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "id": 3,
+        "targets": [
+          {
+            "expr": "node_thermal_zone_temp{instance=~\"$instance\"}",
+            "legendFormat": "{{ zone }} - {{ type }}",
+            "refId": "A"
+          }
+        ],
+        "title": "Thermal Zone Temperature",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "Bps"
+          }
+        },
+        "gridPos": {"h": 7, "w": 12, "x": 0, "y": 16},
+        "id": 4,
+        "targets": [
+          {
+            "expr": "rate(node_disk_read_bytes_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{{ device }} Read",
+            "refId": "A"
+          }
+        ],
+        "title": "Disk Read Throughput",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "Bps"
+          }
+        },
+        "gridPos": {"h": 7, "w": 12, "x": 12, "y": 16},
+        "id": 5,
+        "targets": [
+          {
+            "expr": "rate(node_disk_written_bytes_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{{ device }} Write",
+            "refId": "A"
+          }
+        ],
+        "title": "Disk Write Throughput - SD Card Killer",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "iops"
+          }
+        },
+        "gridPos": {"h": 7, "w": 12, "x": 0, "y": 23},
+        "id": 6,
+        "targets": [
+          {
+            "expr": "rate(node_disk_reads_completed_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{{ device }} Reads",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(node_disk_writes_completed_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{{ device }} Writes",
+            "refId": "B"
+          }
+        ],
+        "title": "Disk IOPS",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "ms"
+          }
+        },
+        "gridPos": {"h": 7, "w": 12, "x": 12, "y": 23},
+        "id": 7,
+        "targets": [
+          {
+            "expr": "rate(node_disk_io_time_seconds_total{instance=~\"$instance\"}[5m]) * 1000",
+            "legendFormat": "{{ device }}",
+            "refId": "A"
+          }
+        ],
+        "title": "Disk I/O Wait Time",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "errors/s"
+          }
+        },
+        "gridPos": {"h": 7, "w": 12, "x": 0, "y": 30},
+        "id": 8,
+        "targets": [
+          {
+            "expr": "rate(node_network_receive_errs_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{{ device }} RX Errors",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(node_network_transmit_errs_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{{ device }} TX Errors",
+            "refId": "B"
+          }
+        ],
+        "title": "Network Errors - Cables Hate You",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "drops/s"
+          }
+        },
+        "gridPos": {"h": 7, "w": 12, "x": 12, "y": 30},
+        "id": 9,
+        "targets": [
+          {
+            "expr": "rate(node_network_receive_drop_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{{ device }} RX Drops",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(node_network_transmit_drop_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{{ device }} TX Drops",
+            "refId": "B"
+          }
+        ],
+        "title": "Network Packet Drops",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "custom": {
+              "align": "auto",
+              "displayMode": "color-background"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 60},
+                {"color": "red", "value": 80}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 37},
+        "id": 10,
+        "options": {
+          "showHeader": true
+        },
+        "targets": [
+          {
+            "expr": "max by (instance, chip, sensor) (node_hwmon_temp_celsius{instance=~\"$instance\"})",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "title": "Temperature Summary Table - Death Watch",
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {"Time": true},
+              "renameByName": {
+                "Value": "Temperature °C",
+                "chip": "Chip",
+                "instance": "Node",
+                "sensor": "Sensor"
+              }
+            }
+          }
+        ],
+        "type": "table"
+      }
+    ]
+  },
+  "description": "Hardware health monitoring focused on temperature sensors, disk health (SMART), network errors, and I/O performance. Designed for industrial environments where hardware runs until it literally catches fire. Includes dark humor because if you can't laugh at your failing hardware, you'll cry. Made with 💀 by Fireball Industries.",
+  "uid": "hardware-health",
+  "version": 1
+}

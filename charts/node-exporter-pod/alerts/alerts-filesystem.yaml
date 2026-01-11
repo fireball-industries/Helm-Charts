@@ -1,0 +1,126 @@
+# Filesystem Alert Rules for Prometheus
+# Disk space and inode monitoring
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-exporter-filesystem-alerts
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: node-exporter-filesystem
+      interval: 30s
+      rules:
+        # Disk Space Alerts
+        - alert: DiskSpaceWarning
+          expr: |
+            100 - ((node_filesystem_avail_bytes{fstype!="tmpfs",fstype!="overlay"} / node_filesystem_size_bytes) * 100) > 80
+          for: 10m
+          labels:
+            severity: warning
+            component: filesystem
+          annotations:
+            summary: "Disk space warning on {{ $labels.instance }}"
+            description: "{{ $labels.mountpoint }} is {{ $value | humanizePercentage }} full"
+            action: "Plan cleanup or expansion within 24-48 hours"
+        
+        - alert: DiskSpaceCritical
+          expr: |
+            100 - ((node_filesystem_avail_bytes{fstype!="tmpfs",fstype!="overlay"} / node_filesystem_size_bytes) * 100) > 90
+          for: 5m
+          labels:
+            severity: critical
+            component: filesystem
+          annotations:
+            summary: "CRITICAL: Disk space on {{ $labels.instance }}"
+            description: "{{ $labels.mountpoint }} is {{ $value | humanizePercentage }} full!"
+            action: "IMMEDIATE ACTION: Clean up or expand disk NOW"
+        
+        - alert: DiskAlmostFull
+          expr: |
+            100 - ((node_filesystem_avail_bytes{fstype!="tmpfs",fstype!="overlay"} / node_filesystem_size_bytes) * 100) > 95
+          for: 1m
+          labels:
+            severity: critical
+            component: filesystem
+          annotations:
+            summary: "URGENT: Disk almost full on {{ $labels.instance }}"
+            description: "{{ $labels.mountpoint }} is {{ $value | humanizePercentage }} full. System failure imminent!"
+        
+        # Predictive Disk Full
+        - alert: DiskWillFillIn4Hours
+          expr: |
+            predict_linear(node_filesystem_avail_bytes{fstype!="tmpfs",fstype!="overlay"}[1h], 4 * 3600) < 0
+          for: 5m
+          labels:
+            severity: warning
+            component: filesystem
+          annotations:
+            summary: "Disk will fill in 4 hours on {{ $labels.instance }}"
+            description: "{{ $labels.mountpoint }} will be full in approximately 4 hours based on current growth rate"
+            action: "Investigate what's filling the disk and take action"
+        
+        - alert: DiskWillFillIn24Hours
+          expr: |
+            predict_linear(node_filesystem_avail_bytes{fstype!="tmpfs",fstype!="overlay"}[4h], 24 * 3600) < 0
+          for: 10m
+          labels:
+            severity: info
+            component: filesystem
+          annotations:
+            summary: "Disk will fill in 24 hours on {{ $labels.instance }}"
+            description: "{{ $labels.mountpoint }} will be full in approximately 24 hours"
+            action: "Plan disk cleanup or expansion"
+        
+        # Inode Alerts
+        - alert: InodesWarning
+          expr: |
+            100 - ((node_filesystem_files_free / node_filesystem_files) * 100) > 80
+          for: 10m
+          labels:
+            severity: warning
+            component: filesystem
+          annotations:
+            summary: "Inodes warning on {{ $labels.instance }}"
+            description: "{{ $labels.mountpoint }} is {{ $value | humanizePercentage }} inodes used"
+            cause: "Too many small files (logs, temp files, etc.)"
+        
+        - alert: InodesCritical
+          expr: |
+            100 - ((node_filesystem_files_free / node_filesystem_files) * 100) > 90
+          for: 5m
+          labels:
+            severity: critical
+            component: filesystem
+          annotations:
+            summary: "CRITICAL: Inodes on {{ $labels.instance }}"
+            description: "{{ $labels.mountpoint }} is {{ $value | humanizePercentage }} inodes used!"
+            action: "Delete small files or adjust filesystem"
+        
+        # Filesystem Read-Only
+        - alert: FilesystemReadOnly
+          expr: |
+            node_filesystem_readonly{fstype!="tmpfs",fstype!="overlay"} == 1
+          for: 1m
+          labels:
+            severity: critical
+            component: filesystem
+          annotations:
+            summary: "Filesystem mounted read-only on {{ $labels.instance }}"
+            description: "{{ $labels.mountpoint }} is mounted read-only (likely due to errors)"
+            action: "Check filesystem health with fsck. May indicate disk failure."
+        
+        # Low Free Space (absolute)
+        - alert: LowDiskSpaceAbsolute
+          expr: |
+            node_filesystem_avail_bytes{fstype!="tmpfs",fstype!="overlay"} / (1024 * 1024 * 1024) < 5
+          for: 10m
+          labels:
+            severity: warning
+            component: filesystem
+          annotations:
+            summary: "Less than 5GB free on {{ $labels.instance }}"
+            description: "{{ $labels.mountpoint }} has only {{ $value | humanize }}GB free"
+            action: "Even if percentage is low, absolute space matters"

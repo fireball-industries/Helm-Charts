@@ -1,0 +1,144 @@
+# K3s Lightweight Configuration
+# Optimized for K3s on Raspberry Pi or similar resource-constrained hardware
+# Minimal resource usage while maintaining essential monitoring
+
+deploymentMode: daemonset
+
+resourcePreset: edge-minimal
+
+# Minimal collectors - only essentials
+collectors:
+  enabled:
+    - cpu
+    - cpufreq
+    - diskstats
+    - filesystem
+    - loadavg
+    - meminfo
+    - netdev
+  
+  optional:
+    thermal_zone: true    # Raspberry Pi has thermal sensors
+    textfile: false
+    systemd: false
+    processes: false
+
+# Aggressive filtering to reduce metrics
+collectors:
+  collectorArgs:
+    filesystem:
+      mount-points-exclude: "^/(dev|proc|sys|run|var/lib/docker|var/lib/kubelet|var/lib/rancher).*"
+      fs-types-exclude: "^(autofs|binfmt_misc|bpf|cgroup.*|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|tmpfs)$"
+    
+    netdev:
+      device-exclude: "^(veth.*|docker.*|br-.*|cni.*|flannel.*|lo)$"
+    
+    diskstats:
+      device-exclude: "^(ram|loop|fd).*"
+
+# Textfile collector disabled to save resources
+textfileCollector:
+  enabled: false
+
+# Host networking
+hostNetwork: true
+hostPID: true
+hostIPC: false
+
+# Minimal security context (some K3s deployments may need adjustments)
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+
+# ServiceMonitor disabled to reduce dependencies
+serviceMonitor:
+  enabled: false
+
+# No network policy for simplicity
+networkPolicy:
+  enabled: false
+
+# RBAC - K3s compatible
+rbac:
+  create: true
+  pspEnabled: false  # K3s typically doesn't use PSP
+
+# Service Account
+serviceAccount:
+  create: true
+  automountServiceAccountToken: true
+
+# Tolerations for K3s
+tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - effect: NoExecute
+    operator: Exists
+  - key: node.kubernetes.io/not-ready
+    operator: Exists
+    effect: NoExecute
+    tolerationSeconds: 300
+  - key: node.kubernetes.io/unreachable
+    operator: Exists
+    effect: NoExecute
+    tolerationSeconds: 300
+
+# Node selector (optional)
+nodeSelector: {}
+
+# Affinity (optional)
+affinity: {}
+
+# Update strategy - conservative for Raspberry Pi
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+
+# Probes - adjusted for slower hardware
+livenessProbe:
+  httpGet:
+    path: /
+    port: 9100
+  initialDelaySeconds: 60   # Longer delay for slow boot
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 5
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: 9100
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# K3s edge optimizations
+edge:
+  temperatureMonitoring: true   # Monitor Raspberry Pi temp!
+  diskWearMonitoring: true      # SD cards wear out
+  minimalMode: true             # Absolute minimum overhead
+
+# Additional args for minimal resource usage
+extraArgs:
+  - --web.max-requests=10       # Limit concurrent requests
+  - --log.level=warn            # Reduce logging overhead
+
+# DNS policy
+dnsPolicy: ClusterFirstWithHostNet
+
+# Common labels
+commonLabels:
+  k3s: "true"
+  edge: "minimal"

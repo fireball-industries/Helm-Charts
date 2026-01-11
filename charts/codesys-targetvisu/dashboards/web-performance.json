@@ -1,0 +1,38 @@
+{
+  "dashboard": {
+    "title": "CODESYS TargetVisu - Web Performance",
+    "tags": ["codesys", "web", "performance"],
+    "panels": [
+      {
+        "title": "HTTP Requests",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(codesys_http_requests_total[5m])",
+            "legendFormat": "{{code}}"
+          }
+        ]
+      },
+      {
+        "title": "Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(codesys_http_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile"
+          }
+        ]
+      },
+      {
+        "title": "Active Sessions",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "codesys_active_sessions",
+            "legendFormat": "Sessions"
+          }
+        ]
+      }
+    ]
+  }
+}

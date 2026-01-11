@@ -1,0 +1,141 @@
+# Hardware Alert Rules for Prometheus
+# CPU, Memory, Disk, and Network monitoring
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-exporter-hardware-alerts
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: node-exporter-hardware
+      interval: 30s
+      rules:
+        # CPU Alerts
+        - alert: HighCPUUsage
+          expr: |
+            100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+          for: 5m
+          labels:
+            severity: warning
+            component: cpu
+          annotations:
+            summary: "High CPU usage on {{ $labels.instance }}"
+            description: "CPU usage is {{ $value | humanizePercentage }} (threshold: 80%)"
+            runbook_url: "https://runbooks.example.com/HighCPUUsage"
+        
+        - alert: CriticalCPUUsage
+          expr: |
+            100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+          for: 2m
+          labels:
+            severity: critical
+            component: cpu
+          annotations:
+            summary: "CRITICAL: CPU usage on {{ $labels.instance }}"
+            description: "CPU usage is {{ $value | humanizePercentage }} (threshold: 95%)"
+        
+        # Memory Alerts
+        - alert: HighMemoryUsage
+          expr: |
+            (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 80
+          for: 5m
+          labels:
+            severity: warning
+            component: memory
+          annotations:
+            summary: "High memory usage on {{ $labels.instance }}"
+            description: "Memory usage is {{ $value | humanizePercentage }} (threshold: 80%)"
+        
+        - alert: CriticalMemoryUsage
+          expr: |
+            (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+          for: 2m
+          labels:
+            severity: critical
+            component: memory
+          annotations:
+            summary: "CRITICAL: Memory usage on {{ $labels.instance }}"
+            description: "Memory usage is {{ $value | humanizePercentage }} (threshold: 90%). OOM risk!"
+        
+        # Disk I/O Alerts
+        - alert: HighDiskIOLatency
+          expr: |
+            rate(node_disk_io_time_seconds_total[5m]) > 0.1
+          for: 10m
+          labels:
+            severity: warning
+            component: disk
+          annotations:
+            summary: "High disk I/O latency on {{ $labels.instance }}"
+            description: "Disk {{ $labels.device }} has high I/O latency: {{ $value | humanizeDuration }}"
+        
+        - alert: HighDiskIOWait
+          expr: |
+            rate(node_cpu_seconds_total{mode="iowait"}[5m]) * 100 > 10
+          for: 5m
+          labels:
+            severity: warning
+            component: disk
+          annotations:
+            summary: "High I/O wait on {{ $labels.instance }}"
+            description: "CPU is spending {{ $value | humanizePercentage }} time waiting for I/O"
+        
+        # Network Alerts
+        - alert: NetworkInterfaceErrors
+          expr: |
+            rate(node_network_receive_errs_total[5m]) > 10
+          for: 5m
+          labels:
+            severity: warning
+            component: network
+          annotations:
+            summary: "Network errors on {{ $labels.instance }}"
+            description: "Interface {{ $labels.device }} has {{ $value }} receive errors/sec"
+        
+        - alert: HighNetworkErrorRate
+          expr: |
+            (rate(node_network_receive_errs_total[5m]) / rate(node_network_receive_packets_total[5m])) > 0.01
+          for: 5m
+          labels:
+            severity: warning
+            component: network
+          annotations:
+            summary: "High network error rate on {{ $labels.instance }}"
+            description: "Interface {{ $labels.device }} has {{ $value | humanizePercentage }} error rate (threshold: 1%)"
+        
+        - alert: NetworkInterfaceDrops
+          expr: |
+            rate(node_network_receive_drop_total[5m]) > 10
+          for: 5m
+          labels:
+            severity: warning
+            component: network
+          annotations:
+            summary: "Network packet drops on {{ $labels.instance }}"
+            description: "Interface {{ $labels.device }} is dropping {{ $value }} packets/sec"
+        
+        # System Load Alerts
+        - alert: HighSystemLoad
+          expr: |
+            node_load5 / count(node_cpu_seconds_total{mode="idle"}) without (cpu, mode) > 2
+          for: 10m
+          labels:
+            severity: warning
+            component: system
+          annotations:
+            summary: "High system load on {{ $labels.instance }}"
+            description: "5-minute load average is {{ $value }} (2x CPU count)"
+        
+        - alert: CriticalSystemLoad
+          expr: |
+            node_load1 / count(node_cpu_seconds_total{mode="idle"}) without (cpu, mode) > 4
+          for: 5m
+          labels:
+            severity: critical
+            component: system
+          annotations:
+            summary: "CRITICAL: System load on {{ $labels.instance }}"
+            description: "1-minute load average is {{ $value }} (4x CPU count). System overloaded!"

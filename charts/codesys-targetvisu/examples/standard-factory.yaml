@@ -1,0 +1,79 @@
+# Standard Factory HMI Configuration
+# Medium-sized factory HMI with full features
+# Suitable for: Industrial PC, 10-50 screens, multiple protocols
+
+resourcePreset: edge-standard
+
+targetvisu:
+  license:
+    type: file
+    licenseSecret: codesys-license
+  
+  web:
+    maxClients: 10
+    compression: true
+
+  alarms:
+    enabled: true
+    historySize: 1000
+  
+  trends:
+    enabled: true
+    maxTrends: 50
+
+storage:
+  config:
+    size: 5Gi
+  projects:
+    size: 10Gi
+  logs:
+    size: 2Gi
+
+service:
+  type: NodePort
+
+ingress:
+  enabled: true
+  className: nginx
+  host: hmi.factory.local
+  tls:
+    enabled: true
+
+protocols:
+  opcua:
+    enabled: true
+    security:
+      mode: SignAndEncrypt
+  modbusTcp:
+    enabled: true
+  ethernetIp:
+    enabled: false
+
+plc:
+  enabled: true
+  connection:
+    type: remote
+    remote:
+      host: "plc.factory.local"
+      port: 11740
+
+gateway:
+  enabled: true
+
+security:
+  authentication:
+    enabled: true
+    type: basic
+  tls:
+    enabled: true
+  ipWhitelist:
+    enabled: true
+    allowedIPs:
+      - "10.0.0.0/8"
+      - "192.168.1.0/24"
+
+monitoring:
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true

@@ -1,0 +1,435 @@
+categories:
+  - Monitoring
+  - Observability
+  - Prometheus
+questions:
+  # ============================================================================
+  # Deployment Configuration
+  # ============================================================================
+  - variable: deploymentMode
+    label: "Deployment Mode"
+    description: "How to deploy Node Exporter (DaemonSet recommended for cluster-wide monitoring)"
+    type: enum
+    required: true
+    default: "daemonset"
+    group: "Deployment"
+    options:
+      - "daemonset"
+      - "deployment"
+      - "statefulset"
+
+  - variable: replicaCount
+    label: "Number of Replicas"
+    description: "Number of Node Exporter instances (only for Deployment/StatefulSet modes)"
+    type: int
+    required: false
+    default: 1
+    min: 1
+    max: 10
+    group: "Deployment"
+    show_if: "deploymentMode=deployment||deploymentMode=statefulset"
+
+  - variable: resourcePreset
+    label: "Resource Preset"
+    description: "Pre-configured resource allocation and collector set based on hardware type"
+    type: enum
+    required: true
+    default: "edge-standard"
+    group: "Deployment"
+    options:
+      - "edge-minimal"
+      - "edge-standard"
+      - "server"
+      - "custom"
+
+  # ============================================================================
+  # Image Configuration
+  # ============================================================================
+  - variable: image.registry
+    label: "Image Registry"
+    description: "Container registry for Node Exporter image"
+    type: string
+    required: true
+    default: "quay.io"
+    group: "Image"
+
+  - variable: image.repository
+    label: "Image Repository"
+    description: "Node Exporter image repository path"
+    type: string
+    required: true
+    default: "prometheus/node-exporter"
+    group: "Image"
+
+  - variable: image.tag
+    label: "Image Tag"
+    description: "Node Exporter version tag"
+    type: string
+    required: true
+    default: "v1.7.0"
+    group: "Image"
+
+  - variable: image.pullPolicy
+    label: "Image Pull Policy"
+    description: "Image pull policy for the Node Exporter container"
+    type: enum
+    required: true
+    default: "IfNotPresent"
+    group: "Image"
+    options:
+      - "Always"
+      - "IfNotPresent"
+      - "Never"
+
+  # ============================================================================
+  # Collectors Configuration
+  # ============================================================================
+  - variable: collectors.optional.systemd
+    label: "Enable Systemd Collector"
+    description: "Monitor systemd services and units (useful for tracking service health)"
+    type: boolean
+    required: false
+    default: false
+    group: "Collectors"
+
+  - variable: collectors.optional.processes
+    label: "Enable Processes Collector"
+    description: "Track process states (running, sleeping, zombie) for debugging"
+    type: boolean
+    required: false
+    default: false
+    group: "Collectors"
+
+  - variable: collectors.optional.textfile
+    label: "Enable Textfile Collector"
+    description: "Import custom metrics from script-generated files (highly recommended)"
+    type: boolean
+    required: false
+    default: true
+    group: "Collectors"
+
+  - variable: collectors.optional.thermal_zone
+    label: "Enable Thermal Zone Collector"
+    description: "⚠️ Monitor CPU/GPU temperature sensors (critical for edge deployments)"
+    type: boolean
+    required: false
+    default: true
+    group: "Collectors"
+
+  - variable: collectors.optional.ntp
+    label: "Enable NTP Collector"
+    description: "Monitor NTP time synchronization status and clock drift"
+    type: boolean
+    required: false
+    default: false
+    group: "Collectors"
+
+  - variable: collectors.optional.tcpstat
+    label: "Enable TCP Stat Collector"
+    description: "Track TCP connection states for network troubleshooting"
+    type: boolean
+    required: false
+    default: false
+    group: "Collectors"
+
+  - variable: collectors.optional.interrupts
+    label: "Enable Interrupts Collector"
+    description: "Monitor CPU interrupt statistics (advanced debugging)"
+    type: boolean
+    required: false
+    default: false
+    group: "Collectors"
+
+  - variable: collectors.optional.ethtool
+    label: "Enable Ethtool Collector"
+    description: "⚠️ NIC statistics and link status (requires elevated permissions)"
+    type: boolean
+    required: false
+    default: false
+    group: "Collectors"
+
+  - variable: collectors.optional.wifi
+    label: "Enable WiFi Collector"
+    description: "Monitor wireless interface statistics (signal strength, bitrate)"
+    type: boolean
+    required: false
+    default: false
+    group: "Collectors"
+
+  - variable: collectors.optional.rapl
+    label: "Enable RAPL Collector"
+    description: "Intel RAPL power consumption monitoring (Intel CPUs only)"
+    type: boolean
+    required: false
+    default: false
+    group: "Collectors"
+
+  # ============================================================================
+  # Textfile Collector Configuration
+  # ============================================================================
+  - variable: collectors.collectorArgs.textfile.directory
+    label: "Textfile Collector Directory"
+    description: "Directory path for custom metric files (*.prom format)"
+    type: string
+    required: false
+    default: "/var/lib/node_exporter/textfile_collector"
+    group: "Collectors"
+    show_if: "collectors.optional.textfile=true"
+
+  # ============================================================================
+  # Host Access Configuration
+  # ============================================================================
+  - variable: hostNetwork
+    label: "Use Host Network"
+    description: "⚠️ Required for accurate network metrics (recommended to keep enabled)"
+    type: boolean
+    required: true
+    default: true
+    group: "Host Access"
+
+  - variable: hostPID
+    label: "Use Host PID Namespace"
+    description: "Required for process collector (monitoring processes on host)"
+    type: boolean
+    required: true
+    default: true
+    group: "Host Access"
+
+  # ============================================================================
+  # Service Configuration
+  # ============================================================================
+  - variable: service.type
+    label: "Service Type"
+    description: "Kubernetes service type for exposing metrics endpoint"
+    type: enum
+    required: true
+    default: "ClusterIP"
+    group: "Service"
+    options:
+      - "ClusterIP"
+      - "NodePort"
+      - "LoadBalancer"
+
+  - variable: service.port
+    label: "Service Port"
+    description: "Port for metrics endpoint (standard is 9100)"
+    type: int
+    required: true
+    default: 9100
+    min: 1
+    max: 65535
+    group: "Service"
+
+  - variable: service.nodePort
+    label: "NodePort"
+    description: "Specific NodePort for metrics (leave empty for automatic assignment)"
+    type: int
+    required: false
+    default: null
+    min: 30000
+    max: 32767
+    group: "Service"
+    show_if: "service.type=NodePort"
+
+  # ============================================================================
+  # ServiceMonitor Configuration
+  # ============================================================================
+  - variable: serviceMonitor.enabled
+    label: "Enable Prometheus ServiceMonitor"
+    description: "Create ServiceMonitor for automatic Prometheus discovery (requires Prometheus Operator)"
+    type: boolean
+    required: true
+    default: false
+    group: "Monitoring"
+
+  - variable: serviceMonitor.interval
+    label: "Scrape Interval"
+    description: "How often Prometheus should scrape metrics (e.g., 30s, 1m)"
+    type: string
+    required: false
+    default: "30s"
+    group: "Monitoring"
+    show_if: "serviceMonitor.enabled=true"
+
+  - variable: serviceMonitor.scrapeTimeout
+    label: "Scrape Timeout"
+    description: "Timeout for metric scraping (must be less than interval)"
+    type: string
+    required: false
+    default: "10s"
+    group: "Monitoring"
+    show_if: "serviceMonitor.enabled=true"
+
+  # ============================================================================
+  # PrometheusRule Configuration
+  # ============================================================================
+  - variable: prometheusRule.enabled
+    label: "Enable Prometheus Alerting Rules"
+    description: "Deploy pre-configured alert rules for hardware monitoring"
+    type: boolean
+    required: true
+    default: false
+    group: "Monitoring"
+
+  - variable: prometheusRule.hardwareAlerts
+    label: "Enable Hardware Alerts"
+    description: "Alerts for CPU, memory, disk I/O, network errors"
+    type: boolean
+    required: false
+    default: true
+    group: "Monitoring"
+    show_if: "prometheusRule.enabled=true"
+
+  - variable: prometheusRule.temperatureAlerts
+    label: "Enable Temperature Alerts"
+    description: "Alerts for high temperature, thermal throttling, fan failures"
+    type: boolean
+    required: false
+    default: true
+    group: "Monitoring"
+    show_if: "prometheusRule.enabled=true"
+
+  - variable: prometheusRule.filesystemAlerts
+    label: "Enable Filesystem Alerts"
+    description: "Alerts for disk space, inode exhaustion, read-only filesystems"
+    type: boolean
+    required: false
+    default: true
+    group: "Monitoring"
+    show_if: "prometheusRule.enabled=true"
+
+  - variable: prometheusRule.systemAlerts
+    label: "Enable System Alerts"
+    description: "Alerts for clock skew, OOM killer, swap usage, zombie processes"
+    type: boolean
+    required: false
+    default: true
+    group: "Monitoring"
+    show_if: "prometheusRule.enabled=true"
+
+  # ============================================================================
+  # Security Configuration
+  # ============================================================================
+  - variable: rbac.create
+    label: "Create RBAC Resources"
+    description: "Create ServiceAccount, ClusterRole, ClusterRoleBinding (required for node access)"
+    type: boolean
+    required: true
+    default: true
+    group: "Security"
+
+  - variable: rbac.pspEnabled
+    label: "Enable PodSecurityPolicy"
+    description: "⚠️ Create PodSecurityPolicy (deprecated in Kubernetes 1.25+, use Pod Security Standards)"
+    type: boolean
+    required: false
+    default: false
+    group: "Security"
+
+  - variable: securityContext.runAsNonRoot
+    label: "Run as Non-Root User"
+    description: "Run container as non-root user (UID 65534 'nobody')"
+    type: boolean
+    required: true
+    default: true
+    group: "Security"
+
+  - variable: securityContext.readOnlyRootFilesystem
+    label: "Read-Only Root Filesystem"
+    description: "Make container root filesystem read-only (security hardening)"
+    type: boolean
+    required: true
+    default: true
+    group: "Security"
+
+  - variable: networkPolicy.enabled
+    label: "Enable Network Policy"
+    description: "Restrict network traffic to Prometheus scrape endpoints only"
+    type: boolean
+    required: true
+    default: false
+    group: "Security"
+
+  # ============================================================================
+  # Update Strategy
+  # ============================================================================
+  - variable: updateStrategy.type
+    label: "DaemonSet Update Strategy"
+    description: "How to update Node Exporter pods on nodes"
+    type: enum
+    required: true
+    default: "RollingUpdate"
+    group: "Updates"
+    show_if: "deploymentMode=daemonset"
+    options:
+      - "RollingUpdate"
+      - "OnDelete"
+
+  - variable: updateStrategy.rollingUpdate.maxUnavailable
+    label: "Max Unavailable Pods"
+    description: "Maximum number of pods that can be unavailable during update (1=one node at a time)"
+    type: int
+    required: false
+    default: 1
+    min: 1
+    max: 10
+    group: "Updates"
+    show_if: "updateStrategy.type=RollingUpdate"
+
+  # ============================================================================
+  # Custom Resources (Advanced)
+  # ============================================================================
+  - variable: resources.requests.cpu
+    label: "CPU Request"
+    description: "CPU request (overridden by preset)"
+    type: string
+    required: true
+    default: "100m"
+    group: "Resources"
+    show_if: "resourcePreset=custom"
+
+  - variable: resources.requests.memory
+    label: "Memory Request"
+    description: "Memory request (overridden by preset)"
+    type: string
+    required: true
+    default: "50Mi"
+    group: "Resources"
+    show_if: "resourcePreset=custom"
+
+  - variable: resources.limits.cpu
+    label: "CPU Limit"
+    description: "CPU limit (overridden by preset)"
+    type: string
+    required: true
+    default: "200m"
+    group: "Resources"
+    show_if: "resourcePreset=custom"
+
+  - variable: resources.limits.memory
+    label: "Memory Limit"
+    description: "Memory limit (overridden by preset)"
+    type: string
+    required: true
+    default: "100Mi"
+    group: "Resources"
+    show_if: "resourcePreset=custom"
+
+  # ============================================================================
+  # Node Affinity & Tolerations
+  # ============================================================================
+  - variable: affinity
+    label: "Node Affinity Rules"
+    description: "JSON object for node affinity (e.g., deploy only on edge nodes)"
+    type: string
+    required: false
+    default: "{}"
+    group: "Scheduling"
+
+  - variable: tolerations
+    label: "Tolerations"
+    description: "JSON array for tolerations (e.g., allow scheduling on tainted nodes)"
+    type: string
+    required: false
+    default: "[]"
+    group: "Scheduling"

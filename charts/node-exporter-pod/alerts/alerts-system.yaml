@@ -1,0 +1,166 @@
+# System Alert Rules for Prometheus
+# Load, processes, time drift, and system health
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-exporter-system-alerts
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: node-exporter-system
+      interval: 30s
+      rules:
+        # Time Drift Alerts
+        - alert: ClockSkewDetected
+          expr: |
+            abs(node_time_seconds - time()) > 1
+          for: 2m
+          labels:
+            severity: warning
+            component: system
+          annotations:
+            summary: "Clock skew detected on {{ $labels.instance }}"
+            description: "System time is {{ $value }}s off from Prometheus server time"
+            cause: "NTP not configured or failing. Common in industrial edge deployments."
+            impact: "Logs will have incorrect timestamps. Distributed systems may malfunction."
+        
+        - alert: ClockSkewCritical
+          expr: |
+            abs(node_time_seconds - time()) > 30
+          for: 1m
+          labels:
+            severity: critical
+            component: system
+          annotations:
+            summary: "CRITICAL: Clock skew on {{ $labels.instance }}"
+            description: "System time is {{ $value }}s off! Severe time drift detected."
+            action: "Fix NTP configuration immediately"
+        
+        # Context Switches
+        - alert: HighContextSwitchRate
+          expr: |
+            rate(node_context_switches_total[5m]) > 10000
+          for: 10m
+          labels:
+            severity: warning
+            component: system
+          annotations:
+            summary: "High context switch rate on {{ $labels.instance }}"
+            description: "{{ $value }} context switches/sec (may indicate CPU contention)"
+        
+        # Zombie Processes
+        - alert: ZombieProcesses
+          expr: |
+            node_processes_state{state="zombie"} > 5
+          for: 5m
+          labels:
+            severity: warning
+            component: system
+          annotations:
+            summary: "Zombie processes detected on {{ $labels.instance }}"
+            description: "{{ $value }} zombie processes detected"
+            cause: "Parent processes not cleaning up child processes"
+        
+        # OOM Killer Activity
+        - alert: OOMKillerActive
+          expr: |
+            increase(node_vmstat_oom_kill[5m]) > 0
+          labels:
+            severity: critical
+            component: memory
+          annotations:
+            summary: "OOM Killer active on {{ $labels.instance }}"
+            description: "{{ $value }} processes killed by OOM killer in last 5 minutes"
+            action: "Investigate memory usage. Add memory or reduce workload."
+        
+        # Too Many Processes
+        - alert: TooManyProcesses
+          expr: |
+            node_processes_threads > 10000
+          for: 10m
+          labels:
+            severity: warning
+            component: system
+          annotations:
+            summary: "Too many threads on {{ $labels.instance }}"
+            description: "{{ $value }} threads running (possible thread leak)"
+        
+        # Swap Usage
+        - alert: SwapUsageHigh
+          expr: |
+            (1 - (node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes)) * 100 > 80
+          for: 5m
+          labels:
+            severity: warning
+            component: memory
+          annotations:
+            summary: "High swap usage on {{ $labels.instance }}"
+            description: "Swap is {{ $value | humanizePercentage }} used"
+            impact: "Performance degradation. System swapping to disk."
+        
+        - alert: SwapActivity
+          expr: |
+            rate(node_vmstat_pswpin[5m]) > 100 or rate(node_vmstat_pswpout[5m]) > 100
+          for: 5m
+          labels:
+            severity: warning
+            component: memory
+          annotations:
+            summary: "Swap activity detected on {{ $labels.instance }}"
+            description: "System is actively swapping ({{ $value }} pages/sec)"
+            cause: "Memory pressure. Add RAM or reduce memory usage."
+        
+        # Node Not Ready
+        - alert: NodeNotReady
+          expr: |
+            kube_node_status_condition{condition="Ready",status="true"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: node
+          annotations:
+            summary: "Node not ready: {{ $labels.node }}"
+            description: "Kubernetes node is not in Ready state"
+            action: "Check node health, kubelet logs, and system resources"
+        
+        # Boot Time Change (Reboot Detection)
+        - alert: NodeRebooted
+          expr: |
+            time() - node_boot_time_seconds < 600
+          labels:
+            severity: info
+            component: system
+          annotations:
+            summary: "Node rebooted: {{ $labels.instance }}"
+            description: "Node booted {{ $value | humanizeDuration }} ago"
+            info: "Recent reboot detected. Check if this was planned."
+        
+        # File Descriptor Usage
+        - alert: HighFileDescriptorUsage
+          expr: |
+            (node_filefd_allocated / node_filefd_maximum) * 100 > 80
+          for: 5m
+          labels:
+            severity: warning
+            component: system
+          annotations:
+            summary: "High file descriptor usage on {{ $labels.instance }}"
+            description: "{{ $value | humanizePercentage }} of file descriptors in use"
+            cause: "Too many open files. Possible file descriptor leak."
+        
+        # Entropy Depletion (important for VMs)
+        - alert: LowEntropy
+          expr: |
+            node_entropy_available_bits < 200
+          for: 5m
+          labels:
+            severity: warning
+            component: system
+          annotations:
+            summary: "Low entropy on {{ $labels.instance }}"
+            description: "Only {{ $value }} bits of entropy available"
+            impact: "Cryptographic operations may be slow or block"
+            solution: "Install haveged or rng-tools"

@@ -1,0 +1,43 @@
+# Demo Node Exporter - Single Instance for Testing
+# Deployment mode with minimal collectors
+# Perfect for testing functionality before production deployment
+
+deploymentMode: deployment
+replicaCount: 1
+
+resourcePreset: edge-minimal
+
+# Minimal collectors for testing
+collectors:
+  enabled:
+    - cpu
+    - meminfo
+    - diskstats
+    - filesystem
+    - loadavg
+    - netdev
+  
+  optional:
+    textfile: false
+    systemd: false
+    thermal_zone: false
+
+# Standard configuration
+hostNetwork: true
+hostPID: true
+
+# ServiceMonitor disabled for simple testing
+serviceMonitor:
+  enabled: false
+
+# No network policy for easy access
+networkPolicy:
+  enabled: false
+
+# Logging
+debug: false
+
+# Tolerations to run on any node
+tolerations:
+  - effect: NoSchedule
+    operator: Exists

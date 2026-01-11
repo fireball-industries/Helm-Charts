@@ -1,0 +1,94 @@
+# Industrial Edge DaemonSet Deployment
+# Optimized for edge computing with temperature monitoring
+# Runs on all nodes with standard resource allocation
+
+deploymentMode: daemonset
+
+resourcePreset: edge-standard
+
+# Edge-optimized collectors
+collectors:
+  enabled:
+    - cpu
+    - cpufreq
+    - diskstats
+    - filesystem
+    - hwmon
+    - loadavg
+    - meminfo
+    - netdev
+    - netstat
+    - stat
+    - time
+    - uname
+    - vmstat
+  
+  optional:
+    thermal_zone: true   # CRITICAL for industrial enclosures
+    textfile: true        # Custom metrics from edge systems
+    processes: false
+    systemd: false
+    ntp: false
+
+# Textfile collector configuration
+textfileCollector:
+  enabled: true
+  hostPath: /var/lib/node_exporter/textfile_collector
+
+# Host networking required for accurate metrics
+hostNetwork: true
+hostPID: true
+hostIPC: false
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - SYS_TIME
+
+# Prometheus integration
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+  additionalLabels:
+    prometheus: kube-prometheus
+  relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
+
+# Network policy for security
+networkPolicy:
+  enabled: false  # Enable if you have Prometheus Operator
+
+# Run on all nodes including control plane
+tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - effect: NoExecute
+    operator: Exists
+
+# Industrial edge optimizations
+edge:
+  temperatureMonitoring: true
+  diskWearMonitoring: true
+  minimalMode: false
+
+# Update strategy - one node at a time
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1

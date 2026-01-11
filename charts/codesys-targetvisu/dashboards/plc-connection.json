@@ -1,0 +1,48 @@
+{
+  "dashboard": {
+    "title": "CODESYS TargetVisu - PLC Connection",
+    "tags": ["codesys", "plc", "runtime"],
+    "panels": [
+      {
+        "title": "PLC Connection Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "codesys_plc_connected",
+            "legendFormat": "Connected"
+          }
+        ]
+      },
+      {
+        "title": "PLC Cycle Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "codesys_plc_cycle_time_ms",
+            "legendFormat": "Cycle Time (ms)"
+          }
+        ]
+      },
+      {
+        "title": "Gateway Connections",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "codesys_gateway_connected_clients",
+            "legendFormat": "IDE Connections"
+          }
+        ]
+      },
+      {
+        "title": "Data Transfer Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(codesys_plc_bytes_transferred[5m])",
+            "legendFormat": "Bytes/sec"
+          }
+        ]
+      }
+    ]
+  }
+}

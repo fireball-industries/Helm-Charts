@@ -1,0 +1,98 @@
+# Secure Remote Access Configuration
+# HMI accessible from internet with full security
+
+resourcePreset: edge-standard
+
+targetvisu:
+  license:
+    type: file
+    licenseSecret: codesys-license
+
+  web:
+    httpsPort: 8443
+    compression: true
+
+storage:
+  config:
+    size: 5Gi
+  projects:
+    size: 10Gi
+  logs:
+    size: 2Gi
+
+service:
+  type: ClusterIP  # Use Ingress for external access
+
+ingress:
+  enabled: true
+  className: nginx
+  host: hmi.example.com
+  tls:
+    enabled: true
+    secretName: hmi-tls-cert
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/whitelist-source-range: "203.0.113.0/24,198.51.100.0/24"
+
+protocols:
+  opcua:
+    enabled: true
+    security:
+      mode: SignAndEncrypt
+  modbusTcp:
+    enabled: false  # Disable for security
+
+gateway:
+  enabled: false  # Don't expose IDE access
+
+security:
+  authentication:
+    enabled: true
+    type: ldap
+  
+  tls:
+    enabled: true
+    certSecret: codesys-tls-internal
+  
+  rbac:
+    enabled: true
+    roles:
+      - name: remote-operator
+        permissions: ["view", "acknowledge"]
+  
+  ipWhitelist:
+    enabled: false  # Handled by Ingress
+
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-nginx
+  egress:
+    - to:
+      - namespaceSelector: {}
+      ports:
+      - protocol: TCP
+        port: 53
+    - to:
+      - podSelector:
+          matchLabels:
+            app: plc-runtime
+      ports:
+      - protocol: TCP
+        port: 11740
+
+monitoring:
+  prometheus:
+    enabled: true
+  logging:
+    level: info
+    format: json

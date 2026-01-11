@@ -1,0 +1,228 @@
+{{- /* Validate configuration before deployment */ -}}
+{{- include "codesys-targetvisu.validateConfig" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "codesys-targetvisu.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "codesys-targetvisu.labels" . | nindent 4 }}
+  annotations:
+    {{- include "codesys-targetvisu.annotations" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.targetvisu.replicaCount | default 1 }}
+  strategy:
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "codesys-targetvisu.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "codesys-targetvisu.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "codesys-targetvisu.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "codesys-targetvisu.serviceAccountName" . }}
+      {{- with .Values.security.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.hostNetwork }}
+      hostNetwork: true
+      {{- end }}
+      dnsPolicy: {{ include "codesys-targetvisu.dnsPolicy" . }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default 30 }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: targetvisu
+          image: {{ include "codesys-targetvisu.image" . }}
+          imagePullPolicy: {{ .Values.targetvisu.image.pullPolicy }}
+          {{- with .Values.security.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.targetvisu.web.httpPort | default 8080 }}
+              protocol: TCP
+            - name: https
+              containerPort: {{ .Values.targetvisu.web.httpsPort | default 8443 }}
+              protocol: TCP
+            - name: webvisu
+              containerPort: {{ .Values.targetvisu.web.webVisuPort | default 8081 }}
+              protocol: TCP
+            {{- if .Values.protocols.opcua.enabled }}
+            - name: opcua
+              containerPort: {{ .Values.protocols.opcua.port | default 4840 }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.protocols.modbusTcp.enabled }}
+            - name: modbus-tcp
+              containerPort: {{ .Values.protocols.modbusTcp.port | default 502 }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.protocols.ethernetIp.enabled }}
+            - name: ethernet-ip
+              containerPort: {{ .Values.protocols.ethernetIp.port | default 44818 }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.protocols.bacnet.enabled }}
+            - name: bacnet
+              containerPort: {{ .Values.protocols.bacnet.port | default 47808 }}
+              protocol: UDP
+            {{- end }}
+            {{- if .Values.gateway.enabled }}
+            - name: gateway
+              containerPort: {{ .Values.gateway.port | default 11740 }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.monitoring.prometheus.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.monitoring.prometheus.port | default 9100 }}
+              protocol: TCP
+            {{- end }}
+          env:
+            {{- include "codesys-targetvisu.environment" . | nindent 12 }}
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.monitoring.healthcheck.liveness.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.monitoring.healthcheck.liveness.initialDelaySeconds | default 60 }}
+            periodSeconds: {{ .Values.monitoring.healthcheck.liveness.periodSeconds | default 30 }}
+            timeoutSeconds: {{ .Values.monitoring.healthcheck.liveness.timeoutSeconds | default 5 }}
+            failureThreshold: {{ .Values.monitoring.healthcheck.liveness.failureThreshold | default 3 }}
+          {{- end }}
+          {{- if .Values.monitoring.healthcheck.readiness.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: {{ .Values.monitoring.healthcheck.readiness.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .Values.monitoring.healthcheck.readiness.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.monitoring.healthcheck.readiness.timeoutSeconds | default 5 }}
+            failureThreshold: {{ .Values.monitoring.healthcheck.readiness.failureThreshold | default 3 }}
+          {{- end }}
+          {{- if .Values.monitoring.healthcheck.startup.enabled }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.monitoring.healthcheck.startup.initialDelaySeconds | default 0 }}
+            periodSeconds: {{ .Values.monitoring.healthcheck.startup.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.monitoring.healthcheck.startup.timeoutSeconds | default 5 }}
+            failureThreshold: {{ .Values.monitoring.healthcheck.startup.failureThreshold | default 30 }}
+          {{- end }}
+          resources:
+            {{- include "codesys-targetvisu.resources" . | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.storage.config.enabled }}
+            - name: config
+              mountPath: {{ .Values.storage.config.mountPath }}
+            {{- end }}
+            {{- if .Values.storage.projects.enabled }}
+            - name: projects
+              mountPath: {{ .Values.storage.projects.mountPath }}
+            {{- end }}
+            {{- if .Values.storage.logs.enabled }}
+            - name: logs
+              mountPath: {{ .Values.storage.logs.mountPath }}
+            {{- end }}
+            {{- if eq .Values.targetvisu.license.type "file" }}
+            - name: license
+              mountPath: /var/opt/codesys/license
+              readOnly: true
+            {{- end }}
+            {{- if .Values.configMap.enabled }}
+            - name: custom-config
+              mountPath: /etc/codesys
+            {{- end }}
+            {{- if .Values.security.tls.enabled }}
+            - name: tls-certs
+              mountPath: /etc/ssl/codesys
+              readOnly: true
+            {{- end }}
+            {{- if and .Values.plc.enabled (eq .Values.plc.connection.type "local") }}
+            - name: shared-memory
+              mountPath: {{ .Values.plc.connection.local.shmPath }}
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      volumes:
+        {{- if .Values.storage.config.enabled }}
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ include "codesys-targetvisu.fullname" . }}-config
+        {{- end }}
+        {{- if .Values.storage.projects.enabled }}
+        - name: projects
+          persistentVolumeClaim:
+            claimName: {{ include "codesys-targetvisu.fullname" . }}-projects
+        {{- end }}
+        {{- if .Values.storage.logs.enabled }}
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ include "codesys-targetvisu.fullname" . }}-logs
+        {{- end }}
+        {{- if eq .Values.targetvisu.license.type "file" }}
+        - name: license
+          secret:
+            secretName: {{ include "codesys-targetvisu.licenseSecretName" . }}
+        {{- end }}
+        {{- if .Values.configMap.enabled }}
+        - name: custom-config
+          configMap:
+            name: {{ include "codesys-targetvisu.configMapName" . }}
+        {{- end }}
+        {{- if .Values.security.tls.enabled }}
+        - name: tls-certs
+          secret:
+            secretName: {{ include "codesys-targetvisu.tlsSecretName" . }}
+        {{- end }}
+        {{- if and .Values.plc.enabled (eq .Values.plc.connection.type "local") }}
+        - name: shared-memory
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ .Values.plc.connection.local.shmSize | default "64Mi" }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

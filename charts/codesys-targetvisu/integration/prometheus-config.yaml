@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-codesys-config
+  namespace: monitoring
+data:
+  codesys-targetvisu.yml: |
+    # Prometheus scrape configuration for CODESYS TargetVisu
+    scrape_configs:
+      - job_name: 'codesys-targetvisu'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - industrial
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: codesys-targetvisu
+          - source_labels: [__meta_kubernetes_pod_container_port_name]
+            action: keep
+            regex: metrics
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_instance]
+            target_label: instance
+        scrape_interval: 30s
+        scrape_timeout: 10s
+        metrics_path: /metrics
+      
+      # Web interface health check
+      - job_name: 'codesys-targetvisu-web'
+        metrics_path: /probe
+        params:
+          module: [http_2xx]
+        static_configs:
+          - targets:
+              - http://codesys-targetvisu.industrial.svc.cluster.local:8080
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            replacement: blackbox-exporter:9115

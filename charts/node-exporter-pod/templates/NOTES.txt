@@ -1,0 +1,366 @@
+██████╗ ██████╗  ██████╗ ███╗   ███╗███████╗████████╗██╗  ██╗███████╗██╗   ██╗███████╗
+██╔══██╗██╔══██╗██╔═══██╗████╗ ████║██╔════╝╚══██╔══╝██║  ██║██╔════╝██║   ██║██╔════╝
+██████╔╝██████╔╝██║   ██║██╔████╔██║█████╗     ██║   ███████║█████╗  ██║   ██║███████╗
+██╔═══╝ ██╔══██╗██║   ██║██║╚██╔╝██║██╔══╝     ██║   ██╔══██║██╔══╝  ██║   ██║╚════██║
+██║     ██║  ██║╚██████╔╝██║ ╚═╝ ██║███████╗   ██║   ██║  ██║███████╗╚██████╔╝███████║
+╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚══════╝
+███╗   ██╗ ██████╗ ██████╗ ███████╗    ███████╗██╗  ██╗██████╗  ██████╗ ██████╗ ████████╗███████╗██████╗ 
+████╗  ██║██╔═══██╗██╔══██╗██╔════╝    ██╔════╝╚██╗██╔╝██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝██╔════╝██╔══██╗
+██╔██╗ ██║██║   ██║██║  ██║█████╗      █████╗   ╚███╔╝ ██████╔╝██║   ██║██████╔╝   ██║   █████╗  ██████╔╝
+██║╚██╗██║██║   ██║██║  ██║██╔══╝      ██╔══╝   ██╔██╗ ██╔═══╝ ██║   ██║██╔══██╗   ██║   ██╔══╝  ██╔══██╗
+██║ ╚████║╚██████╔╝██████╔╝███████╗    ███████╗██╔╝ ██╗██║     ╚██████╔╝██║  ██║   ██║   ███████╗██║  ██║
+╚═╝  ╚═══╝ ╚═════╝ ╚═════╝ ╚══════╝    ╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
+
+┌──────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                      │
+│  🔥 FIREBALL INDUSTRIES NODE EXPORTER - SUCCESSFULLY DEPLOYED 🔥                     │
+│                                                                                      │
+│  Because knowing your hardware is dying BEFORE it catches fire is surprisingly      │
+│  useful in production environments where downtime costs actual money.               │
+│                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────┘
+
+🎯 DEPLOYMENT INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Mode:           {{ .Values.deploymentMode | upper }}
+  {{- if eq .Values.deploymentMode "daemonset" }}
+  Coverage:       Running on EVERY node in your cluster
+                  (Yes, even that one sketchy node you forgot about)
+  {{- else if eq .Values.deploymentMode "deployment" }}
+  Replicas:       {{ .Values.replicaCount }}
+                  (Single instance - good for testing, not for production)
+  {{- else }}
+  Replicas:       {{ .Values.replicaCount }}
+                  (StatefulSet mode - because you like complications)
+  {{- end }}
+  
+  Preset:         {{ .Values.resourcePreset }}
+  {{- if eq .Values.resourcePreset "edge-minimal" }}
+                  (IoT/Raspberry Pi mode - minimal resource usage)
+  {{- else if eq .Values.resourcePreset "edge-standard" }}
+                  (Standard edge - because your industrial PC deserves monitoring)
+  {{- else if eq .Values.resourcePreset "server" }}
+                  (Full server mode - all the metrics, all the time)
+  {{- else }}
+                  (Custom configuration - you know what you're doing, right?)
+  {{- end }}
+  
+  Namespace:      {{ include "node-exporter.namespace" . }}
+  Release:        {{ .Release.Name }}
+
+📈 METRICS ENDPOINT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Service URL:    http://{{ include "node-exporter.fullname" . }}.{{ include "node-exporter.namespace" . }}.svc.cluster.local:{{ .Values.service.port }}/metrics
+  Metrics Path:   {{ .Values.metricsPath }}
+  Port:           {{ .Values.service.port }}
+
+  {{- if eq .Values.deploymentMode "daemonset" }}
+  
+  🔍 Access per-node metrics:
+  
+    # Forward port from any node exporter pod
+    kubectl port-forward -n {{ include "node-exporter.namespace" . }} \
+      daemonset/{{ include "node-exporter.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+    
+    # Then access metrics locally
+    curl http://localhost:{{ .Values.service.port }}/metrics
+  
+  {{- else }}
+  
+  🔍 Access metrics:
+  
+    # Forward port from the pod
+    kubectl port-forward -n {{ include "node-exporter.namespace" . }} \
+      deployment/{{ include "node-exporter.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+    
+    # Then access metrics locally
+    curl http://localhost:{{ .Values.service.port }}/metrics
+  
+  {{- end }}
+
+🔍 ENABLED COLLECTORS ({{ include "node-exporter.collectorCount" . }})
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  {{- $preset := .Values.resourcePreset -}}
+  {{- if and (ne $preset "custom") (hasKey .Values.resourcePresets $preset) }}
+    {{- range (index .Values.resourcePresets $preset).collectors }}
+  ✓ {{ . }}
+    {{- end }}
+  {{- else }}
+    {{- range .Values.collectors.enabled }}
+  ✓ {{ . }}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.collectors.optional.systemd }}
+  ✓ systemd (service health monitoring)
+  {{- end }}
+  {{- if .Values.collectors.optional.processes }}
+  ✓ processes (per-process metrics)
+  {{- end }}
+  {{- if .Values.collectors.optional.textfile }}
+  ✓ textfile (custom metrics from files)
+  {{- end }}
+  {{- if .Values.collectors.optional.ntp }}
+  ✓ ntp (time synchronization monitoring)
+  {{- end }}
+  {{- if .Values.collectors.optional.tcpstat }}
+  ✓ tcpstat (TCP connection states)
+  {{- end }}
+  {{- if .Values.collectors.optional.interrupts }}
+  ✓ interrupts (IRQ statistics)
+  {{- end }}
+  {{- if .Values.collectors.optional.thermal_zone }}
+  ✓ thermal_zone (temperature sensors) ⚠️  IMPORTANT FOR EDGE!
+  {{- end }}
+  {{- if .Values.collectors.optional.ethtool }}
+  ✓ ethtool (NIC statistics)
+  {{- end }}
+  {{- if .Values.collectors.optional.wifi }}
+  ✓ wifi (wireless metrics)
+  {{- end }}
+  {{- if .Values.collectors.optional.rapl }}
+  ✓ rapl (power consumption)
+  {{- end }}
+  {{- if .Values.collectors.optional.supervisord }}
+  ✓ supervisord (process supervisor)
+  {{- end }}
+
+{{- if .Values.collectors.optional.thermal_zone }}
+
+🌡️  TEMPERATURE MONITORING: ENABLED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ⚠️  CRITICAL FOR INDUSTRIAL EDGE DEPLOYMENTS!
+  
+  Your edge device sitting in a metal enclosure on the factory floor with zero
+  ventilation is NOT "running fine" at 85°C. That's called "pre-failure mode."
+  
+  Pro tip: If you can't comfortably hold your hand on the enclosure for 10 seconds,
+  your hardware is cooking itself. Fix. Your. Cooling.
+  
+  Query temperature metrics:
+    curl -s http://localhost:{{ .Values.service.port }}/metrics | grep node_hwmon_temp_celsius
+    curl -s http://localhost:{{ .Values.service.port }}/metrics | grep node_thermal_zone_temp
+
+{{- end }}
+
+{{- if .Values.collectors.optional.textfile }}
+
+📁 TEXTFILE COLLECTOR: ENABLED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Directory:      {{ .Values.collectors.collectorArgs.textfile.directory }}
+  
+  Add custom metrics from scripts or external tools:
+  
+    # Create a custom metric file
+    echo 'backup_last_success_timestamp 1737446400' > \
+      {{ .Values.collectors.collectorArgs.textfile.directory }}/backup.prom
+    
+    echo 'hardware_health_status{component="raid"} 1' >> \
+      {{ .Values.collectors.collectorArgs.textfile.directory }}/hardware.prom
+  
+  See textfile-examples/ directory for scripts that generate:
+    - Backup job status
+    - Custom hardware health checks
+    - Software license expiry monitoring
+    - Integration with third-party tools
+
+{{- end }}
+
+{{- if .Values.serviceMonitor.enabled }}
+
+📊 PROMETHEUS SERVICEMONITOR: ENABLED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Your Prometheus Operator will automatically discover and scrape these metrics.
+  
+  Scrape Interval:  {{ .Values.serviceMonitor.interval }}
+  Scrape Timeout:   {{ .Values.serviceMonitor.scrapeTimeout }}
+  
+  Verify ServiceMonitor:
+    kubectl get servicemonitor -n {{ default (include "node-exporter.namespace" .) .Values.serviceMonitor.namespace }}
+
+{{- end }}
+
+📊 GRAFANA DASHBOARDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Import these popular dashboards into Grafana:
+  
+  📈 Node Exporter Full (ID: 1860)
+     Comprehensive view of all node metrics
+     https://grafana.com/grafana/dashboards/1860
+  
+  📈 Node Exporter for Prometheus Dashboard (ID: 11074)
+     Detailed system and hardware metrics
+     https://grafana.com/grafana/dashboards/11074
+  
+  📈 Custom Industrial Edge Dashboard
+     Optimized for edge computing environments
+     Import: ./dashboards/industrial-edge.json
+  
+  📈 Hardware Health Dashboard
+     Temperature, sensors, RAID, and disk health
+     Import: ./dashboards/hardware-health.json
+
+⚠️  RECOMMENDED ALERT RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Deploy these alert rules to catch issues before they become outages:
+  
+  🚨 High CPU Usage (>80% for 5m)
+     100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+  
+  🚨 High Memory Usage (>90%)
+     (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+  
+  🚨 Disk Space Critical (<10% free)
+     100 - ((node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100) < 10
+  
+  🚨 High Disk I/O Latency (>100ms)
+     rate(node_disk_io_time_seconds_total[5m]) > 0.1
+  
+  🚨 Network Errors (>1% error rate)
+     rate(node_network_receive_errs_total[5m]) / rate(node_network_receive_packets_total[5m]) > 0.01
+  
+  {{- if .Values.collectors.optional.thermal_zone }}
+  🚨 Temperature Warning (>70°C)
+     node_hwmon_temp_celsius > 70
+  
+  🚨 Temperature Critical (>80°C)
+     node_hwmon_temp_celsius > 80
+     (Seriously, if you see this, your hardware is literally cooking)
+  {{- end }}
+  
+  Complete alert rule templates available in:
+    - alerts/alerts-hardware.yaml
+    - alerts/alerts-filesystem.yaml
+    - alerts/alerts-system.yaml
+    {{- if .Values.collectors.optional.thermal_zone }}
+    - alerts/alerts-temperature.yaml
+    {{- end }}
+
+🔧 QUICK COMMANDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  View logs:
+    kubectl logs -n {{ include "node-exporter.namespace" . }} -l app.kubernetes.io/name={{ include "node-exporter.name" . }}
+  
+  {{- if eq .Values.deploymentMode "daemonset" }}
+  Check DaemonSet status:
+    kubectl get daemonset -n {{ include "node-exporter.namespace" . }} {{ include "node-exporter.fullname" . }}
+  
+  View per-node deployment:
+    kubectl get pods -n {{ include "node-exporter.namespace" . }} -l app.kubernetes.io/name={{ include "node-exporter.name" . }} -o wide
+  {{- end }}
+  
+  Test metrics endpoint:
+    curl http://localhost:{{ .Values.service.port }}/metrics | head -20
+  
+  Query specific metrics:
+    # CPU usage
+    curl -s http://localhost:{{ .Values.service.port }}/metrics | grep node_cpu_seconds_total
+    
+    # Memory
+    curl -s http://localhost:{{ .Values.service.port }}/metrics | grep node_memory
+    
+    # Disk I/O
+    curl -s http://localhost:{{ .Values.service.port }}/metrics | grep node_disk
+    
+    # Network
+    curl -s http://localhost:{{ .Values.service.port }}/metrics | grep node_network
+
+💻 POWERSHELL MANAGEMENT SCRIPTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Comprehensive cluster health analysis:
+    .\scripts\analyze-cluster-health.ps1
+  
+  View metrics from all nodes:
+    .\scripts\manage-node-exporter.ps1 -Action view-metrics
+  
+  Run health checks:
+    .\scripts\manage-node-exporter.ps1 -Action health-check
+  
+  Test deployment:
+    .\scripts\test-node-exporter.ps1
+
+📚 DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  README.md               Complete setup and configuration guide
+  COLLECTORS.md           Collector reference and configuration
+  METRICS_REFERENCE.md    Metrics catalog and PromQL examples
+  QUICK_REFERENCE.md      Quick command reference
+
+🐛 TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Pods not starting?
+    → Check RBAC: kubectl get clusterrole,clusterrolebinding | grep node-exporter
+    → Check node taints: kubectl describe nodes | grep Taints
+  
+  Metrics not appearing?
+    → Verify collectors: kubectl logs -n {{ include "node-exporter.namespace" . }} -l app.kubernetes.io/name={{ include "node-exporter.name" . }}
+    → Check host mounts: kubectl describe pod -n {{ include "node-exporter.namespace" . }} -l app.kubernetes.io/name={{ include "node-exporter.name" . }}
+  
+  High memory usage?
+    → Reduce enabled collectors in values.yaml
+    → Use edge-minimal preset for constrained devices
+  
+  Temperature metrics missing?
+    → Hardware may not expose thermal sensors
+    → Check: ls -la /sys/class/hwmon/
+    → Enable thermal_zone collector if available
+
+💡 PRO TIPS (FROM ACTUAL PRODUCTION EXPERIENCE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. 🔥 Monitor disk I/O on edge devices
+     SSDs wear out, especially cheap consumer-grade ones in industrial environments.
+     That WD Blue has seen better days.
+  
+  2. 🌡️  Watch temperatures in industrial enclosures
+     Your edge device in a sealed metal box on the factory floor is NOT adequately
+     cooled. Ask me how I know.
+  
+  3. 📊 Set up predictive disk full alerts
+     Knowing your disk will be full in 3 days is better than knowing it's full NOW.
+  
+  4. 📁 Use textfile collector for backup job status
+     Export backup success/failure as metrics. Future you will thank present you.
+  
+  5. 🔌 Monitor network errors on industrial switches
+     Industrial networks are noisy. High error rates are your early warning system.
+  
+  6. ⏰ Track time drift
+     Industrial systems often lack NTP. Time drift causes weird issues in logs.
+  
+  7. 💾 Monitor RAID status if you have it
+     Degraded RAID arrays don't announce themselves. Monitor or regret it later.
+
+┌──────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                      │
+│  🎯 DEPLOYMENT COMPLETE                                                              │
+│                                                                                      │
+│  Your node metrics are now being collected. Set up alerts, import dashboards,       │
+│  and enjoy knowing when your hardware is about to die BEFORE the smoke alarm        │
+│  goes off.                                                                           │
+│                                                                                      │
+│  Because uptime matters when downtime costs actual money.                           │
+│                                                                                      │
+│  🔥 Fireball Industries - Industrial automation that doesn't suck 🔥                 │
+│                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────┘
+
+P.S. - If you see temperature warnings above 80°C, that's not normal. Your edge
+       device is literally cooking itself. Fix your cooling BEFORE you need to
+       explain to management why production is down because a $400 industrial PC
+       thermal-throttled itself into a kernel panic.
+
+P.P.S. - Yes, I've seen a factory floor deployment where the "solution" to overheating
+         was to point a desk fan at the enclosure. It worked... until someone
+         unplugged the fan. Monitor your temps, people.

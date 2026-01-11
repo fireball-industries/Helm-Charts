@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: targetvisu-runtime-alerts
+  labels:
+    app: prometheus
+data:
+  alerts.yml: |
+    groups:
+    - name: codesys_targetvisu_runtime
+      interval: 30s
+      rules:
+      
+      # Pod is down
+      - alert: TargetVisuDown
+        expr: up{job="codesys-targetvisu"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: targetvisu
+        annotations:
+          summary: "CODESYS TargetVisu is down"
+          description: "TargetVisu pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is down. Your operators are now staring at blank screens."
+          runbook: "kubectl delete pod {{ $labels.pod }} -n {{ $labels.namespace }} && pray"
+      
+      # High restart count
+      - alert: TargetVisuHighRestarts
+        expr: rate(kube_pod_container_status_restarts_total{pod=~".*targetvisu.*"}[15m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: targetvisu
+        annotations:
+          summary: "TargetVisu is restarting frequently"
+          description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last 15 minutes. Something is very wrong."
+      
+      # OOM Killed
+      - alert: TargetVisuOOMKilled
+        expr: kube_pod_container_status_last_terminated_reason{pod=~".*targetvisu.*", reason="OOMKilled"} == 1
+        for: 1m
+        labels:
+          severity: critical
+          component: targetvisu
+        annotations:
+          summary: "TargetVisu killed by OOM"
+          description: "Pod {{ $labels.pod }} was killed due to out-of-memory. Increase resource limits or optimize your HMI project."
+      
+      # High CPU usage
+      - alert: TargetVisuHighCPU
+        expr: rate(container_cpu_usage_seconds_total{pod=~".*targetvisu.*"}[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          component: targetvisu
+        annotations:
+          summary: "TargetVisu high CPU usage"
+          description: "Pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} CPU. Your visualization might be too complex."
+      
+      # High memory usage
+      - alert: TargetVisuHighMemory
+        expr: container_memory_usage_bytes{pod=~".*targetvisu.*"} / container_spec_memory_limit_bytes{pod=~".*targetvisu.*"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: targetvisu
+        annotations:
+          summary: "TargetVisu high memory usage"
+          description: "Pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of its memory limit."
+      
+      # PVC almost full
+      - alert: TargetVisuStorageAlmostFull
+        expr: kubelet_volume_stats_used_bytes{persistentvolumeclaim=~".*targetvisu.*"} / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~".*targetvisu.*"} > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          component: storage
+        annotations:
+          summary: "TargetVisu storage almost full"
+          description: "PVC {{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full. Time to clean up logs or increase storage."
+      
+      # CrashLoopBackOff
+      - alert: TargetVisuCrashLoop
+        expr: kube_pod_container_status_waiting_reason{pod=~".*targetvisu.*", reason="CrashLoopBackOff"} == 1
+        for: 5m
+        labels:
+          severity: critical
+          component: targetvisu
+        annotations:
+          summary: "TargetVisu in CrashLoopBackOff"
+          description: "Pod {{ $labels.pod }} is in CrashLoopBackOff. Check logs immediately. Your factory is probably stopped."
+          runbook: "kubectl logs {{ $labels.pod }} -n {{ $labels.namespace }} --previous"

@@ -1,0 +1,118 @@
+---
+# Prometheus Configuration for Node Exporter
+# Add this to your prometheus.yml configuration
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'fireball-industries'
+    environment: 'production'
+
+# Scrape configuration for Node Exporter
+scrape_configs:
+  # Kubernetes Service Discovery for Node Exporter DaemonSet
+  - job_name: 'kubernetes-node-exporter'
+    honor_labels: true
+    honor_timestamps: true
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+            - monitoring
+    
+    # Relabel rules to match Node Exporter service
+    relabel_configs:
+      # Only scrape endpoints from node-exporter service
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: node-exporter
+      
+      # Use node name as instance label
+      - source_labels: [__meta_kubernetes_endpoint_node_name]
+        target_label: node
+      
+      # Add namespace label
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      
+      # Add pod name label
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      
+      # Add service name label
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+      
+      # Use standard instance label (node:port)
+      - source_labels: [__meta_kubernetes_endpoint_node_name, __meta_kubernetes_endpoint_port]
+        separator: ':'
+        target_label: instance
+    
+    # Metric relabeling (post-scrape processing)
+    metric_relabel_configs:
+      # Drop high cardinality metrics if needed
+      - source_labels: [__name__]
+        regex: 'node_network_transmit_packets_total|node_network_receive_packets_total'
+        action: drop
+      
+      # Normalize filesystem device labels
+      - source_labels: [device]
+        regex: '/dev/(sd[a-z][0-9]+|nvme[0-9]+n[0-9]+p[0-9]+)'
+        target_label: device
+        replacement: '${1}'
+
+  # Static configuration example (for non-Kubernetes deployments)
+  - job_name: 'node-exporter-static'
+    static_configs:
+      - targets:
+          - 'node1.example.com:9100'
+          - 'node2.example.com:9100'
+          - 'node3.example.com:9100'
+        labels:
+          environment: 'production'
+          datacenter: 'us-east-1'
+    
+    relabel_configs:
+      # Extract hostname from target
+      - source_labels: [__address__]
+        regex: '([^:]+):.*'
+        target_label: instance
+        replacement: '${1}'
+
+  # ServiceMonitor-based discovery (Prometheus Operator)
+  # This is automatically handled by Prometheus Operator
+  # The ServiceMonitor resource in templates/servicemonitor.yaml
+  # will be discovered and configured automatically
+
+# Recording rules for Node Exporter
+rule_files:
+  - '/etc/prometheus/rules/node-exporter-rules.yaml'
+
+# Example recording rules (save as node-exporter-rules.yaml):
+# groups:
+#   - name: node_exporter_aggregations
+#     interval: 30s
+#     rules:
+#       # CPU usage percentage per node
+#       - record: node:cpu_usage:percent
+#         expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+#       
+#       # Memory usage percentage per node
+#       - record: node:memory_usage:percent
+#         expr: 100 - ((node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100)
+#       
+#       # Disk space usage percentage per filesystem
+#       - record: node:filesystem_usage:percent
+#         expr: 100 - ((node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100)
+#       
+#       # Network receive rate per node (bytes/sec)
+#       - record: node:network_receive_bytes:rate5m
+#         expr: sum by (instance) (irate(node_network_receive_bytes_total{device!~"lo|veth.*|docker.*|br-.*"}[5m]))
+#       
+#       # Network transmit rate per node (bytes/sec)
+#       - record: node:network_transmit_bytes:rate5m
+#         expr: sum by (instance) (irate(node_network_transmit_bytes_total{device!~"lo|veth.*|docker.*|br-.*"}[5m]))

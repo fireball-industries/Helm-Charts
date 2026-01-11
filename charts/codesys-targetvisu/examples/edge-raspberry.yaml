@@ -1,0 +1,58 @@
+# Raspberry Pi Edge Deployment
+# Optimized for ARM edge devices
+
+resourcePreset: edge-minimal
+
+targetvisu:
+  image:
+    repository: ghcr.io/fireball-industries/codesys-targetvisu
+    tag: "3.5.20.0-arm64"
+  
+  license:
+    type: file
+    licenseSecret: codesys-license
+  
+  web:
+    maxClients: 3
+    sessionTimeout: 1800
+  
+  runtime:
+    cycleTime: 50  # Slower for ARM
+    logLevel: warn  # Reduce logging
+
+storage:
+  config:
+    size: 1Gi
+    storageClass: local-path
+  projects:
+    size: 3Gi
+    storageClass: local-path
+  logs:
+    size: 500Mi
+    storageClass: local-path
+
+service:
+  type: NodePort
+  http:
+    nodePort: 30080
+
+protocols:
+  modbusTcp:
+    enabled: true
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+nodeSelector:
+  kubernetes.io/arch: arm64
+  node-role.kubernetes.io/edge: "true"
+
+tolerations:
+- key: "node-role.kubernetes.io/edge"
+  operator: "Exists"
+  effect: "NoSchedule"

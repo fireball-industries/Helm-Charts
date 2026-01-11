@@ -1,0 +1,117 @@
+CODESYS Edge Gateway has been successfully deployed!
+
+Release Name: {{ .Release.Name }}
+Namespace: {{ .Values.namespace }}
+Architecture: {{ .Values.image.architecture }}
+
+===================================================================================
+Gateway Information
+===================================================================================
+
+Gateway Name: {{ .Values.gateway.name }}
+Version: {{ .Chart.AppVersion }}
+
+Service Ports:
+  - Gateway Communication: {{ .Values.service.gatewayPort }} (TCP)
+  - PLC Communication: {{ .Values.service.plcPort }} (TCP)
+  - Discovery Ports: {{ join ", " .Values.service.discoveryPorts }} (UDP)
+
+{{- if eq .Values.service.type "LoadBalancer" }}
+
+To get the LoadBalancer IP address:
+  kubectl get svc {{ include "codesys-edge-gateway.fullname" . }} -n {{ .Values.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+
+{{- else if eq .Values.service.type "NodePort" }}
+
+To get the NodePort addresses:
+  export NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}')
+  echo "Gateway URL: $NODE_IP:$(kubectl get svc {{ include "codesys-edge-gateway.fullname" . }} -n {{ .Values.namespace }} -o jsonpath='{.spec.ports[?(@.name=="gateway")].nodePort}')"
+
+{{- end }}
+
+===================================================================================
+Configuration
+===================================================================================
+
+{{- if .Values.gateway.automationServerUrl }}
+Automation Server URL: {{ .Values.gateway.automationServerUrl }}
+{{- else }}
+⚠️  WARNING: Automation Server URL is not configured!
+   Update the deployment with: --set gateway.automationServerUrl=<your-url>
+{{- end }}
+
+Persistence: {{ if .Values.persistence.enabled }}Enabled ({{ .Values.persistence.size }}){{ else }}Disabled{{ end }}
+Storage Class: {{ .Values.persistence.storageClass }}
+
+===================================================================================
+Useful Commands
+===================================================================================
+
+1. Check gateway status:
+   kubectl get pods -n {{ .Values.namespace }} -l app.kubernetes.io/name={{ include "codesys-edge-gateway.name" . }}
+
+2. View gateway logs:
+   kubectl logs -n {{ .Values.namespace }} -l app.kubernetes.io/name={{ include "codesys-edge-gateway.name" . }} -f
+
+3. Execute commands in the gateway pod:
+   kubectl exec -it -n {{ .Values.namespace }} deployment/{{ include "codesys-edge-gateway.fullname" . }} -- /bin/bash
+
+4. View gateway configuration:
+   kubectl get configmap {{ include "codesys-edge-gateway.configMapName" . }} -n {{ .Values.namespace }} -o yaml
+
+5. Update Automation Server credentials:
+   kubectl create secret generic {{ include "codesys-edge-gateway.secretName" . }} \
+     --from-literal=username=<username> \
+     --from-literal=password=<password> \
+     --dry-run=client -o yaml | kubectl apply -n {{ .Values.namespace }} -f -
+
+6. Scale the deployment (not recommended for gateway):
+   kubectl scale deployment {{ include "codesys-edge-gateway.fullname" . }} -n {{ .Values.namespace }} --replicas=1
+
+===================================================================================
+Connection Information for CODESYS IDE
+===================================================================================
+
+{{- if eq .Values.service.type "LoadBalancer" }}
+Use the LoadBalancer IP address and port {{ .Values.service.gatewayPort }} to connect from CODESYS IDE.
+{{- else if eq .Values.service.type "NodePort" }}
+Use the Node IP address and the allocated NodePort to connect from CODESYS IDE.
+{{- else }}
+Service is configured as ClusterIP. You may need to set up port forwarding:
+  kubectl port-forward -n {{ .Values.namespace }} svc/{{ include "codesys-edge-gateway.fullname" . }} {{ .Values.service.gatewayPort }}:{{ .Values.service.gatewayPort }}
+{{- end }}
+
+===================================================================================
+Multi-Architecture Deployment
+===================================================================================
+
+Current architecture: {{ .Values.image.architecture }}
+
+To deploy on different architectures, use:
+  helm upgrade {{ .Release.Name }} ./helm-chart --set image.architecture=<arch>
+
+Supported architectures: arm32, arm64, x86, x64
+
+===================================================================================
+Troubleshooting
+===================================================================================
+
+If the gateway is not connecting to PLCs:
+  1. Verify network connectivity (check firewall rules)
+  2. Ensure UDP discovery ports {{ join ", " .Values.service.discoveryPorts }} are accessible
+  {{- if not .Values.network.hostNetwork }}
+  3. Consider enabling hostNetwork mode for better UDP broadcast support
+     --set network.hostNetwork=true
+  {{- end }}
+  4. Check PLC network settings match gateway configuration
+
+If Automation Server connection fails:
+  1. Verify the Automation Server URL is correct
+  2. Check credentials in the secret
+  3. Verify SSL/TLS certificates if using HTTPS
+  4. Check network connectivity to Automation Server
+
+For more information, visit:
+  {{ .Chart.Home }}
+
+===================================================================================

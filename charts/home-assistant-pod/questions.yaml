@@ -1,0 +1,754 @@
+categories:
+  - Industrial IoT
+  - Manufacturing
+  - Building Automation
+  - Edge Computing
+  - SCADA
+
+questions:
+  # ========================================
+  # RESOURCE PRESET
+  # ========================================
+  - variable: homeassistant.resourcePreset
+    label: Resource Preset
+    description: "Quick configuration based on deployment size"
+    type: enum
+    default: standard
+    group: "Resource Configuration"
+    options:
+      - minimal
+      - standard
+      - full
+      - custom
+    show_subquestion_if: true
+    subquestions:
+      - variable: presetDescription
+        label: Preset Details
+        description: |
+          **minimal**: 200m-500m CPU, 256Mi-512Mi RAM
+          - <50 devices (smart lights, switches)
+          - SQLite database
+          - Raspberry Pi 4 / small edge device
+          
+          **standard**: 500m-1000m CPU, 512Mi-1Gi RAM (default)
+          - 50-200 devices (full home automation)
+          - PostgreSQL recommended
+          - Industrial PC or VM
+          
+          **full**: 1000m-2000m CPU, 1Gi-2Gi RAM
+          - >200 devices + security cameras
+          - PostgreSQL required
+          - Server or multi-core VM
+        type: string
+        show_if: "homeassistant.resourcePreset!=custom"
+
+  # ========================================
+  # IMAGE CONFIGURATION
+  # ========================================
+  - variable: homeassistant.image.repository
+    label: Home Assistant Image Repository
+    description: "Container image repository"
+    type: string
+    default: "ghcr.io/home-assistant/home-assistant"
+    required: true
+    group: "Image Configuration"
+
+  - variable: homeassistant.image.tag
+    label: Image Tag
+    description: "Home Assistant version (e.g., 2024.12.0, latest)"
+    type: string
+    default: "2024.12.0"
+    required: true
+    group: "Image Configuration"
+
+  # ========================================
+  # TIMEZONE
+  # ========================================
+  - variable: global.timezone
+    label: Timezone
+    description: "Timezone for automations (e.g., America/New_York, Europe/London, Asia/Tokyo)"
+    type: string
+    default: "America/New_York"
+    required: true
+    group: "Basic Configuration"
+
+  # ========================================
+  # HOST NETWORK
+  # ========================================
+  - variable: homeassistant.hostNetwork
+    label: Enable Host Network
+    description: "Use host network (required for mDNS discovery, Chromecast, local device scanning)"
+    type: boolean
+    default: false
+    group: "Network Configuration"
+    show_subquestion_if: true
+    subquestions:
+      - variable: hostNetworkWarning
+        label: Host Network Warning
+        description: |
+          **⚠️ Security Warning**: Host network bypasses NetworkPolicy and exposes all ports.
+          
+          **Enable if you need:**
+          - mDNS/Bonjour device discovery (Chromecasts, Apple TV)
+          - DLNA/UPnP devices
+          - Network scanning for device integration
+          
+          **Alternative**: Use NodePort or LoadBalancer without host network (more secure)
+        type: string
+
+  # ========================================
+  # DATABASE CONFIGURATION
+  # ========================================
+  - variable: database.type
+    label: Database Type
+    description: "Backend database for Home Assistant"
+    type: enum
+    default: sqlite
+    required: true
+    group: "Database"
+    options:
+      - sqlite
+      - postgresql
+      - external
+    show_subquestion_if: true
+    subquestions:
+      - variable: databaseDescription
+        label: Database Type Details
+        description: |
+          **sqlite**: Built-in file-based database
+          - Best for: <50 devices, simple setups
+          - Pros: No setup required, lightweight
+          - Cons: Slower queries, limited scalability
+          
+          **postgresql**: Dedicated PostgreSQL StatefulSet
+          - Best for: 50-500+ devices, production
+          - Pros: Fast queries, scalable, reliable
+          - Cons: More resource usage
+          
+          **external**: Connect to existing database server
+          - Best for: Shared DB cluster, enterprise
+          - Requires: External PostgreSQL/MySQL/MariaDB server
+        type: string
+
+  - variable: database.postgresql.enabled
+    label: Deploy PostgreSQL StatefulSet
+    description: "Create internal PostgreSQL database (only if database.type=postgresql)"
+    type: boolean
+    default: false
+    show_if: "database.type=postgresql"
+    group: "Database"
+
+  - variable: database.postgresql.auth.password
+    label: PostgreSQL Password
+    description: "Database password (CHANGE THIS!)"
+    type: password
+    default: "changeme-seriously-do-it-now"
+    show_if: "database.postgresql.enabled=true"
+    required: true
+    group: "Database"
+
+  - variable: database.postgresql.persistence.size
+    label: PostgreSQL Storage Size
+    description: "Persistent volume size for PostgreSQL data"
+    type: string
+    default: "5Gi"
+    show_if: "database.postgresql.enabled=true"
+    group: "Database"
+
+  - variable: database.external.host
+    label: External Database Host
+    description: "Hostname or IP of external database server"
+    type: string
+    default: "postgres.example.com"
+    show_if: "database.type=external"
+    required: true
+    group: "Database"
+
+  - variable: database.external.port
+    label: External Database Port
+    description: "Database server port (default: 5432 for PostgreSQL)"
+    type: int
+    default: 5432
+    show_if: "database.type=external"
+    group: "Database"
+
+  - variable: database.external.database
+    label: Database Name
+    description: "Database name on external server"
+    type: string
+    default: "homeassistant"
+    show_if: "database.type=external"
+    group: "Database"
+
+  - variable: database.external.username
+    label: Database Username
+    description: "Authentication username for external database"
+    type: string
+    default: "homeassistant"
+    show_if: "database.type=external"
+    group: "Database"
+
+  # ========================================
+  # STORAGE CONFIGURATION
+  # ========================================
+  - variable: persistence.config.enabled
+    label: Enable Config Storage
+    description: "Persistent storage for Home Assistant configuration"
+    type: boolean
+    default: true
+    required: true
+    group: "Storage"
+
+  - variable: persistence.config.size
+    label: Config Storage Size
+    description: "Size of persistent volume for configuration files"
+    type: string
+    default: "10Gi"
+    show_if: "persistence.config.enabled=true"
+    group: "Storage"
+
+  - variable: persistence.media.enabled
+    label: Enable Media Storage
+    description: "Persistent storage for camera recordings, snapshots, and media files"
+    type: boolean
+    default: true
+    group: "Storage"
+
+  - variable: persistence.media.size
+    label: Media Storage Size
+    description: "Size for media files (camera recordings, images)"
+    type: string
+    default: "20Gi"
+    show_if: "persistence.media.enabled=true"
+    group: "Storage"
+
+  - variable: persistence.backups.enabled
+    label: Enable Backup Storage
+    description: "Persistent storage for automated backups"
+    type: boolean
+    default: true
+    group: "Storage"
+
+  - variable: persistence.backups.size
+    label: Backup Storage Size
+    description: "Size for backup snapshots"
+    type: string
+    default: "10Gi"
+    show_if: "persistence.backups.enabled=true"
+    group: "Storage"
+
+  # ========================================
+  # SERVICE CONFIGURATION
+  # ========================================
+  - variable: service.main.type
+    label: Service Type
+    description: "Kubernetes service type for Home Assistant web UI"
+    type: enum
+    default: LoadBalancer
+    required: true
+    group: "Network Configuration"
+    options:
+      - ClusterIP
+      - NodePort
+      - LoadBalancer
+    show_subquestion_if: true
+    subquestions:
+      - variable: serviceTypeDescription
+        label: Service Type Details
+        description: |
+          **ClusterIP**: Internal cluster access only
+          - Use with Ingress for external access
+          
+          **NodePort**: Access via node IP and port
+          - Direct access without load balancer
+          - Port exposed on all cluster nodes
+          
+          **LoadBalancer**: External load balancer (cloud/MetalLB)
+          - Automatic external IP assignment
+          - Best for production deployments
+        type: string
+
+  - variable: service.main.port
+    label: Service Port
+    description: "Port for Home Assistant web interface"
+    type: int
+    default: 8123
+    required: true
+    group: "Network Configuration"
+
+  - variable: service.main.loadBalancerIP
+    label: LoadBalancer IP (Optional)
+    description: "Specific IP for LoadBalancer service (MetalLB pool)"
+    type: string
+    default: ""
+    show_if: "service.main.type=LoadBalancer"
+    group: "Network Configuration"
+
+  # ========================================
+  # INGRESS CONFIGURATION
+  # ========================================
+  - variable: ingress.enabled
+    label: Enable Ingress
+    description: "Enable Ingress for hostname-based access and SSL termination"
+    type: boolean
+    default: false
+    group: "Network Configuration"
+
+  - variable: ingress.className
+    label: Ingress Class
+    description: "Ingress controller class (nginx, traefik, etc.)"
+    type: string
+    default: "nginx"
+    show_if: "ingress.enabled=true"
+    group: "Network Configuration"
+
+  - variable: ingress.hosts[0].host
+    label: Ingress Hostname
+    description: "Domain name for Home Assistant (e.g., home.example.com)"
+    type: string
+    default: "homeassistant.example.com"
+    show_if: "ingress.enabled=true"
+    group: "Network Configuration"
+
+  - variable: ingress.tls[0].enabled
+    label: Enable Ingress TLS
+    description: "Enable HTTPS with TLS certificate"
+    type: boolean
+    default: false
+    show_if: "ingress.enabled=true"
+    group: "Network Configuration"
+
+  # ========================================
+  # USB DEVICES
+  # ========================================
+  - variable: devices.usb.enabled
+    label: Enable USB Devices
+    description: "Mount USB devices (Z-Wave, Zigbee dongles, serial adapters)"
+    type: boolean
+    default: false
+    group: "Device Access"
+
+  - variable: devices.usb.devices
+    label: USB Device List
+    description: "JSON array of USB devices with name and hostPath (e.g., [{\"name\":\"zwave\",\"hostPath\":\"/dev/ttyUSB0\"}])"
+    type: string
+    default: "[]"
+    show_if: "devices.usb.enabled=true"
+    group: "Device Access"
+
+  - variable: devices.bluetooth.enabled
+    label: Enable Bluetooth
+    description: "Enable Bluetooth device access for BLE integrations"
+    type: boolean
+    default: false
+    group: "Device Access"
+
+  - variable: devices.gpio.enabled
+    label: Enable GPIO Access
+    description: "Enable Raspberry Pi GPIO access (requires privileged mode)"
+    type: boolean
+    default: false
+    group: "Device Access"
+
+  # ========================================
+  # CAMERAS
+  # ========================================
+  - variable: cameras.enabled
+    label: Enable Camera Support
+    description: "Enable security camera integration and recording storage"
+    type: boolean
+    default: false
+    group: "Cameras"
+
+  - variable: cameras.storage.size
+    label: Camera Recording Storage Size
+    description: "Size for camera recordings and snapshots"
+    type: string
+    default: "50Gi"
+    show_if: "cameras.enabled=true"
+    group: "Cameras"
+
+  - variable: cameras.retention.days
+    label: Recording Retention (days)
+    description: "Number of days to keep camera recordings"
+    type: int
+    default: 7
+    min: 1
+    max: 90
+    show_if: "cameras.enabled=true"
+    group: "Cameras"
+
+  - variable: cameras.retention.autoCleanup
+    label: Enable Automatic Cleanup
+    description: "Automatically delete old recordings after retention period"
+    type: boolean
+    default: true
+    show_if: "cameras.enabled=true"
+    group: "Cameras"
+
+  # ========================================
+  # MQTT BROKER
+  # ========================================
+  - variable: mqtt.enabled
+    label: Enable MQTT Broker
+    description: "Deploy Mosquitto MQTT broker for IoT device communication"
+    type: boolean
+    default: true
+    group: "Add-ons"
+
+  - variable: mqtt.deployment
+    label: MQTT Deployment Type
+    description: "Deploy MQTT as sidecar (same pod) or separate deployment"
+    type: enum
+    default: sidecar
+    show_if: "mqtt.enabled=true"
+    group: "Add-ons"
+    options:
+      - sidecar
+      - separate
+
+  - variable: mqtt.config.allowAnonymous
+    label: MQTT Allow Anonymous
+    description: "Allow anonymous MQTT connections (NOT recommended for production)"
+    type: boolean
+    default: false
+    show_if: "mqtt.enabled=true"
+    group: "Add-ons"
+
+  - variable: mqtt.config.username
+    label: MQTT Username
+    description: "MQTT authentication username"
+    type: string
+    default: "mqtt"
+    show_if: "mqtt.config.allowAnonymous=false&&mqtt.enabled=true"
+    group: "Add-ons"
+
+  - variable: mqtt.config.password
+    label: MQTT Password
+    description: "MQTT authentication password"
+    type: password
+    default: "changeme-mqtt-password"
+    show_if: "mqtt.config.allowAnonymous=false&&mqtt.enabled=true"
+    group: "Add-ons"
+
+  - variable: mqtt.persistence.size
+    label: MQTT Storage Size
+    description: "Persistent volume size for MQTT data"
+    type: string
+    default: "1Gi"
+    show_if: "mqtt.enabled=true"
+    group: "Add-ons"
+
+  # ========================================
+  # NODE-RED
+  # ========================================
+  - variable: nodered.enabled
+    label: Enable Node-RED
+    description: "Deploy Node-RED for visual flow-based automation programming"
+    type: boolean
+    default: true
+    group: "Add-ons"
+
+  - variable: nodered.deployment
+    label: Node-RED Deployment Type
+    description: "Deploy Node-RED as sidecar or separate deployment"
+    type: enum
+    default: sidecar
+    show_if: "nodered.enabled=true"
+    group: "Add-ons"
+    options:
+      - sidecar
+      - separate
+
+  - variable: nodered.port
+    label: Node-RED Port
+    description: "Port for Node-RED web interface"
+    type: int
+    default: 1880
+    show_if: "nodered.enabled=true"
+    group: "Add-ons"
+
+  - variable: nodered.security.enabled
+    label: Enable Node-RED Authentication
+    description: "Require login for Node-RED web interface"
+    type: boolean
+    default: false
+    show_if: "nodered.enabled=true"
+    group: "Add-ons"
+
+  - variable: nodered.persistence.size
+    label: Node-RED Storage Size
+    description: "Persistent volume size for Node-RED flows"
+    type: string
+    default: "1Gi"
+    show_if: "nodered.enabled=true"
+    group: "Add-ons"
+
+  # ========================================
+  # ESPHOME
+  # ========================================
+  - variable: esphome.enabled
+    label: Enable ESPHome
+    description: "Deploy ESPHome for managing ESP32/ESP8266 devices"
+    type: boolean
+    default: true
+    group: "Add-ons"
+
+  - variable: esphome.deployment
+    label: ESPHome Deployment Type
+    description: "Deploy ESPHome as sidecar or separate deployment"
+    type: enum
+    default: sidecar
+    show_if: "esphome.enabled=true"
+    group: "Add-ons"
+    options:
+      - sidecar
+      - separate
+
+  - variable: esphome.port
+    label: ESPHome Port
+    description: "Port for ESPHome dashboard"
+    type: int
+    default: 6052
+    show_if: "esphome.enabled=true"
+    group: "Add-ons"
+
+  - variable: esphome.persistence.size
+    label: ESPHome Storage Size
+    description: "Persistent volume size for ESPHome configurations"
+    type: string
+    default: "2Gi"
+    show_if: "esphome.enabled=true"
+    group: "Add-ons"
+
+  # ========================================
+  # ZIGBEE2MQTT
+  # ========================================
+  - variable: zigbee2mqtt.enabled
+    label: Enable Zigbee2MQTT
+    description: "Deploy Zigbee2MQTT bridge (requires USB Zigbee coordinator)"
+    type: boolean
+    default: false
+    group: "Add-ons"
+
+  - variable: zigbee2mqtt.deployment
+    label: Zigbee2MQTT Deployment Type
+    description: "Deploy as sidecar or separate deployment"
+    type: enum
+    default: sidecar
+    show_if: "zigbee2mqtt.enabled=true"
+    group: "Add-ons"
+    options:
+      - sidecar
+      - separate
+
+  - variable: zigbee2mqtt.usbDevice
+    label: Zigbee USB Device Path
+    description: "Host path to Zigbee coordinator (e.g., /dev/ttyACM0, /dev/ttyUSB0)"
+    type: string
+    default: "/dev/ttyACM0"
+    show_if: "zigbee2mqtt.enabled=true"
+    group: "Add-ons"
+
+  - variable: zigbee2mqtt.persistence.size
+    label: Zigbee2MQTT Storage Size
+    description: "Persistent volume size for Zigbee2MQTT data"
+    type: string
+    default: "1Gi"
+    show_if: "zigbee2mqtt.enabled=true"
+    group: "Add-ons"
+
+  # ========================================
+  # INDUSTRIAL IOT
+  # ========================================
+  - variable: industrial.opcua.enabled
+    label: Enable OPC-UA Integration
+    description: "Enable OPC-UA client for PLC and industrial server connections"
+    type: boolean
+    default: false
+    group: "Industrial IoT"
+
+  - variable: industrial.modbus.enabled
+    label: Enable Modbus Integration
+    description: "Enable Modbus TCP/RTU for industrial device communication"
+    type: boolean
+    default: false
+    group: "Industrial IoT"
+
+  - variable: industrial.influxdb.enabled
+    label: Enable InfluxDB Export
+    description: "Export metrics to InfluxDB time-series database"
+    type: boolean
+    default: false
+    group: "Industrial IoT"
+
+  - variable: industrial.influxdb.url
+    label: InfluxDB URL
+    description: "InfluxDB server URL (e.g., http://influxdb:8086)"
+    type: string
+    default: "http://influxdb:8086"
+    show_if: "industrial.influxdb.enabled=true"
+    group: "Industrial IoT"
+
+  - variable: industrial.snmp.enabled
+    label: Enable SNMP Monitoring
+    description: "Enable SNMP for network equipment monitoring"
+    type: boolean
+    default: false
+    group: "Industrial IoT"
+
+  # ========================================
+  # MONITORING
+  # ========================================
+  - variable: monitoring.serviceMonitor.enabled
+    label: Enable ServiceMonitor
+    description: "Create ServiceMonitor for Prometheus Operator (requires Prometheus Operator)"
+    type: boolean
+    default: false
+    group: "Monitoring"
+
+  - variable: monitoring.serviceMonitor.interval
+    label: Prometheus Scrape Interval
+    description: "How often Prometheus scrapes metrics"
+    type: string
+    default: "30s"
+    show_if: "monitoring.serviceMonitor.enabled=true"
+    group: "Monitoring"
+
+  - variable: monitoring.grafanaDashboard.enabled
+    label: Enable Grafana Dashboard
+    description: "Deploy pre-built Grafana dashboard via ConfigMap"
+    type: boolean
+    default: false
+    group: "Monitoring"
+
+  # ========================================
+  # BACKUPS
+  # ========================================
+  - variable: backups.enabled
+    label: Enable Automated Backups
+    description: "Create CronJob for automated Home Assistant backups"
+    type: boolean
+    default: false
+    group: "Backups"
+
+  - variable: backups.schedule
+    label: Backup Schedule
+    description: "Cron schedule for automated backups (default: daily at 2 AM)"
+    type: string
+    default: "0 2 * * *"
+    show_if: "backups.enabled=true"
+    group: "Backups"
+
+  - variable: backups.retention
+    label: Backup Retention (days)
+    description: "Number of backup snapshots to retain"
+    type: int
+    default: 7
+    min: 1
+    max: 90
+    show_if: "backups.enabled=true"
+    group: "Backups"
+
+  # ========================================
+  # PROBES
+  # ========================================
+  - variable: probes.liveness.enabled
+    label: Enable Liveness Probe
+    description: "Kubernetes liveness probe (restarts pod if unhealthy)"
+    type: boolean
+    default: true
+    group: "Health Checks"
+
+  - variable: probes.readiness.enabled
+    label: Enable Readiness Probe
+    description: "Kubernetes readiness probe (removes from service if not ready)"
+    type: boolean
+    default: true
+    group: "Health Checks"
+
+  - variable: probes.startup.enabled
+    label: Enable Startup Probe
+    description: "Kubernetes startup probe (allows slow startup)"
+    type: boolean
+    default: true
+    group: "Health Checks"
+
+  # ========================================
+  # NETWORK POLICY
+  # ========================================
+  - variable: networkPolicy.enabled
+    label: Enable Network Policy
+    description: "Restrict pod network traffic with Kubernetes NetworkPolicy"
+    type: boolean
+    default: false
+    group: "Security"
+
+  # ========================================
+  # RBAC
+  # ========================================
+  - variable: rbac.create
+    label: Enable RBAC
+    description: "Create RBAC resources for device access"
+    type: boolean
+    default: true
+    group: "Security"
+
+  # ========================================
+  # CUSTOM RESOURCES (ADVANCED)
+  # ========================================
+  - variable: homeassistant.resources.requests.cpu
+    label: CPU Request
+    description: "Guaranteed CPU allocation (e.g., 500m = 0.5 cores)"
+    type: string
+    default: "500m"
+    show_if: "homeassistant.resourcePreset=custom"
+    group: "Custom Resources"
+
+  - variable: homeassistant.resources.requests.memory
+    label: Memory Request
+    description: "Guaranteed memory allocation (e.g., 1Gi)"
+    type: string
+    default: "1Gi"
+    show_if: "homeassistant.resourcePreset=custom"
+    group: "Custom Resources"
+
+  - variable: homeassistant.resources.limits.cpu
+    label: CPU Limit
+    description: "Maximum CPU usage (e.g., 2000m = 2 cores)"
+    type: string
+    default: "2000m"
+    show_if: "homeassistant.resourcePreset=custom"
+    group: "Custom Resources"
+
+  - variable: homeassistant.resources.limits.memory
+    label: Memory Limit
+    description: "Maximum memory usage (e.g., 4Gi)"
+    type: string
+    default: "4Gi"
+    show_if: "homeassistant.resourcePreset=custom"
+    group: "Custom Resources"
+
+  # ========================================
+  # ADVANCED
+  # ========================================
+  - variable: homeassistant.nodeSelector
+    label: Node Selector
+    description: "Kubernetes node labels for pod placement (JSON format)"
+    type: string
+    default: "{}"
+    group: "Advanced"
+
+  - variable: homeassistant.tolerations
+    label: Tolerations
+    description: "Kubernetes tolerations for pod scheduling (JSON array format)"
+    type: string
+    default: "[]"
+    group: "Advanced"
+
+  - variable: serviceAccount.create
+    label: Create Service Account
+    description: "Create dedicated Kubernetes ServiceAccount"
+    type: boolean
+    default: true
+    group: "Advanced"

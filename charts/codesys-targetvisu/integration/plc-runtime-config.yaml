@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plc-runtime-config
+  namespace: industrial
+data:
+  plc-config.cfg: |
+    # CODESYS Control for Linux SL - PLC Runtime Configuration
+    [SysTarget]
+    TargetVersionName=CODESYS Control for Linux SL
+    TargetVersionManufacturer=Fireball Industries
+    
+    [CmpApp]
+    Application.1=/projects/application.app
+    
+    [SysCom]
+    ; Communication with TargetVisu
+    Linux.Devicefile=/dev/shm/codesys
+    
+    [CmpSettings]
+    FileReference.0=CODESYSControl_User.cfg
+    
+    [CmpGateway]
+    ; Allow IDE connections
+    Port=11740
+    MaxChannels=10
+    
+    [SysTask]
+    ; Real-time task configuration
+    Task.0.Name=MainTask
+    Task.0.Cycle=20
+    Task.0.Priority=20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: plc-runtime
+  namespace: industrial
+spec:
+  selector:
+    app: codesys-control
+  ports:
+    - name: gateway
+      port: 11740
+      targetPort: 11740
+  type: ClusterIP

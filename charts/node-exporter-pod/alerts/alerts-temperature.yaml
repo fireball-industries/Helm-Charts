@@ -1,0 +1,112 @@
+# Temperature Alert Rules for Prometheus
+# Critical for industrial edge deployments!
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-exporter-temperature-alerts
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: node-exporter-temperature
+      interval: 30s
+      rules:
+        # hwmon Temperature Alerts
+        - alert: HighTemperature
+          expr: |
+            node_hwmon_temp_celsius > 70
+          for: 5m
+          labels:
+            severity: warning
+            component: temperature
+          annotations:
+            summary: "High temperature on {{ $labels.instance }}"
+            description: "Sensor {{ $labels.sensor }} ({{ $labels.chip }}) is at {{ $value }}°C (threshold: 70°C)"
+            runbook: "Check cooling, airflow, and enclosure ventilation"
+        
+        - alert: CriticalTemperature
+          expr: |
+            node_hwmon_temp_celsius > 80
+          for: 2m
+          labels:
+            severity: critical
+            component: temperature
+          annotations:
+            summary: "CRITICAL: Temperature on {{ $labels.instance }}"
+            description: "Sensor {{ $labels.sensor }} is at {{ $value }}°C! Hardware is cooking itself!"
+            runbook: "IMMEDIATE ACTION REQUIRED: Fix cooling NOW before thermal shutdown"
+            advice: "Your edge device is NOT adequately cooled. This is not 'fine'."
+        
+        - alert: ThermalThrottling
+          expr: |
+            node_hwmon_temp_celsius > 85
+          for: 1m
+          labels:
+            severity: critical
+            component: temperature
+          annotations:
+            summary: "THERMAL THROTTLING on {{ $labels.instance }}"
+            description: "Temperature {{ $value }}°C - CPU likely throttling performance"
+            action: "Production impact imminent. Fix cooling immediately!"
+        
+        # Thermal Zone Alerts
+        - alert: ThermalZoneHigh
+          expr: |
+            node_thermal_zone_temp / 1000 > 70
+          for: 5m
+          labels:
+            severity: warning
+            component: temperature
+          annotations:
+            summary: "High thermal zone temperature on {{ $labels.instance }}"
+            description: "Thermal zone {{ $labels.zone }} is at {{ $value }}°C"
+        
+        - alert: ThermalZoneCritical
+          expr: |
+            node_thermal_zone_temp / 1000 > 80
+          for: 2m
+          labels:
+            severity: critical
+            component: temperature
+          annotations:
+            summary: "CRITICAL: Thermal zone on {{ $labels.instance }}"
+            description: "Thermal zone {{ $labels.zone }} is at {{ $value }}°C. Hardware overheating!"
+        
+        # Rapid Temperature Change
+        - alert: RapidTemperatureIncrease
+          expr: |
+            delta(node_hwmon_temp_celsius[5m]) > 10
+          for: 2m
+          labels:
+            severity: warning
+            component: temperature
+          annotations:
+            summary: "Rapid temperature increase on {{ $labels.instance }}"
+            description: "Temperature increased by {{ $value }}°C in 5 minutes on {{ $labels.sensor }}"
+            cause: "Possible cooling failure, blocked airflow, or sudden load increase"
+        
+        # Fan Failures (if fan sensors available)
+        - alert: FanFailure
+          expr: |
+            node_hwmon_fan_rpm < 100
+          for: 2m
+          labels:
+            severity: critical
+            component: cooling
+          annotations:
+            summary: "Fan failure detected on {{ $labels.instance }}"
+            description: "Fan {{ $labels.sensor }} is at {{ $value }} RPM (likely failed)"
+            action: "Check fan connection and replace if necessary"
+        
+        - alert: FanSpeedLow
+          expr: |
+            node_hwmon_fan_rpm < 1000 and node_hwmon_fan_rpm > 100
+          for: 5m
+          labels:
+            severity: warning
+            component: cooling
+          annotations:
+            summary: "Low fan speed on {{ $labels.instance }}"
+            description: "Fan {{ $labels.sensor }} is at {{ $value }} RPM (lower than expected)"

@@ -1,0 +1,145 @@
+# Large SCADA System Configuration
+# Enterprise-grade SCADA with maximum features
+# Suitable for: Large facilities, >50 screens, complex automation
+
+resourcePreset: industrial
+
+targetvisu:
+  license:
+    type: server
+    licenseServer:
+      host: "license.corp.example.com"
+      port: 1947
+  
+  web:
+    maxClients: 25
+    compression: true
+    websocket:
+      enabled: true
+
+  recipes:
+    enabled: true
+    maxRecipes: 100
+  
+  dataLogging:
+    enabled: true
+    interval: 1000
+    bufferSize: 10000
+  
+  alarms:
+    enabled: true
+    historySize: 5000
+  
+  trends:
+    enabled: true
+    maxTrends: 100
+    historyDuration: 604800  # 7 days
+
+storage:
+  config:
+    size: 10Gi
+  projects:
+    size: 20Gi
+  logs:
+    size: 5Gi
+
+service:
+  type: LoadBalancer
+  annotations:
+    metallb.universe.tf/address-pool: industrial-network
+
+ingress:
+  enabled: true
+  className: nginx
+  host: scada.corp.example.com
+  tls:
+    enabled: true
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+protocols:
+  opcua:
+    enabled: true
+    security:
+      mode: SignAndEncrypt
+      policy: Basic256Sha256
+    maxSessions: 25
+    maxSubscriptions: 200
+  
+  modbusTcp:
+    enabled: true
+    maxConnections: 20
+  
+  ethernetIp:
+    enabled: true
+  
+  bacnet:
+    enabled: true
+
+plc:
+  enabled: true
+  connection:
+    type: remote
+    remote:
+      host: "plc-cluster.factory.local"
+      port: 11740
+      encryption: true
+
+gateway:
+  enabled: true
+  maxConnections: 20
+  encryption: true
+
+security:
+  authentication:
+    enabled: true
+    type: ldap
+    ldap:
+      enabled: true
+      server: "ldap://ldap.corp.example.com:389"
+      baseDN: "dc=corp,dc=example,dc=com"
+      bindDN: "cn=admin,dc=corp,dc=example,dc=com"
+  
+  tls:
+    enabled: true
+  
+  rbac:
+    enabled: true
+  
+  ipWhitelist:
+    enabled: true
+    allowedIPs:
+      - "10.0.0.0/8"
+
+monitoring:
+  prometheus:
+    enabled: true
+  serviceMonitor:
+    enabled: true
+  grafana:
+    enabled: true
+  logging:
+    level: info
+    format: json
+
+resources:
+  requests:
+    cpu: 2000m
+    memory: 2Gi
+  limits:
+    cpu: 4000m
+    memory: 4Gi
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - codesys-targetvisu
+        topologyKey: kubernetes.io/hostname

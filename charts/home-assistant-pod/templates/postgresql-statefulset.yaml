@@ -1,0 +1,197 @@
+{{- if and (eq .Values.database.type "postgresql") .Values.database.postgresql.enabled }}
+{{/*
+============================================================================
+PostgreSQL StatefulSet
+============================================================================
+Fireball Industries - Patrick Ryan
+
+Production-grade PostgreSQL database for Home Assistant.
+SQLite is fine for hobbyists, but if you have 200+ devices and care about
+performance, you'll want this.
+
+Why PostgreSQL instead of SQLite?
+- Concurrent access (multiple connections without locking)
+- Better performance with large datasets (>100k events)
+- ACID compliance (your data won't corrupt during power loss)
+- WAL replication support (if you want to get fancy)
+- Doesn't lock the entire database for writes
+
+Side note: If you're still using SQLite in production with 500 devices,
+you're the person who microwaves fish in the office kitchen.
+============================================================================
+*/}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "home-assistant.postgresql.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  serviceName: {{ include "home-assistant.postgresql.serviceName" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "home-assistant.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: database
+  template:
+    metadata:
+      labels:
+        {{- include "home-assistant.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: database
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: postgresql
+          image: "{{ .Values.database.postgresql.image.repository }}:{{ .Values.database.postgresql.image.tag }}"
+          imagePullPolicy: {{ .Values.database.postgresql.image.pullPolicy }}
+          ports:
+            - name: postgresql
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.database.postgresql.auth.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.database.postgresql.auth.username | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "home-assistant.postgresql.secretName" . }}
+                  key: {{ .Values.database.postgresql.auth.secretKey }}
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            # Performance tuning
+            - name: POSTGRES_INITDB_ARGS
+              value: "--encoding=UTF8 --locale=C"
+            {{- if .Values.database.postgresql.config.maxConnections }}
+            - name: POSTGRES_MAX_CONNECTIONS
+              value: {{ .Values.database.postgresql.config.maxConnections | quote }}
+            {{- end }}
+            {{- if .Values.database.postgresql.config.sharedBuffers }}
+            - name: POSTGRES_SHARED_BUFFERS
+              value: {{ .Values.database.postgresql.config.sharedBuffers | quote }}
+            {{- end }}
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pg_isready -U {{ .Values.database.postgresql.auth.username }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pg_isready -U {{ .Values.database.postgresql.auth.username }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.database.postgresql.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: postgresql-config
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: postgresql-config
+          configMap:
+            name: {{ include "home-assistant.fullname" . }}-postgresql-config
+  {{- if .Values.database.postgresql.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "home-assistant.labels" . | nindent 10 }}
+          app.kubernetes.io/component: database
+      spec:
+        accessModes:
+          - {{ .Values.database.postgresql.persistence.accessMode }}
+        {{- if .Values.database.postgresql.persistence.storageClass }}
+        storageClassName: {{ .Values.database.postgresql.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.database.postgresql.persistence.size }}
+  {{- end }}
+
+---
+# ===========================================================================
+# PostgreSQL Service
+# ===========================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "home-assistant.postgresql.serviceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: postgresql
+      protocol: TCP
+      name: postgresql
+  selector:
+    {{- include "home-assistant.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+
+---
+# ===========================================================================
+# PostgreSQL ConfigMap
+# ===========================================================================
+# Initialization scripts and configuration
+# ===========================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "home-assistant.fullname" . }}-postgresql-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+data:
+  01-init.sql: |
+    -- =====================================================================
+    -- Home Assistant PostgreSQL Initialization
+    -- =====================================================================
+    -- Fireball Industries - Patrick Ryan
+    -- "Because SQLite is for people who like single-threaded suffering"
+    -- =====================================================================
+    
+    -- Create extensions for better performance
+    CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+    
+    -- Optimize for Home Assistant workload
+    -- High write volume, moderate read volume, lots of time-series data
+    ALTER SYSTEM SET shared_buffers = '{{ .Values.database.postgresql.config.sharedBuffers | default "256MB" }}';
+    ALTER SYSTEM SET effective_cache_size = '{{ .Values.database.postgresql.config.effectiveCacheSize | default "1GB" }}';
+    ALTER SYSTEM SET maintenance_work_mem = '64MB';
+    ALTER SYSTEM SET checkpoint_completion_target = 0.9;
+    ALTER SYSTEM SET wal_buffers = '16MB';
+    ALTER SYSTEM SET default_statistics_target = 100;
+    ALTER SYSTEM SET random_page_cost = 1.1;
+    ALTER SYSTEM SET effective_io_concurrency = 200;
+    ALTER SYSTEM SET work_mem = '4MB';
+    ALTER SYSTEM SET min_wal_size = '1GB';
+    ALTER SYSTEM SET max_wal_size = '4GB';
+    
+    -- Performance monitoring
+    ALTER SYSTEM SET log_min_duration_statement = 1000;  -- Log queries >1s
+    ALTER SYSTEM SET log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h ';
+    
+    COMMENT ON DATABASE {{ .Values.database.postgresql.auth.database }} IS 'Home Assistant database - Managed by Fireball Industries';
+
+{{- end }}

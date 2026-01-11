@@ -1,0 +1,693 @@
+# ========================================
+# CODESYS TargetVisu for Linux SL
+# Helm Chart Values
+# ========================================
+# "Because your factory automation deserves
+# cloud-native deployments and existential dread
+# in equal measure."
+# ========================================
+
+# ========================================
+# RESOURCE PRESET
+# ========================================
+# Quick selection for common deployment scenarios
+# Options: edge-minimal, edge-standard, industrial
+# Override individual values below for custom configs
+resourcePreset: edge-standard
+
+# Preset definitions (applied if resourcePreset is set):
+# edge-minimal:   500m/1000m CPU, 512Mi/1Gi RAM, 5Gi storage  (Raspberry Pi 4, <10 screens)
+# edge-standard:  1000m/2000m CPU, 1Gi/2Gi RAM, 10Gi storage  (Industrial PC, 10-50 screens) [default]
+# industrial:     2000m/4000m CPU, 2Gi/4Gi RAM, 20Gi storage  (Large HMIs, >50 screens, complex viz)
+
+# ========================================
+# CODESYS TARGETVISU CONFIGURATION
+# ========================================
+targetvisu:
+  # Container image
+  image:
+    repository: ghcr.io/fireball-industries/codesys-targetvisu
+    tag: "3.5.20.0"
+    pullPolicy: IfNotPresent
+    # pullSecrets: []  # For private registries
+
+  # Replica count (fixed to 1 - TargetVisu is not clusterable)
+  replicaCount: 1
+
+  # License configuration
+  license:
+    # License type: file, server, demo
+    type: file
+    
+    # License file mode (type: file)
+    # Provide license content as Secret
+    licenseSecret: codesys-license
+    licenseKey: license.lic
+    
+    # License server mode (type: server)
+    licenseServer:
+      host: "license.example.com"
+      port: 1947
+      
+    # Demo mode (type: demo)
+    demo:
+      duration: 30  # Days
+      features:
+        - webvisu
+        - opcua
+        - basic
+
+  # Web server configuration
+  web:
+    # HTTP port for web interface
+    httpPort: 8080
+    
+    # HTTPS port for secure web interface
+    httpsPort: 8443
+    
+    # WebVisu port (visualization endpoint)
+    webVisuPort: 8081
+    
+    # Maximum concurrent clients
+    maxClients: 10
+    
+    # Session timeout (seconds)
+    sessionTimeout: 3600
+    
+    # Enable compression
+    compression: true
+    
+    # Cache control
+    cache:
+      enabled: true
+      maxAge: 86400  # 24 hours
+    
+    # WebSocket settings
+    websocket:
+      enabled: true
+      pingInterval: 30
+      timeout: 60
+
+  # Runtime configuration
+  runtime:
+    # Task cycle time (milliseconds)
+    cycleTime: 20
+    
+    # Priority (0-99, higher = more priority)
+    priority: 50
+    
+    # Watchdog timeout (milliseconds)
+    watchdogTimeout: 5000
+    
+    # Enable runtime diagnostics
+    diagnostics: true
+    
+    # Log level: debug, info, warn, error
+    logLevel: info
+    
+    # Log format: text, json
+    logFormat: json
+
+  # Recipe management
+  recipes:
+    enabled: true
+    maxRecipes: 100
+    storagePath: /projects/recipes
+
+  # Data logging
+  dataLogging:
+    enabled: true
+    interval: 1000  # milliseconds
+    bufferSize: 10000
+    storagePath: /var/log/codesys/data
+
+  # Alarm/Event system
+  alarms:
+    enabled: true
+    historySize: 1000
+    acknowledgementRequired: true
+    storagePath: /var/log/codesys/alarms
+
+  # Trend visualization
+  trends:
+    enabled: true
+    maxTrends: 50
+    sampleRate: 1000  # milliseconds
+    historyDuration: 86400  # 24 hours
+
+# ========================================
+# STORAGE CONFIGURATION
+# ========================================
+storage:
+  # CODESYS configuration and license
+  config:
+    enabled: true
+    size: 5Gi
+    mountPath: /var/opt/codesys
+    storageClass: ""  # Use default storage class
+    accessMode: ReadWriteOnce
+    
+  # HMI projects and visualizations
+  projects:
+    enabled: true
+    size: 10Gi
+    mountPath: /projects
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    
+  # Runtime logs and diagnostics
+  logs:
+    enabled: true
+    size: 2Gi
+    mountPath: /var/log/codesys
+    storageClass: ""
+    accessMode: ReadWriteOnce
+
+# ========================================
+# NETWORK CONFIGURATION
+# ========================================
+service:
+  # Service type: ClusterIP, NodePort, LoadBalancer
+  type: NodePort
+  
+  # Annotations for service (e.g., MetalLB)
+  annotations: {}
+  
+  # HTTP port
+  http:
+    port: 8080
+    nodePort: 30080  # Only for NodePort type
+    
+  # HTTPS port
+  https:
+    port: 8443
+    nodePort: 30443
+    
+  # WebVisu port
+  webvisu:
+    port: 8081
+    nodePort: 30081
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: nginx
+  
+  # Annotations
+  annotations:
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  
+  # Hostname
+  host: hmi.example.com
+  
+  # TLS configuration
+  tls:
+    enabled: false
+    secretName: codesys-tls
+    
+  # Path type
+  pathType: Prefix
+
+# Host network mode (for industrial protocols requiring specific ports)
+hostNetwork: false
+dnsPolicy: ClusterFirst  # Use ClusterFirstWithHostNet if hostNetwork: true
+
+# ========================================
+# INDUSTRIAL PROTOCOLS
+# ========================================
+protocols:
+  # OPC UA server/client
+  opcua:
+    enabled: true
+    port: 4840
+    endpoint: "opc.tcp://0.0.0.0:4840"
+    security:
+      mode: SignAndEncrypt  # None, Sign, SignAndEncrypt
+      policy: Basic256Sha256
+    maxSessions: 10
+    maxSubscriptions: 100
+    
+  # Modbus TCP
+  modbusTcp:
+    enabled: true
+    port: 502
+    maxConnections: 10
+    timeout: 5000  # milliseconds
+    
+  # EtherNet/IP
+  ethernetIp:
+    enabled: false
+    port: 44818
+    
+  # PROFINET
+  profinet:
+    enabled: false
+    # Requires hostNetwork: true
+    
+  # BACnet
+  bacnet:
+    enabled: false
+    port: 47808
+    deviceId: 1234
+    
+  # CAN bus (SocketCAN)
+  canbus:
+    enabled: false
+    interface: can0
+    bitrate: 500000
+
+# ========================================
+# PLC INTEGRATION
+# ========================================
+plc:
+  # Enable PLC runtime integration
+  enabled: false
+  
+  # CODESYS runtime type
+  runtimeType: "Control for Linux SL"
+  
+  # Connection type: local, remote
+  connection:
+    type: local
+    
+    # Remote PLC connection
+    remote:
+      host: "plc.example.com"
+      port: 11740
+      protocol: CDS  # CODESYS protocol
+      encryption: true
+      username: ""
+      passwordSecret: ""
+      
+    # Local shared memory (same pod/node)
+    local:
+      shmPath: /dev/shm/codesys
+      shmSize: 64Mi
+
+# Gateway configuration (for CODESYS IDE connections)
+gateway:
+  enabled: true
+  port: 11740
+  maxConnections: 10
+  encryption: true
+  allowRemote: true
+
+# ========================================
+# SECURITY CONFIGURATION
+# ========================================
+security:
+  # Web authentication
+  authentication:
+    enabled: true
+    type: basic  # basic, ldap, active-directory
+    
+    # Basic authentication users
+    users:
+      - username: admin
+        # Password from Secret (key: password)
+        passwordSecret: codesys-admin-password
+      - username: operator
+        passwordSecret: codesys-operator-password
+      - username: readonly
+        passwordSecret: codesys-readonly-password
+    
+    # LDAP configuration
+    ldap:
+      enabled: false
+      server: "ldap://ldap.example.com:389"
+      baseDN: "dc=example,dc=com"
+      bindDN: "cn=admin,dc=example,dc=com"
+      bindPasswordSecret: ldap-password
+      userFilter: "(uid=%s)"
+      groupFilter: "(memberOf=cn=hmi-users,ou=groups,dc=example,dc=com)"
+      
+    # Active Directory
+    activeDirectory:
+      enabled: false
+      domain: example.com
+      server: "ad.example.com"
+      bindUser: "hmi-service"
+      bindPasswordSecret: ad-password
+
+  # SSL/TLS
+  tls:
+    enabled: false
+    # Certificate from Secret (tls.crt, tls.key)
+    certSecret: codesys-tls-cert
+    # Generate self-signed cert if secret doesn't exist
+    selfSigned: true
+
+  # IP whitelisting
+  ipWhitelist:
+    enabled: false
+    allowedIPs:
+      - "10.0.0.0/8"
+      - "192.168.0.0/16"
+      - "172.16.0.0/12"
+
+  # Role-based access control
+  rbac:
+    enabled: true
+    roles:
+      - name: admin
+        permissions:
+          - view
+          - edit
+          - configure
+          - acknowledge
+          - manage-users
+      - name: operator
+        permissions:
+          - view
+          - edit
+          - acknowledge
+      - name: readonly
+        permissions:
+          - view
+
+  # Security context
+  podSecurityContext:
+    runAsNonRoot: false  # CODESYS requires some root access
+    fsGroup: 1000
+    
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+      add:
+        - NET_BIND_SERVICE  # For ports < 1024
+        - SYS_NICE          # For real-time priority
+    # readOnlyRootFilesystem: false  # CODESYS needs write access
+
+# ========================================
+# VNC REMOTE ACCESS (Optional)
+# ========================================
+vnc:
+  enabled: false
+  port: 5900
+  # Password from Secret
+  passwordSecret: vnc-password
+  # Display settings
+  resolution: "1920x1080"
+  depth: 24
+  # VNC service
+  service:
+    type: ClusterIP
+    port: 5900
+
+# ========================================
+# MONITORING & OBSERVABILITY
+# ========================================
+monitoring:
+  # Prometheus metrics
+  prometheus:
+    enabled: true
+    port: 9100
+    path: /metrics
+    interval: 30s
+    
+  # ServiceMonitor (Prometheus Operator)
+  serviceMonitor:
+    enabled: false
+    additionalLabels: {}
+    
+  # Grafana dashboards (ConfigMap)
+  grafana:
+    enabled: true
+    dashboards:
+      - targetvisu-overview
+      - web-performance
+      - protocol-stats
+      - plc-connection
+
+  # Health checks
+  healthcheck:
+    enabled: true
+    
+    # Liveness probe
+    liveness:
+      enabled: true
+      initialDelaySeconds: 60
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 3
+      
+    # Readiness probe
+    readiness:
+      enabled: true
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+      
+    # Startup probe
+    startup:
+      enabled: true
+      initialDelaySeconds: 0
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 30
+
+  # Logging
+  logging:
+    level: info  # debug, info, warn, error
+    format: json  # text, json
+    
+    # Log to stdout/stderr
+    console: true
+    
+    # Log to file
+    file:
+      enabled: true
+      path: /var/log/codesys
+      maxSize: 100  # MB
+      maxBackups: 10
+      maxAge: 30  # days
+
+  # Performance metrics
+  metrics:
+    cycleTimes: true
+    memoryUsage: true
+    taskExecution: true
+    communicationStats: true
+    webRequests: true
+    clientConnections: true
+
+# ========================================
+# RESOURCE MANAGEMENT
+# ========================================
+resources:
+  # Requests (guaranteed resources)
+  requests:
+    cpu: 1000m
+    memory: 1Gi
+    
+  # Limits (maximum resources)
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+# Node selection
+nodeSelector: {}
+  # kubernetes.io/arch: amd64
+  # node-role.kubernetes.io/edge: "true"
+
+# Tolerations
+tolerations: []
+  # - key: "node-role.kubernetes.io/edge"
+  #   operator: "Exists"
+  #   effect: "NoSchedule"
+
+# Affinity
+affinity: {}
+  # podAntiAffinity:
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #   - labelSelector:
+  #       matchExpressions:
+  #       - key: app
+  #         operator: In
+  #         values:
+  #         - codesys-targetvisu
+  #     topologyKey: kubernetes.io/hostname
+
+# ========================================
+# ADVANCED CONFIGURATION
+# ========================================
+
+# Service account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
+
+# Priority class
+priorityClassName: ""
+
+# Termination grace period
+terminationGracePeriodSeconds: 30
+
+# Init containers
+initContainers: []
+  # - name: wait-for-plc
+  #   image: busybox:latest
+  #   command: ['sh', '-c', 'until nc -z plc-service 11740; do sleep 2; done']
+
+# Sidecar containers
+extraContainers: []
+  # - name: log-forwarder
+  #   image: fluent/fluent-bit:latest
+  #   volumeMounts:
+  #   - name: logs
+  #     mountPath: /var/log/codesys
+
+# Extra volumes
+extraVolumes: []
+  # - name: shared-memory
+  #   emptyDir:
+  #     medium: Memory
+  #     sizeLimit: 64Mi
+
+# Extra volume mounts
+extraVolumeMounts: []
+  # - name: shared-memory
+  #   mountPath: /dev/shm
+
+# Environment variables
+env: []
+  # - name: TZ
+  #   value: "America/New_York"
+  # - name: LANG
+  #   value: "en_US.UTF-8"
+
+# Environment variables from ConfigMap/Secret
+envFrom: []
+  # - configMapRef:
+  #     name: codesys-config
+  # - secretRef:
+  #     name: codesys-secrets
+
+# ConfigMap for custom configuration files
+configMap:
+  enabled: false
+  data: {}
+    # CODESYSControl.cfg: |
+    #   [SysTarget]
+    #   TargetVersionName=CODESYS Control for Linux SL
+
+# Network policy
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: monitoring
+      ports:
+      - protocol: TCP
+        port: 9100
+  egress:
+    - to:
+      - namespaceSelector: {}
+      ports:
+      - protocol: TCP
+        port: 53  # DNS
+
+# Update strategy
+updateStrategy:
+  type: Recreate  # TargetVisu is stateful
+  # rollingUpdate:
+  #   maxUnavailable: 1
+
+# ========================================
+# PRESET OVERRIDES
+# Applied automatically based on resourcePreset
+# ========================================
+# These are reference values - actual application
+# happens in templates/_helpers.tpl
+
+presets:
+  edge-minimal:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    storage:
+      config:
+        size: 2Gi
+      projects:
+        size: 5Gi
+      logs:
+        size: 1Gi
+    targetvisu:
+      web:
+        maxClients: 5
+        
+  edge-standard:
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+    storage:
+      config:
+        size: 5Gi
+      projects:
+        size: 10Gi
+      logs:
+        size: 2Gi
+    targetvisu:
+      web:
+        maxClients: 10
+        
+  industrial:
+    resources:
+      requests:
+        cpu: 2000m
+        memory: 2Gi
+      limits:
+        cpu: 4000m
+        memory: 4Gi
+    storage:
+      config:
+        size: 10Gi
+      projects:
+        size: 20Gi
+      logs:
+        size: 5Gi
+    targetvisu:
+      web:
+        maxClients: 25
+
+# ========================================
+# NOTES
+# ========================================
+# "Your PLC is about to crash, but at least
+# the HMI will look good while it happens."
+#
+# This values file contains 120+ configuration
+# options for deploying CODESYS TargetVisu in
+# production Kubernetes/K3s environments.
+#
+# For quick start examples, see:
+# - examples/minimal-hmi.yaml
+# - examples/standard-factory.yaml
+# - examples/large-scada.yaml
+#
+# Made with 💀 by Fireball Industries
+# ========================================

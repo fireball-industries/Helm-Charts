@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: targetvisu-plc-alerts
+  labels:
+    app: prometheus
+data:
+  alerts.yml: |
+    groups:
+    - name: codesys_targetvisu_plc
+      interval: 30s
+      rules:
+      
+      # PLC connection lost
+      - alert: PLCConnectionLost
+        expr: codesys_plc_connected == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: plc
+        annotations:
+          summary: "PLC connection lost"
+          description: "Connection to PLC {{ $labels.plc_host }} is down. HMI will display stale data. Factory may be stopped."
+          runbook: "Check PLC connectivity, network, and firewall rules"
+      
+      # OPC UA communication errors
+      - alert: OPCUAHighErrors
+        expr: rate(codesys_opcua_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: opcua
+        annotations:
+          summary: "High OPC UA error rate"
+          description: "OPC UA server is experiencing {{ $value }} errors per second. Check client connections and security policies."
+      
+      # Modbus communication errors
+      - alert: ModbusTCPHighErrors
+        expr: rate(codesys_modbus_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: modbus
+        annotations:
+          summary: "High Modbus TCP error rate"
+          description: "Modbus TCP is experiencing {{ $value }} errors per second. Check device connections and register mappings."
+      
+      # Gateway disconnected
+      - alert: GatewayConnectionLost
+        expr: codesys_gateway_connected_clients < 1
+        for: 10m
+        labels:
+          severity: info
+          component: gateway
+        annotations:
+          summary: "CODESYS Gateway has no connections"
+          description: "No IDE or Gateway connections active. This might be normal, or your engineers are on a coffee break."
+      
+      # Cycle time violations
+      - alert: PLCCycleTimeViolations
+        expr: rate(codesys_plc_cycle_time_violations_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: plc
+        annotations:
+          summary: "PLC cycle time violations detected"
+          description: "PLC is experiencing cycle time violations. Performance degraded. Check PLC load and task configuration."

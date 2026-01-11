@@ -1,0 +1,253 @@
+🏭 CODESYS TARGETVISU DEPLOYED 🏭
+
+Congratulations! Your industrial HMI is now containerized in Kubernetes.
+Your visualization is running, your PLC is probably still using ladder logic from 1987,
+and the operators are already complaining the buttons are "too small."
+
+But hey, at least it's cloud-native now. That's basically job security.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 DEPLOYMENT INFORMATION
+
+Release Name:    {{ .Release.Name }}
+Namespace:       {{ .Release.Namespace }}
+Chart Version:   {{ .Chart.Version }}
+App Version:     {{ .Chart.AppVersion }}
+Resource Preset: {{ .Values.resourcePreset | default "edge-standard" }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 ACCESS INFORMATION
+
+{{- if eq .Values.service.type "NodePort" }}
+Your HMI is accessible via NodePort:
+
+  HTTP:     http://<NODE-IP>:{{ .Values.service.http.nodePort | default 30080 }}
+  HTTPS:    https://<NODE-IP>:{{ .Values.service.https.nodePort | default 30443 }}
+  WebVisu:  http://<NODE-IP>:{{ .Values.service.webvisu.nodePort | default 30081 }}
+
+Get node IP with:
+  kubectl get nodes -o wide
+
+{{- else if eq .Values.service.type "LoadBalancer" }}
+Your HMI is accessible via LoadBalancer:
+
+  Waiting for external IP...
+  
+  kubectl get service {{ include "codesys-targetvisu.fullname" . }} -n {{ .Release.Namespace }}
+
+Once EXTERNAL-IP is assigned:
+  HTTP:     http://<EXTERNAL-IP>:{{ .Values.service.http.port }}
+  HTTPS:    https://<EXTERNAL-IP>:{{ .Values.service.https.port }}
+  WebVisu:  http://<EXTERNAL-IP>:{{ .Values.service.webvisu.port }}
+
+{{- else }}
+Your HMI is accessible via ClusterIP (internal only):
+
+  HTTP:     http://{{ include "codesys-targetvisu.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.http.port }}
+  WebVisu:  http://{{ include "codesys-targetvisu.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.webvisu.port }}
+
+For external access, use port-forward:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "codesys-targetvisu.fullname" . }} 8080:{{ .Values.service.http.port }}
+
+Then access: http://localhost:8080
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+
+🔐 INGRESS ACCESS
+
+Your HMI is also accessible via Ingress:
+  {{- if .Values.ingress.tls.enabled }}
+  https://{{ .Values.ingress.host }}
+  {{- else }}
+  http://{{ .Values.ingress.host }}
+  {{- end }}
+
+Make sure your DNS is configured to point to your Ingress controller.
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔐 AUTHENTICATION
+
+{{- if .Values.security.authentication.enabled }}
+Authentication is ENABLED.
+
+{{- if eq .Values.security.authentication.type "basic" }}
+Default user accounts:
+{{- range .Values.security.authentication.users }}
+  - {{ .username }} (password in secret: {{ .passwordSecret }})
+{{- end }}
+
+⚠️  SECURITY WARNING ⚠️
+Please change default passwords before production use!
+Your security team is watching. Probably judging too.
+
+Update passwords:
+  kubectl create secret generic <SECRET-NAME> \
+    --from-literal=password='YourSecurePassword' \
+    -n {{ .Release.Namespace }}
+{{- end }}
+
+{{- else }}
+⚠️  WARNING: Authentication is DISABLED!
+Anyone can access your HMI. This is fine for demos.
+For production, enable authentication in values.yaml.
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📜 LICENSE STATUS
+
+License Type: {{ .Values.targetvisu.license.type }}
+
+{{- if eq .Values.targetvisu.license.type "file" }}
+License file loaded from Secret: {{ .Values.targetvisu.license.licenseSecret }}
+
+Check license status:
+  kubectl exec -n {{ .Release.Namespace }} deployment/{{ include "codesys-targetvisu.fullname" . }} -- cat /var/opt/codesys/license/{{ .Values.targetvisu.license.licenseKey | default "license.lic" }}
+
+{{- else if eq .Values.targetvisu.license.type "server" }}
+License server: {{ .Values.targetvisu.license.licenseServer.host }}:{{ .Values.targetvisu.license.licenseServer.port }}
+
+Make sure the license server is reachable from your cluster.
+If it's not, your HMI will fail faster than a PLC during a power surge.
+
+{{- else if eq .Values.targetvisu.license.type "demo" }}
+⚠️  DEMO MODE ENABLED ⚠️
+Trial duration: {{ .Values.targetvisu.license.demo.duration }} days
+
+Demo mode is for testing only. Get a real license before production.
+Unless you enjoy the thrill of your HMI expiring mid-shift.
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔌 INDUSTRIAL PROTOCOLS
+
+{{- if .Values.protocols.opcua.enabled }}
+✅ OPC UA Server:    opc.tcp://<NODE-IP>:{{ .Values.protocols.opcua.port | default 4840 }}
+{{- else }}
+❌ OPC UA:            Disabled
+{{- end }}
+
+{{- if .Values.protocols.modbusTcp.enabled }}
+✅ Modbus TCP:        Port {{ .Values.protocols.modbusTcp.port | default 502 }}
+{{- else }}
+❌ Modbus TCP:        Disabled
+{{- end }}
+
+{{- if .Values.protocols.ethernetIp.enabled }}
+✅ EtherNet/IP:       Port {{ .Values.protocols.ethernetIp.port | default 44818 }}
+{{- else }}
+❌ EtherNet/IP:       Disabled
+{{- end }}
+
+{{- if .Values.protocols.bacnet.enabled }}
+✅ BACnet:            Port {{ .Values.protocols.bacnet.port | default 47808 }}
+{{- else }}
+❌ BACnet:            Disabled
+{{- end }}
+
+{{- if .Values.gateway.enabled }}
+✅ CODESYS Gateway:   Port {{ .Values.gateway.port | default 11740 }}
+   Connect CODESYS IDE to: <NODE-IP>:{{ .Values.gateway.port | default 11740 }}
+{{- else }}
+❌ CODESYS Gateway:   Disabled (IDE connection not available)
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 MONITORING
+
+{{- if .Values.monitoring.prometheus.enabled }}
+✅ Prometheus Metrics: http://<POD-IP>:{{ .Values.monitoring.prometheus.port | default 9100 }}/metrics
+
+View metrics:
+  kubectl port-forward -n {{ .Release.Namespace }} deployment/{{ include "codesys-targetvisu.fullname" . }} 9100:{{ .Values.monitoring.prometheus.port | default 9100 }}
+  curl http://localhost:9100/metrics
+
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+ServiceMonitor created for Prometheus Operator integration.
+{{- end }}
+{{- else }}
+❌ Prometheus Metrics: Disabled
+{{- end }}
+
+{{- if .Values.monitoring.grafana.enabled }}
+✅ Grafana Dashboards: Available in dashboards/
+   - targetvisu-overview.json
+   - web-performance.json
+   - protocol-stats.json
+   - plc-connection.json
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💾 PERSISTENT STORAGE
+
+{{- if .Values.storage.config.enabled }}
+✅ Config:     {{ include "codesys-targetvisu.storage.config.size" . }} ({{ .Values.storage.config.mountPath }})
+{{- end }}
+{{- if .Values.storage.projects.enabled }}
+✅ Projects:   {{ include "codesys-targetvisu.storage.projects.size" . }} ({{ .Values.storage.projects.mountPath }})
+{{- end }}
+{{- if .Values.storage.logs.enabled }}
+✅ Logs:       {{ include "codesys-targetvisu.storage.logs.size" . }} ({{ .Values.storage.logs.mountPath }})
+{{- end }}
+
+Your data is persistent. Unlike your will to live after debugging Modbus issues.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🛠️  USEFUL COMMANDS
+
+Check pod status:
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "codesys-targetvisu.name" . }}
+
+View logs:
+  kubectl logs -n {{ .Release.Namespace }} deployment/{{ include "codesys-targetvisu.fullname" . }} -f
+
+Get shell access:
+  kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ include "codesys-targetvisu.fullname" . }} -- /bin/bash
+
+Restart HMI (the universal fix):
+  kubectl rollout restart -n {{ .Release.Namespace }} deployment/{{ include "codesys-targetvisu.fullname" . }}
+
+Check events:
+  kubectl get events -n {{ .Release.Namespace }} --sort-by='.lastTimestamp'
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 DOCUMENTATION
+
+For more information:
+  - Installation Guide:     INSTALLATION.md
+  - Protocol Configuration: PROTOCOLS.md
+  - Project Deployment:     PROJECTS.md
+  - Troubleshooting:        TROUBLESHOOTING.md
+  - Quick Reference:        QUICK_REFERENCE.md
+
+GitHub: https://github.com/fireball-industries/codesys-targetvisu-pod
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💀 WISDOM FROM THE FACTORY FLOOR
+
+"Your PLC is about to crash, but at least the HMI will look good while it happens."
+
+"Toggle outputs like a wizard. A very stressed, coffee-fueled industrial wizard."
+
+"Your HMI will be more reliable than your PLC. That's not saying much."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Made with 💀 by Fireball Industries
+Because factory automation deserves cloud-native deployments
+and existential dread in equal measure.
+
+Happy automating! (Or at least, less miserable automating.)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

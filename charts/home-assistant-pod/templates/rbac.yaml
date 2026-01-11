@@ -1,0 +1,114 @@
+{{- if .Values.rbac.create -}}
+{{/*
+============================================================================
+RBAC (Role-Based Access Control)
+============================================================================
+Fireball Industries - Patrick Ryan
+
+Kubernetes RBAC resources for Home Assistant to access cluster resources.
+Required for device discovery, USB access, and advanced integrations.
+
+Note: This grants permissions that your security team will question.
+But hey, smart homes need smart permissions, right?
+============================================================================
+*/}}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "home-assistant.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+rules:
+  # Read ConfigMaps (for configuration discovery)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  
+  # Read Secrets (for credential access)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+  
+  # Read Services (for service discovery)
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch"]
+  
+  # Read Pods (for add-on discovery)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  
+  # Read PersistentVolumeClaims
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list"]
+  
+  {{- with .Values.rbac.rules }}
+  # Additional custom rules
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "home-assistant.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "home-assistant.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "home-assistant.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+
+{{- if .Values.devices.usb.enabled }}
+---
+# ===========================================================================
+# ClusterRole for USB Device Access
+# ===========================================================================
+# Required for nodes with USB devices
+# Your security team will definitely have questions about this one
+# ===========================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "home-assistant.fullname" . }}-device-access
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+rules:
+  # Read nodes (for USB device discovery)
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  
+  # Read node status
+  - apiGroups: [""]
+    resources: ["nodes/status"]
+    verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "home-assistant.fullname" . }}-device-access
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "home-assistant.fullname" . }}-device-access
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "home-assistant.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+
+{{- end }}

@@ -1,0 +1,19 @@
+apiVersion: v2
+name: codesys-edge-gateway
+description: A Helm chart for CODESYS Edge Gateway for Linux - Extended gateway connecting CODESYS Automation Server to PLCs
+type: application
+version: 1.0.0
+appVersion: "4.18.0.0"
+keywords:
+  - codesys
+  - gateway
+  - industrial-automation
+  - plc
+  - edge
+home: https://github.com/YOUR_ORG/CODESYS-Edge-Gateway-for-Linux
+sources:
+  - https://github.com/YOUR_ORG/CODESYS-Edge-Gateway-for-Linux
+maintainers:
+  - name: CODESYS Gateway Team
+    email: support@example.com
+icon: https://raw.githubusercontent.com/YOUR_ORG/CODESYS-Edge-Gateway-for-Linux/main/icon.png

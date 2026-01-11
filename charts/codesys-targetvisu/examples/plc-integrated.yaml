@@ -1,0 +1,75 @@
+# PLC-Integrated Configuration
+# HMI integrated with CODESYS Control runtime
+
+resourcePreset: edge-standard
+
+targetvisu:
+  license:
+    type: file
+    licenseSecret: codesys-license
+  
+  web:
+    maxClients: 10
+
+storage:
+  config:
+    size: 5Gi
+  projects:
+    size: 10Gi
+  logs:
+    size: 2Gi
+
+service:
+  type: NodePort
+
+protocols:
+  opcua:
+    enabled: true
+  modbusTcp:
+    enabled: true
+
+plc:
+  enabled: true
+  runtimeType: "Control for Linux SL"
+  connection:
+    type: local
+    local:
+      shmPath: /dev/shm/codesys
+      shmSize: 64Mi
+
+gateway:
+  enabled: true
+  port: 11740
+  maxConnections: 10
+  encryption: true
+
+security:
+  authentication:
+    enabled: true
+  podSecurityContext:
+    runAsNonRoot: false  # PLC integration may require root
+  containerSecurityContext:
+    capabilities:
+      add:
+        - SYS_NICE
+        - IPC_LOCK
+
+monitoring:
+  prometheus:
+    enabled: true
+  healthcheck:
+    liveness:
+      initialDelaySeconds: 90  # PLC startup can be slow
+    readiness:
+      initialDelaySeconds: 60
+
+# Extra volume for shared memory
+extraVolumes:
+  - name: shared-memory
+    emptyDir:
+      medium: Memory
+      sizeLimit: 64Mi
+
+extraVolumeMounts:
+  - name: shared-memory
+    mountPath: /dev/shm

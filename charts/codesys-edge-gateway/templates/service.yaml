@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "codesys-edge-gateway.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "codesys-edge-gateway.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if .Values.service.sessionAffinity }}
+  sessionAffinity: {{ .Values.service.sessionAffinity }}
+  {{- end }}
+  ports:
+    # CODESYS Gateway communication port
+    - port: {{ .Values.service.gatewayPort }}
+      targetPort: gateway
+      protocol: TCP
+      name: gateway
+      {{- if and (eq .Values.service.type "NodePort") (hasKey .Values.service "gatewayNodePort") }}
+      nodePort: {{ .Values.service.gatewayNodePort }}
+      {{- end }}
+    
+    # PLC/Runtime communication port
+    - port: {{ .Values.service.plcPort }}
+      targetPort: plc
+      protocol: TCP
+      name: plc
+      {{- if and (eq .Values.service.type "NodePort") (hasKey .Values.service "plcNodePort") }}
+      nodePort: {{ .Values.service.plcNodePort }}
+      {{- end }}
+    
+    # Gateway discovery UDP ports
+    {{- range $index, $port := .Values.service.discoveryPorts }}
+    - port: {{ $port }}
+      targetPort: discovery-{{ $index }}
+      protocol: UDP
+      name: discovery-{{ $index }}
+    {{- end }}
+    
+    {{- if .Values.metrics.enabled }}
+    # Metrics port
+    - port: {{ .Values.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    {{- end }}
+  
+  selector:
+    {{- include "codesys-edge-gateway.selectorLabels" . | nindent 4 }}

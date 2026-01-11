@@ -1,0 +1,267 @@
+{
+  "dashboard": {
+    "title": "Industrial Edge - Node Health",
+    "tags": ["node-exporter", "edge", "industrial", "temperature"],
+    "timezone": "browser",
+    "editable": true,
+    "graphTooltip": 1,
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "10s",
+    "schemaVersion": 38,
+    "version": 1,
+    "templating": {
+      "list": [
+        {
+          "current": {},
+          "datasource": "${DS_PROMETHEUS}",
+          "definition": "label_values(node_uname_info, instance)",
+          "hide": 0,
+          "includeAll": true,
+          "label": "Edge Device",
+          "multi": true,
+          "name": "instance",
+          "query": "label_values(node_uname_info, instance)",
+          "refresh": 1,
+          "type": "query"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 60},
+                {"color": "orange", "value": 70},
+                {"color": "red", "value": 80}
+              ]
+            },
+            "unit": "celsius"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "id": 1,
+        "options": {
+          "orientation": "auto",
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "targets": [
+          {
+            "expr": "max by (instance) (node_hwmon_temp_celsius{instance=~\"$instance\"})",
+            "legendFormat": "{{ instance }}",
+            "refId": "A"
+          }
+        ],
+        "title": "Temperature Status (°C) - Your Hardware is Literally Cooking",
+        "type": "gauge"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "celsius"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "id": 2,
+        "targets": [
+          {
+            "expr": "node_hwmon_temp_celsius{instance=~\"$instance\"}",
+            "legendFormat": "{{ instance }} - {{ chip }} {{ sensor }}",
+            "refId": "A"
+          },
+          {
+            "expr": "node_thermal_zone_temp{instance=~\"$instance\"}",
+            "legendFormat": "{{ instance }} - {{ zone }} {{ type }}",
+            "refId": "B"
+          }
+        ],
+        "title": "Temperature History (All Sensors)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 85}
+              ]
+            },
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8},
+        "id": 3,
+        "targets": [
+          {
+            "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{instance=~\"$instance\",mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "{{ instance }}",
+            "refId": "A"
+          }
+        ],
+        "title": "CPU Usage - Edge Devices",
+        "type": "gauge"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 80},
+                {"color": "red", "value": 90}
+              ]
+            },
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 6, "w": 8, "x": 8, "y": 8},
+        "id": 4,
+        "targets": [
+          {
+            "expr": "100 - ((node_memory_MemAvailable_bytes{instance=~\"$instance\"} / node_memory_MemTotal_bytes{instance=~\"$instance\"}) * 100)",
+            "legendFormat": "{{ instance }}",
+            "refId": "A"
+          }
+        ],
+        "title": "Memory Usage - Edge Devices",
+        "type": "gauge"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 75},
+                {"color": "red", "value": 90}
+              ]
+            },
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 8},
+        "id": 5,
+        "targets": [
+          {
+            "expr": "100 - ((node_filesystem_avail_bytes{instance=~\"$instance\",mountpoint=\"/\"} / node_filesystem_size_bytes{instance=~\"$instance\",mountpoint=\"/\"}) * 100)",
+            "legendFormat": "{{ instance }}",
+            "refId": "A"
+          }
+        ],
+        "title": "Disk Usage (/) - SD Cards Die Fast",
+        "type": "gauge"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "Bps"
+          }
+        },
+        "gridPos": {"h": 7, "w": 12, "x": 0, "y": 14},
+        "id": 6,
+        "targets": [
+          {
+            "expr": "sum by (instance) (rate(node_network_receive_bytes_total{instance=~\"$instance\",device!~\"lo|veth.*|docker.*\"}[5m]))",
+            "legendFormat": "{{ instance }} RX",
+            "refId": "A"
+          },
+          {
+            "expr": "sum by (instance) (rate(node_network_transmit_bytes_total{instance=~\"$instance\",device!~\"lo|veth.*|docker.*\"}[5m])) * -1",
+            "legendFormat": "{{ instance }} TX",
+            "refId": "B"
+          }
+        ],
+        "title": "Network Traffic - Edge Devices",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 7, "w": 12, "x": 12, "y": 14},
+        "id": 7,
+        "targets": [
+          {
+            "expr": "sum by (instance) (rate(node_disk_read_bytes_total{instance=~\"$instance\"}[5m]))",
+            "legendFormat": "{{ instance }} Read",
+            "refId": "A"
+          },
+          {
+            "expr": "sum by (instance) (rate(node_disk_written_bytes_total{instance=~\"$instance\"}[5m])) * -1",
+            "legendFormat": "{{ instance }} Write",
+            "refId": "B"
+          }
+        ],
+        "title": "Disk I/O - Wear Leveling is Real",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "${DS_PROMETHEUS}",
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "fixed", "fixedColor": "text"},
+            "unit": "none"
+          }
+        },
+        "gridPos": {"h": 4, "w": 24, "x": 0, "y": 21},
+        "id": 8,
+        "options": {
+          "displayMode": "list",
+          "orientation": "horizontal"
+        },
+        "targets": [
+          {
+            "expr": "count(up{job=~\".*node-exporter.*\"} == 1)",
+            "instant": true,
+            "legendFormat": "Online Devices",
+            "refId": "A"
+          },
+          {
+            "expr": "count(up{job=~\".*node-exporter.*\"} == 0)",
+            "instant": true,
+            "legendFormat": "Offline Devices (RIP)",
+            "refId": "B"
+          }
+        ],
+        "title": "Edge Fleet Status",
+        "type": "stat"
+      }
+    ]
+  },
+  "description": "Industrial edge device monitoring dashboard focused on temperature management, resource constraints, and hardware health. Optimized for Raspberry Pi, industrial PCs, and IoT deployments where harsh environments are normal and hardware failure is inevitable. Made with 💀 by Fireball Industries.",
+  "uid": "industrial-edge",
+  "version": 1
+}
