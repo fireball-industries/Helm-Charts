@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "n8n.fullname" . }}
+  labels:
+    {{- include "n8n.labels" . | nindent 4 }}
+data:
+  N8N_EDITOR_BASE_URL: {{ .Values.config.editorBaseUrl | quote }}
+  WEBHOOK_URL: {{ .Values.config.webhookUrl | quote }}
+  GENERIC_TIMEZONE: {{ .Values.config.timezone | quote }}
+  N8N_LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  N8N_LOG_OUTPUT: {{ .Values.config.logOutput | quote }}
+  EXECUTIONS_DATA_SAVE_ON_ERROR: {{ if eq .Values.config.executionDataSaveMode "none" }}"none"{{ else }}"all"{{ end }}
+  EXECUTIONS_DATA_SAVE_ON_SUCCESS: {{ if eq .Values.config.executionDataSaveMode "all" }}"all"{{ else if eq .Values.config.executionDataSaveMode "save" }}"save"{{ else }}"none"{{ end }}
+  {{- if .Values.config.executionDataPrune }}
+  EXECUTIONS_DATA_PRUNE: "true"
+  EXECUTIONS_DATA_MAX_AGE: {{ .Values.config.executionDataMaxAge | quote }}
+  {{- end }}
+  {{- if .Values.config.userManagement.enabled }}
+  N8N_USER_MANAGEMENT_DISABLED: "false"
+  {{- else }}
+  N8N_USER_MANAGEMENT_DISABLED: "true"
+  {{- end }}
+  {{- if .Values.config.licenseKey }}
+  N8N_LICENSE_TENANT_ID: "1"
+  N8N_LICENSE_ACTIVATION_KEY: {{ .Values.config.licenseKey | quote }}
+  {{- end }}
+  N8N_WORKFLOWS_CALLER_POLICY_DEFAULT_OPTION: {{ .Values.config.workflowCallerPolicy | quote }}
+  {{- if eq .Values.n8n.executionMode "queue" }}
+  EXECUTIONS_MODE: "queue"
+  {{- end }}
+  {{- if eq .Values.database.type "sqlite" }}
+  DB_TYPE: "sqlite"
+  {{- end }}
+  N8N_METRICS: {{ .Values.monitoring.metrics.enabled | quote }}
+  {{- if .Values.monitoring.metrics.enabled }}
+  N8N_METRICS_INCLUDE_DEFAULT_METRICS: "true"
+  N8N_METRICS_INCLUDE_CACHE_METRICS: "true"
+  N8N_METRICS_INCLUDE_MESSAGE_EVENT_BUS_METRICS: "true"
+  N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL: "true"
+  N8N_METRICS_INCLUDE_NODE_TYPE_LABEL: "true"
+  N8N_METRICS_INCLUDE_CREDENTIAL_TYPE_LABEL: "true"
+  {{- end }}

@@ -1,0 +1,431 @@
+categories:
+  - Automation
+  - Integration
+  - Industrial
+questions:
+  # ============================================================================
+  # Basic Configuration
+  # ============================================================================
+  - variable: n8n.resourcePreset
+    label: "Resource Preset"
+    description: "Pre-configured resource allocation based on workflow complexity"
+    type: enum
+    required: true
+    default: "standard"
+    group: "Configuration"
+    options:
+      - "minimal"
+      - "standard"
+      - "production"
+      - "custom"
+
+  - variable: config.basicAuth.enabled
+    label: "Enable Basic Authentication"
+    description: "Require username/password to access n8n (recommended)"
+    type: boolean
+    required: true
+    default: true
+    group: "Configuration"
+
+  - variable: config.basicAuth.user
+    label: "Admin Username"
+    description: "Username for n8n login"
+    type: string
+    required: false
+    default: "admin"
+    group: "Configuration"
+    show_if: "config.basicAuth.enabled=true"
+
+  - variable: config.basicAuth.password
+    label: "Admin Password"
+    description: "⚠️ Password for n8n login (CHANGE THIS!)"
+    type: password
+    required: false
+    default: "changeme123"
+    group: "Configuration"
+    show_if: "config.basicAuth.enabled=true"
+
+  - variable: config.encryptionKey
+    label: "Encryption Key"
+    description: "⚠️ 32-character key for encrypting credentials (generate with: openssl rand -hex 32)"
+    type: string
+    required: true
+    default: "defaultkey-change-me-to-random-32-chars"
+    group: "Configuration"
+
+  # ============================================================================
+  # Database Configuration
+  # ============================================================================
+  - variable: database.type
+    label: "Database Type"
+    description: "Storage backend for workflows and executions"
+    type: enum
+    required: true
+    default: "sqlite"
+    group: "Database"
+    options:
+      - "sqlite"
+      - "postgres"
+
+  - variable: database.postgres.external.enabled
+    label: "Use External PostgreSQL"
+    description: "Connect to existing PostgreSQL database"
+    type: boolean
+    required: true
+    default: false
+    group: "Database"
+    show_if: "database.type=postgres"
+
+  - variable: database.postgres.external.host
+    label: "PostgreSQL Host"
+    description: "Hostname or IP of PostgreSQL server"
+    type: string
+    required: false
+    default: "postgresql"
+    group: "Database"
+    show_if: "database.type=postgres&&database.postgres.external.enabled=true"
+
+  - variable: database.postgres.external.port
+    label: "PostgreSQL Port"
+    description: "Port number for PostgreSQL"
+    type: int
+    required: false
+    default: 5432
+    group: "Database"
+    show_if: "database.type=postgres&&database.postgres.external.enabled=true"
+
+  - variable: database.postgres.external.database
+    label: "Database Name"
+    description: "Name of the database to use"
+    type: string
+    required: false
+    default: "n8n"
+    group: "Database"
+    show_if: "database.type=postgres&&database.postgres.external.enabled=true"
+
+  - variable: database.postgres.external.user
+    label: "Database User"
+    description: "PostgreSQL username"
+    type: string
+    required: false
+    default: "n8n"
+    group: "Database"
+    show_if: "database.type=postgres&&database.postgres.external.enabled=true"
+
+  - variable: database.postgres.external.password
+    label: "Database Password"
+    description: "PostgreSQL password"
+    type: password
+    required: false
+    default: "n8n"
+    group: "Database"
+    show_if: "database.type=postgres&&database.postgres.external.enabled=true"
+
+  # ============================================================================
+  # Storage
+  # ============================================================================
+  - variable: persistence.enabled
+    label: "Enable Persistent Storage"
+    description: "Store workflows and data persistently (recommended)"
+    type: boolean
+    required: true
+    default: true
+    group: "Storage"
+
+  - variable: persistence.size
+    label: "Storage Size"
+    description: "Size of persistent volume for workflows and data"
+    type: string
+    required: false
+    default: "10Gi"
+    group: "Storage"
+    show_if: "persistence.enabled=true"
+
+  - variable: persistence.storageClass
+    label: "Storage Class"
+    description: "Kubernetes storage class for persistent volume"
+    type: storageclass
+    required: false
+    default: "local-path"
+    group: "Storage"
+    show_if: "persistence.enabled=true"
+
+  # ============================================================================
+  # Service & Networking
+  # ============================================================================
+  - variable: service.type
+    label: "Service Type"
+    description: "How to expose n8n service"
+    type: enum
+    required: true
+    default: "ClusterIP"
+    group: "Networking"
+    options:
+      - "ClusterIP"
+      - "NodePort"
+      - "LoadBalancer"
+
+  - variable: service.nodePort
+    label: "NodePort"
+    description: "Port to expose on nodes (30000-32767)"
+    type: int
+    required: false
+    default: 30678
+    min: 30000
+    max: 32767
+    group: "Networking"
+    show_if: "service.type=NodePort"
+
+  - variable: ingress.enabled
+    label: "Enable Ingress"
+    description: "Expose n8n via HTTP/HTTPS ingress"
+    type: boolean
+    required: true
+    default: false
+    group: "Networking"
+
+  - variable: ingress.host
+    label: "Ingress Hostname"
+    description: "Domain name for accessing n8n (e.g., n8n.factory.local)"
+    type: hostname
+    required: false
+    default: "n8n.factory.local"
+    group: "Networking"
+    show_if: "ingress.enabled=true"
+
+  - variable: ingress.className
+    label: "Ingress Class"
+    description: "Ingress controller to use (traefik, nginx, etc.)"
+    type: string
+    required: false
+    default: "traefik"
+    group: "Networking"
+    show_if: "ingress.enabled=true"
+
+  - variable: ingress.tls.enabled
+    label: "Enable TLS/HTTPS"
+    description: "Enable HTTPS with TLS certificate"
+    type: boolean
+    required: true
+    default: false
+    group: "Networking"
+    show_if: "ingress.enabled=true"
+
+  - variable: ingress.tls.secretName
+    label: "TLS Secret Name"
+    description: "Name of Kubernetes secret containing TLS certificate"
+    type: secret
+    required: false
+    default: "n8n-tls"
+    group: "Networking"
+    show_if: "ingress.enabled=true&&ingress.tls.enabled=true"
+
+  - variable: config.editorBaseUrl
+    label: "Editor Base URL"
+    description: "Full URL where n8n will be accessible (for webhooks and OAuth)"
+    type: string
+    required: true
+    default: "http://n8n.local:5678"
+    group: "Networking"
+
+  - variable: config.webhookUrl
+    label: "Webhook URL"
+    description: "Base URL for incoming webhooks"
+    type: string
+    required: true
+    default: "http://n8n.local:5678/"
+    group: "Networking"
+
+  # ============================================================================
+  # Webhooks
+  # ============================================================================
+  - variable: webhooks.enabled
+    label: "Enable Webhooks"
+    description: "Allow workflows to receive webhook triggers"
+    type: boolean
+    required: true
+    default: true
+    group: "Webhooks"
+
+  # ============================================================================
+  # Execution Settings
+  # ============================================================================
+  - variable: config.executionDataSaveMode
+    label: "Execution Data Save Mode"
+    description: "How to save workflow execution data"
+    type: enum
+    required: true
+    default: "all"
+    group: "Execution"
+    options:
+      - "all"
+      - "save"
+      - "none"
+
+  - variable: config.executionDataPrune
+    label: "Auto-Delete Old Executions"
+    description: "Automatically remove old execution data to save space"
+    type: boolean
+    required: true
+    default: true
+    group: "Execution"
+
+  - variable: config.executionDataMaxAge
+    label: "Execution Data Max Age (hours)"
+    description: "Delete executions older than this many hours"
+    type: int
+    required: false
+    default: 168
+    min: 1
+    max: 8760
+    group: "Execution"
+    show_if: "config.executionDataPrune=true"
+
+  - variable: n8n.executionMode
+    label: "Execution Mode"
+    description: "How n8n processes workflows"
+    type: enum
+    required: true
+    default: "main"
+    group: "Execution"
+    options:
+      - "main"
+      - "queue"
+
+  # ============================================================================
+  # Logging
+  # ============================================================================
+  - variable: config.logLevel
+    label: "Log Level"
+    description: "Verbosity of n8n logs"
+    type: enum
+    required: true
+    default: "info"
+    group: "Logging"
+    options:
+      - "debug"
+      - "info"
+      - "warn"
+      - "error"
+
+  # ============================================================================
+  # Industrial Integrations
+  # ============================================================================
+  - variable: integrations.mqtt.enabled
+    label: "Enable MQTT Integration"
+    description: "Pre-configure MQTT broker connection"
+    type: boolean
+    required: true
+    default: false
+    group: "Integrations"
+
+  - variable: integrations.mqtt.broker
+    label: "MQTT Broker Host"
+    description: "Hostname of MQTT broker"
+    type: string
+    required: false
+    default: "mosquitto-mqtt.default.svc.cluster.local"
+    group: "Integrations"
+    show_if: "integrations.mqtt.enabled=true"
+
+  - variable: integrations.mqtt.port
+    label: "MQTT Broker Port"
+    description: "Port number for MQTT broker"
+    type: int
+    required: false
+    default: 1883
+    group: "Integrations"
+    show_if: "integrations.mqtt.enabled=true"
+
+  - variable: integrations.influxdb.enabled
+    label: "Enable InfluxDB Integration"
+    description: "Pre-configure InfluxDB connection"
+    type: boolean
+    required: true
+    default: false
+    group: "Integrations"
+
+  - variable: integrations.influxdb.url
+    label: "InfluxDB URL"
+    description: "Full URL to InfluxDB instance"
+    type: string
+    required: false
+    default: "http://influxdb.default.svc.cluster.local:8086"
+    group: "Integrations"
+    show_if: "integrations.influxdb.enabled=true"
+
+  - variable: integrations.postgresql.enabled
+    label: "Enable PostgreSQL Integration"
+    description: "Pre-configure PostgreSQL connection for workflows"
+    type: boolean
+    required: true
+    default: false
+    group: "Integrations"
+
+  # ============================================================================
+  # User Management
+  # ============================================================================
+  - variable: config.userManagement.enabled
+    label: "Enable User Management"
+    description: "Allow multiple users (requires license for >1 user)"
+    type: boolean
+    required: true
+    default: false
+    group: "User Management"
+
+  - variable: config.licenseKey
+    label: "License Key"
+    description: "n8n enterprise license key (optional)"
+    type: string
+    required: false
+    group: "User Management"
+
+  # ============================================================================
+  # Monitoring
+  # ============================================================================
+  - variable: monitoring.metrics.enabled
+    label: "Enable Metrics"
+    description: "Expose metrics endpoint for monitoring"
+    type: boolean
+    required: true
+    default: true
+    group: "Monitoring"
+
+  - variable: monitoring.serviceMonitor.enabled
+    label: "Create ServiceMonitor"
+    description: "Create Prometheus Operator ServiceMonitor resource"
+    type: boolean
+    required: true
+    default: false
+    group: "Monitoring"
+    show_if: "monitoring.metrics.enabled=true"
+
+  - variable: monitoring.healthcheck.enabled
+    label: "Enable Health Checks"
+    description: "Enable liveness and readiness probes"
+    type: boolean
+    required: true
+    default: true
+    group: "Monitoring"
+
+  # ============================================================================
+  # Advanced
+  # ============================================================================
+  - variable: queue.enabled
+    label: "Enable Queue Mode"
+    description: "Use queue mode for scalable execution (requires Redis)"
+    type: boolean
+    required: true
+    default: false
+    group: "Advanced"
+
+  - variable: queue.worker.replicas
+    label: "Number of Workers"
+    description: "Number of worker instances for queue mode"
+    type: int
+    required: false
+    default: 2
+    min: 1
+    max: 10
+    group: "Advanced"
+    show_if: "queue.enabled=true"

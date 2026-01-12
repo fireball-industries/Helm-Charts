@@ -1,0 +1,214 @@
+{
+  "name": "Temperature Alert Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "protocol": "mqtt",
+        "host": "mosquitto-mqtt-pod",
+        "port": 1883,
+        "clientId": "n8n-temp-monitor",
+        "topics": "factory/+/temperature",
+        "options": {
+          "jsonParseBody": true
+        }
+      },
+      "name": "Temperature MQTT",
+      "type": "n8n-nodes-base.mqttTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "credentials": {
+        "mqtt": {
+          "id": "1",
+          "name": "MQTT Mosquitto"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.temperature }}",
+              "operation": "larger",
+              "value2": 75
+            }
+          ]
+        }
+      },
+      "name": "Check Threshold",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "alert_type",
+              "value": "HIGH_TEMPERATURE"
+            },
+            {
+              "name": "location",
+              "value": "={{ $json.location }}"
+            },
+            {
+              "name": "sensor_id",
+              "value": "={{ $json.sensor }}"
+            },
+            {
+              "name": "current_temp",
+              "value": "={{ $json.temperature }}"
+            },
+            {
+              "name": "threshold",
+              "value": "75"
+            },
+            {
+              "name": "severity",
+              "value": "={{ $json.temperature > 85 ? 'CRITICAL' : 'WARNING' }}"
+            },
+            {
+              "name": "message",
+              "value": "Temperature alert: {{ $json.sensor }} at {{ $json.location }} is {{ $json.temperature }}°F (threshold: 75°F)"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "name": "Build Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://alert-manager:9093/api/v1/alerts",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "labels",
+              "value": "={\"alertname\":\"{{ $json.alert_type }}\",\"severity\":\"{{ $json.severity }}\",\"location\":\"{{ $json.location }}\",\"sensor\":\"{{ $json.sensor_id }}\"}"
+            },
+            {
+              "name": "annotations",
+              "value": "={\"summary\":\"{{ $json.message }}\",\"temperature\":\"{{ $json.current_temp }}\"}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Send to AlertManager",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 150]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO temperature_alerts (sensor_id, location, temperature, threshold, severity, message, created_at) VALUES ('{{ $json.sensor_id }}', '{{ $json.location }}', {{ $json.current_temp }}, {{ $json.threshold }}, '{{ $json.severity }}', '{{ $json.message }}', '{{ $json.timestamp }}')"
+      },
+      "name": "Log to PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [850, 250],
+      "credentials": {
+        "postgres": {
+          "id": "3",
+          "name": "PostgreSQL Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "org": "fireball-industries",
+        "bucket": "alerts",
+        "measurement": "temperature_alerts",
+        "fields": "temperature={{ $json.current_temp }},threshold={{ $json.threshold }}",
+        "tags": "sensor_id={{ $json.sensor_id }},location={{ $json.location }},severity={{ $json.severity }}",
+        "timestamp": "={{ $json.timestamp }}"
+      },
+      "name": "Write to InfluxDB",
+      "type": "n8n-nodes-base.influxDb",
+      "typeVersion": 1,
+      "position": [850, 350],
+      "credentials": {
+        "influxDb": {
+          "id": "2",
+          "name": "InfluxDB Sensors"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Temperature MQTT": {
+      "main": [
+        [
+          {
+            "node": "Check Threshold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Threshold": {
+      "main": [
+        [
+          {
+            "node": "Build Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Alert": {
+      "main": [
+        [
+          {
+            "node": "Send to AlertManager",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log to PostgreSQL",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Write to InfluxDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "industrial",
+      "id": "1"
+    },
+    {
+      "name": "alerts",
+      "id": "2"
+    },
+    {
+      "name": "monitoring",
+      "id": "3"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1"
+}

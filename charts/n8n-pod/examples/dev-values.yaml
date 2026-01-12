@@ -1,0 +1,57 @@
+# Development Environment
+# SQLite database, minimal resources, no ingress
+
+n8n:
+  replicas: 1
+  image:
+    repository: n8nio/n8n
+    tag: "1.25.1"
+    pullPolicy: IfNotPresent
+
+database:
+  type: sqlite
+
+persistence:
+  enabled: true
+  size: 2Gi
+  storageClass: "local-path"
+
+resources:
+  preset: micro
+  # CPU: 100m request, 500m limit
+  # Memory: 256Mi request, 512Mi limit
+
+security:
+  basicAuth:
+    enabled: true
+    user: admin
+    password: admin123
+
+ingress:
+  enabled: false
+
+service:
+  type: ClusterIP
+  port: 5678
+
+webhooks:
+  enabled: false
+
+monitoring:
+  metrics:
+    enabled: false
+  serviceMonitor:
+    enabled: false
+
+integrations:
+  mqtt:
+    enabled: true
+    broker: mosquitto-mqtt-pod
+    port: 1883
+  influxdb:
+    enabled: true
+    url: http://influxdb-pod:8086
+  postgresql:
+    enabled: true
+    url: postgresql-pod
+    port: 5432

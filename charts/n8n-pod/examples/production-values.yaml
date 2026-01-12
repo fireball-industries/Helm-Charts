@@ -1,0 +1,133 @@
+# Production Environment
+# PostgreSQL database, persistent storage, ingress with TLS, monitoring
+
+n8n:
+  replicas: 1
+  image:
+    repository: n8nio/n8n
+    tag: "1.25.1"
+    pullPolicy: IfNotPresent
+
+database:
+  type: postgres
+  postgres:
+    host: postgresql-pod
+    port: 5432
+    database: n8n_production
+    user: n8n
+    password: your-secure-password-here
+    schema: public
+    ssl:
+      enabled: false
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: "longhorn"
+  accessMode: ReadWriteOnce
+
+resources:
+  preset: medium
+  # CPU: 500m request, 2000m limit
+  # Memory: 1Gi request, 2Gi limit
+
+security:
+  basicAuth:
+    enabled: true
+    user: admin
+    password: change-me-in-production
+  encryptionKey: ""  # Auto-generated if not specified
+
+ingress:
+  enabled: true
+  className: "traefik"
+  host: "n8n.factory.yourdomain.com"
+  path: /
+  pathType: Prefix
+  tls:
+    enabled: true
+    secretName: n8n-tls
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    traefik.ingress.kubernetes.io/router.middlewares: "default-redirect-https@kubernetescrd"
+
+service:
+  type: ClusterIP
+  port: 5678
+
+webhooks:
+  enabled: true
+  url: "https://n8n.factory.yourdomain.com"
+  testUrl: "https://n8n.factory.yourdomain.com"
+
+execution:
+  mode: "regular"
+  timeout: 300
+  maxTimeout: 3600
+  saveDataOnSuccess: "all"
+  saveDataOnError: "all"
+  pruneData: true
+  pruneDataMaxAge: 336  # 14 days
+
+monitoring:
+  metrics:
+    enabled: true
+    path: /metrics
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    labels:
+      release: prometheus
+  healthcheck:
+    enabled: true
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: http
+      initialDelaySeconds: 60
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: http
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+integrations:
+  mqtt:
+    enabled: true
+    broker: mosquitto-mqtt-pod
+    port: 1883
+    username: n8n
+    password: mqtt-password
+  influxdb:
+    enabled: true
+    url: http://influxdb-pod:8086
+    token: your-influx-token
+    org: fireball-industries
+    bucket: production
+  postgresql:
+    enabled: true
+    url: postgresql-pod
+    port: 5432
+
+advanced:
+  timezone: "America/Chicago"
+  logLevel: "info"
+  userManagement:
+    disabled: false
+  serviceAccount:
+    create: true
+    annotations: {}
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "5678"
+    prometheus.io/path: "/metrics"
+
+nodeSelector: {}
+affinity: {}
+tolerations: []

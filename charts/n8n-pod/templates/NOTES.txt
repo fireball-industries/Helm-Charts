@@ -1,0 +1,62 @@
+1. Get the application URL by running these commands:
+{{- if .Values.ingress.enabled }}
+{{- if .Values.ingress.tls.enabled }}
+  https://{{ .Values.ingress.host }}{{ .Values.ingress.path }}
+{{- else }}
+  http://{{ .Values.ingress.host }}{{ .Values.ingress.path }}
+{{- end }}
+{{- else if eq .Values.service.type "NodePort" }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "n8n.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if eq .Values.service.type "LoadBalancer" }}
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "n8n.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.service.port }}
+{{- else if eq .Values.service.type "ClusterIP" }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "n8n.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  echo "Visit http://127.0.0.1:5678 to access n8n"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 5678:5678
+{{- end }}
+
+2. Login credentials:
+{{- if .Values.security.basicAuth.enabled }}
+   Username: {{ .Values.security.basicAuth.user }}
+   Password: Use 'kubectl get secret --namespace {{ .Release.Namespace }} {{ include "n8n.fullname" . }} -o jsonpath="{.data.N8N_BASIC_AUTH_PASSWORD}" | base64 --decode'
+{{- else }}
+   Basic auth is disabled. Configure credentials in n8n settings.
+{{- end }}
+
+3. Database configuration:
+{{- if eq .Values.database.type "postgres" }}
+   Using PostgreSQL: {{ .Values.database.postgres.host }}:{{ .Values.database.postgres.port }}/{{ .Values.database.postgres.database }}
+{{- else }}
+   Using SQLite (not recommended for production)
+   WARNING: For production, enable PostgreSQL in values.yaml
+{{- end }}
+
+4. Webhook URL:
+{{- if .Values.webhooks.enabled }}
+   {{ .Values.webhooks.url }}
+   Configure this URL in your webhook integrations
+{{- else }}
+   Webhooks are disabled. Enable in values.yaml for automation triggers.
+{{- end }}
+
+5. Industrial integrations available:
+   - MQTT: Connect to mosquitto-mqtt-pod for sensor data workflows
+   - InfluxDB: Process and store time-series data from {{ .Values.integrations.influxdb.url }}
+   - PostgreSQL: Query production databases at {{ .Values.integrations.postgresql.url }}
+   - Node-RED: Chain workflows with existing Node-RED automations
+   - Prometheus: Metrics exposed at {{ .Values.monitoring.metrics.path }}
+
+6. Next steps:
+   - Create your first workflow in the n8n editor
+   - Configure MQTT nodes to process sensor data
+   - Set up InfluxDB nodes for data storage
+   - Create webhooks for external system triggers
+   - Enable queue mode for high-throughput processing
+
+For more information, visit:
+- n8n Documentation: https://docs.n8n.io
+- Workflow Templates: https://n8n.io/workflows
+- Industrial Automation Examples: See examples/ directory in this chart

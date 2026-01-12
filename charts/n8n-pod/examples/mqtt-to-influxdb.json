@@ -1,0 +1,129 @@
+{
+  "name": "MQTT to InfluxDB Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "protocol": "mqtt",
+        "host": "mosquitto-mqtt-pod",
+        "port": 1883,
+        "clientId": "n8n-sensor-pipeline",
+        "topics": "factory/sensors/#",
+        "options": {
+          "jsonParseBody": true
+        }
+      },
+      "name": "MQTT Trigger",
+      "type": "n8n-nodes-base.mqttTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "credentials": {
+        "mqtt": {
+          "id": "1",
+          "name": "MQTT Mosquitto"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "measurement",
+              "value": "={{ $json.topic.split('/')[2] }}"
+            },
+            {
+              "name": "location",
+              "value": "={{ $json.topic.split('/')[1] }}"
+            },
+            {
+              "name": "sensor_id",
+              "value": "={{ $json.sensor }}"
+            },
+            {
+              "name": "value",
+              "value": "={{ $json.value }}"
+            },
+            {
+              "name": "unit",
+              "value": "={{ $json.unit }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $json.timestamp || new Date().toISOString() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Transform Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "org": "fireball-industries",
+        "bucket": "sensors",
+        "measurement": "={{ $json.measurement }}",
+        "fields": "value={{ $json.value }}",
+        "tags": "sensor_id={{ $json.sensor_id }},location={{ $json.location }},unit={{ $json.unit }}",
+        "timestamp": "={{ $json.timestamp }}"
+      },
+      "name": "Write to InfluxDB",
+      "type": "n8n-nodes-base.influxDb",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "influxDb": {
+          "id": "2",
+          "name": "InfluxDB Sensors"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "MQTT Trigger": {
+      "main": [
+        [
+          {
+            "node": "Transform Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform Data": {
+      "main": [
+        [
+          {
+            "node": "Write to InfluxDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "industrial",
+      "id": "1"
+    },
+    {
+      "name": "mqtt",
+      "id": "2"
+    },
+    {
+      "name": "influxdb",
+      "id": "3"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1"
+}

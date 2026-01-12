@@ -1,0 +1,92 @@
+apiVersion: v2
+name: n8n-pod
+description: |
+  Industrial workflow automation with n8n. Because sometimes your factory needs
+  to talk to 47 different APIs, and you'd rather not write Python scripts at 3am.
+  
+  n8n is a fair-code workflow automation platform for technical teams. Perfect for
+  integrating industrial systems, automating data pipelines, connecting MQTT to APIs,
+  triggering actions from sensor data, and building complex automation flows without
+  coding. Think Node-RED's professional cousin with 400+ integrations out of the box.
+
+type: application
+version: 1.0.0
+appVersion: "1.25.1"
+
+keywords:
+  - n8n
+  - workflow
+  - automation
+  - integration
+  - no-code
+  - low-code
+  - iiot
+  - industrial
+  - mqtt
+  - webhooks
+  - api
+  - etl
+  - data-pipeline
+
+home: https://github.com/fireball-industries/helm-charts
+sources:
+  - https://github.com/n8n-io/n8n
+  - https://docs.n8n.io
+
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireballindustries.com
+    url: https://fireballindustries.com
+
+icon: https://raw.githubusercontent.com/n8n-io/n8n/master/assets/n8n-logo.png
+
+# Rancher Questions Annotation
+annotations:
+  catalog.cattle.io/certified: "fireball"
+  catalog.cattle.io/release-name: "n8n"
+  catalog.cattle.io/display-name: "n8n - Workflow Automation Platform"
+  catalog.cattle.io/provides-gvr: "apps/v1/Deployment"
+  catalog.cattle.io/namespace: "n8n"
+  catalog.cattle.io/os: "linux"
+  catalog.cattle.io/kube-version: ">=1.22.0"
+  catalog.cattle.io/rancher-version: ">=2.6.0"
+  
+  # Category
+  catalog.cattle.io/category: "Automation,Integration,Industrial"
+  
+  # Feature annotations
+  catalog.cattle.io/auto-install: "n8n-pod=match"
+  catalog.cattle.io/hidden: "false"
+  
+  # Branding
+  catalog.cattle.io/vendor: "Fireball Industries"
+  catalog.cattle.io/vendor-url: "https://fireballindustries.com"
+  catalog.cattle.io/tagline: "Ignite Your Factory Efficiency™"
+  
+  # Description for marketplace
+  catalog.cattle.io/description: |
+    Production-ready n8n workflow automation for industrial environments.
+    
+    Features:
+    - 400+ pre-built integrations (MQTT, databases, APIs, cloud services)
+    - Visual workflow designer with conditional logic
+    - Webhook triggers for real-time automation
+    - PostgreSQL backend for production reliability
+    - Credential encryption and secure storage
+    - Persistent workflow and execution history
+    - Cron scheduling and event-driven triggers
+    - Custom code nodes (JavaScript/Python)
+    - API for programmatic workflow management
+    
+    Perfect for:
+    - MQTT to API/database integration
+    - Sensor data processing and alerts
+    - Multi-system orchestration
+    - Automated reporting and notifications
+    - ETL pipelines for industrial data
+    - IoT device management workflows
+    - SCADA system integration
+    - Factory event automation
+    
+    Integrates seamlessly with industrial pod stack (Mosquitto, InfluxDB,
+    Node-RED, Grafana, PostgreSQL, Telegraf).

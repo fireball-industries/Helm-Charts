@@ -1,0 +1,446 @@
+# ============================================================================
+# n8n Workflow Automation Helm Chart - Default Values
+# ============================================================================
+# Fireball Industries - Patrick Ryan
+# "Automate everything. Sleep better. Your factory runs itself (mostly)."
+#
+# n8n is a workflow automation platform that connects your industrial systems,
+# APIs, databases, and services without requiring extensive coding.
+# ============================================================================
+
+# Global settings
+global:
+  # Timezone for n8n (affects cron schedules)
+  timezone: "America/New_York"
+
+# ============================================================================
+# N8N CONFIGURATION
+# ============================================================================
+n8n:
+  # Container image
+  image:
+    repository: n8nio/n8n
+    tag: "1.25.1"
+    pullPolicy: IfNotPresent
+  
+  # Resource preset profiles
+  # Options: minimal, standard, production, custom
+  # minimal:    200m-500m CPU, 256Mi-512Mi RAM  - Testing, <10 workflows
+  # standard:   500m-1000m CPU, 512Mi-1Gi RAM   - Production, <100 workflows (default)
+  # production: 1000m-2000m CPU, 1Gi-2Gi RAM    - Heavy usage, >100 workflows
+  # custom:     Use resources section below
+  resourcePreset: "standard"
+  
+  # Custom resources (used when resourcePreset: custom)
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  # Number of replicas (stateless mode only)
+  # Note: Multiple replicas require external database and queue mode
+  replicas: 1
+  
+  # Execution mode: main, queue, webhook
+  # main: Single process handles everything (simple, default)
+  # queue: Separate workers for executions (scalable)
+  # webhook: Separate webhook handling (performance)
+  executionMode: "main"
+
+# ============================================================================
+# N8N SETTINGS
+# ============================================================================
+config:
+  # Basic settings
+  basicAuth:
+    enabled: true
+    user: "admin"
+    password: "changeme123"  # CHANGE THIS!
+  
+  # Editor URL (for webhooks and OAuth callbacks)
+  # Set to your actual domain
+  editorBaseUrl: "http://n8n.local:5678"
+  
+  # Webhook URL (for incoming webhooks)
+  webhookUrl: "http://n8n.local:5678/"
+  
+  # Timezone
+  timezone: "America/New_York"
+  
+  # Log level: info, debug, warn, error
+  logLevel: "info"
+  
+  # Log output: console, file
+  logOutput: "console"
+  
+  # Execution data save mode: all, save, none
+  # all: Save successful and failed executions
+  # save: Only save manually marked executions
+  # none: Don't save execution data
+  executionDataSaveMode: "all"
+  
+  # Execution data prune: true/false
+  # Automatically delete old execution data
+  executionDataPrune: true
+  executionDataMaxAge: 168  # hours (7 days)
+  
+  # Workflow settings
+  workflowCallerPolicy: "workflowsFromSameOwner"
+  
+  # User management
+  userManagement:
+    enabled: false
+    # When enabled, creates multi-user environment
+    # Requires license key for more than 1 user
+  
+  # License key (for enterprise features)
+  licenseKey: ""
+  
+  # Encryption key for credentials
+  # IMPORTANT: Keep this secret and backed up!
+  # Generate with: openssl rand -hex 32
+  encryptionKey: "defaultkey-change-me-to-random-32-chars"
+
+# ============================================================================
+# DATABASE CONFIGURATION
+# ============================================================================
+database:
+  # Type: sqlite, postgres
+  # SQLite: Simple, file-based (default for testing)
+  # PostgreSQL: Production-ready, required for HA
+  type: "sqlite"
+  
+  # PostgreSQL settings (when type: postgres)
+  postgres:
+    # Use external PostgreSQL
+    external:
+      enabled: false
+      host: "postgresql"
+      port: 5432
+      database: "n8n"
+      user: "n8n"
+      password: "n8n"
+      # Connection pool settings
+      poolSize: 20
+      ssl: false
+    
+    # Deploy PostgreSQL with n8n (for testing)
+    embedded:
+      enabled: false
+      # See postgresql subchart values
+
+# ============================================================================
+# PERSISTENCE
+# ============================================================================
+persistence:
+  # Enable persistent storage
+  enabled: true
+  
+  # Storage class
+  storageClass: "local-path"
+  
+  # Access mode
+  accessMode: "ReadWriteOnce"
+  
+  # Storage size
+  size: "10Gi"
+  
+  # Existing PVC
+  existingClaim: ""
+  
+  # Paths
+  paths:
+    # Root data directory
+    data: "/home/node/.n8n"
+
+# ============================================================================
+# SERVICE CONFIGURATION
+# ============================================================================
+service:
+  # Service type: ClusterIP, NodePort, LoadBalancer
+  type: "ClusterIP"
+  
+  # Service port
+  port: 5678
+  
+  # NodePort (when type: NodePort)
+  nodePort: 30678
+  
+  # Annotations
+  annotations: {}
+
+# ============================================================================
+# INGRESS CONFIGURATION
+# ============================================================================
+ingress:
+  enabled: false
+  
+  # Ingress class
+  className: "traefik"
+  
+  # Hostname
+  host: "n8n.factory.local"
+  
+  # Path
+  path: "/"
+  pathType: "Prefix"
+  
+  # TLS configuration
+  tls:
+    enabled: false
+    secretName: "n8n-tls"
+  
+  # Annotations
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # traefik.ingress.kubernetes.io/router.middlewares: default-redirect-https@kubernetescrd
+
+# ============================================================================
+# WEBHOOKS
+# ============================================================================
+webhooks:
+  # Enable webhook support
+  enabled: true
+  
+  # Webhook path prefix
+  path: "/webhook"
+  
+  # Webhook test path prefix
+  testPath: "/webhook-test"
+  
+  # Separate service for webhooks (optional)
+  separateService:
+    enabled: false
+    type: "ClusterIP"
+    port: 5678
+
+# ============================================================================
+# SECURITY
+# ============================================================================
+security:
+  # Pod security context
+  podSecurityContext:
+    fsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+  
+  # Container security context
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 1000
+  
+  # Network policies
+  networkPolicy:
+    enabled: false
+    # Allow ingress from specific namespaces/pods
+
+# ============================================================================
+# INTEGRATIONS
+# ============================================================================
+# Pre-configured credentials for industrial services
+# ============================================================================
+integrations:
+  # MQTT credentials
+  mqtt:
+    enabled: false
+    broker: "mosquitto-mqtt.default.svc.cluster.local"
+    port: 1883
+    username: ""
+    password: ""
+    clientId: "n8n"
+  
+  # InfluxDB credentials
+  influxdb:
+    enabled: false
+    url: "http://influxdb.default.svc.cluster.local:8086"
+    token: ""
+    org: "factory"
+    bucket: "sensors"
+  
+  # PostgreSQL credentials
+  postgresql:
+    enabled: false
+    host: "postgresql.default.svc.cluster.local"
+    port: 5432
+    database: "factory"
+    user: ""
+    password: ""
+
+# ============================================================================
+# MONITORING
+# ============================================================================
+monitoring:
+  # Enable metrics endpoint
+  metrics:
+    enabled: true
+    port: 5678
+    path: "/metrics"
+  
+  # Prometheus ServiceMonitor
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels:
+      release: prometheus
+  
+  # Health checks
+  healthcheck:
+    enabled: true
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 5678
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 5678
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+# ============================================================================
+# NODE PLACEMENT
+# ============================================================================
+nodeSelector: {}
+  # node-role.kubernetes.io/worker: "true"
+
+tolerations: []
+  # - key: "n8n"
+  #   operator: "Equal"
+  #   value: "true"
+  #   effect: "NoSchedule"
+
+affinity: {}
+
+# ============================================================================
+# ADVANCED SETTINGS
+# ============================================================================
+advanced:
+  # Custom environment variables
+  env: []
+    # - name: N8N_CUSTOM_EXTENSIONS
+    #   value: "/data/custom"
+    # - name: NODE_FUNCTION_ALLOW_BUILTIN
+    #   value: "*"
+    # - name: NODE_FUNCTION_ALLOW_EXTERNAL
+    #   value: "*"
+  
+  # External secrets (for credentials)
+  externalSecrets:
+    enabled: false
+    secretName: "n8n-secrets"
+  
+  # Init containers
+  initContainers: []
+  
+  # Sidecar containers
+  sidecars: []
+  
+  # Extra volumes
+  extraVolumes: []
+  
+  # Extra volume mounts
+  extraVolumeMounts: []
+  
+  # Pod annotations
+  podAnnotations: {}
+  
+  # Service account
+  serviceAccount:
+    create: true
+    name: ""
+    annotations: {}
+
+# ============================================================================
+# QUEUE MODE (for scaling)
+# ============================================================================
+queue:
+  # Enable queue mode (requires Redis)
+  enabled: false
+  
+  # Redis configuration
+  redis:
+    # External Redis
+    external:
+      enabled: false
+      host: "redis"
+      port: 6379
+      password: ""
+      db: 0
+    
+    # Embedded Redis (for testing)
+    embedded:
+      enabled: false
+  
+  # Worker settings
+  worker:
+    enabled: false
+    replicas: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# ============================================================================
+# BACKUP & RESTORE
+# ============================================================================
+backup:
+  # Enable automated backups
+  enabled: false
+  
+  # Backup schedule (cron format)
+  schedule: "0 2 * * *"  # 2 AM daily
+  
+  # Retention (days)
+  retention: 7
+  
+  # Backup destination
+  destination:
+    type: "pvc"  # pvc, s3
+    pvc:
+      storageClass: "local-path"
+      size: "5Gi"
+
+# ============================================================================
+# PRESET OVERRIDES
+# ============================================================================
+presets:
+  minimal:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  standard:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  production:
+    requests:
+      cpu: 1000m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
