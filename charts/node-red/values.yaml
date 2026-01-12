@@ -186,7 +186,7 @@ persistence:
 
 # Service configuration
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 1880
   targetPort: 1880
   protocol: TCP

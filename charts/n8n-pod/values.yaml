@@ -118,11 +118,11 @@ database:
     # Use external PostgreSQL
     external:
       enabled: false
-      host: "postgresql"
+      host: "postgresql-pod"
       port: 5432
       database: "n8n"
-      user: "n8n"
-      password: "n8n"
+      user: "fireball"
+      password: ""
       # Connection pool settings
       poolSize: 20
       ssl: false
@@ -251,7 +251,7 @@ integrations:
   # MQTT credentials
   mqtt:
     enabled: false
-    broker: "mosquitto-mqtt.default.svc.cluster.local"
+    broker: "mosquitto-mqtt-pod"
     port: 1883
     username: ""
     password: ""
@@ -260,7 +260,7 @@ integrations:
   # InfluxDB credentials
   influxdb:
     enabled: false
-    url: "http://influxdb.default.svc.cluster.local:8086"
+    url: "http://influxdb-pod:8086"
     token: ""
     org: "factory"
     bucket: "sensors"
@@ -268,10 +268,10 @@ integrations:
   # PostgreSQL credentials
   postgresql:
     enabled: false
-    host: "postgresql.default.svc.cluster.local"
+    host: "postgresql-pod"
     port: 5432
-    database: "factory"
-    user: ""
+    database: "production_data"
+    user: "fireball"
     password: ""
 
 # ============================================================================

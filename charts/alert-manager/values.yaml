@@ -74,7 +74,7 @@ securityContext:
 # -- Service configuration
 service:
   # -- Service type (ClusterIP, NodePort, LoadBalancer)
-  type: LoadBalancer
+  type: ClusterIP
   # -- Service port for Alertmanager UI
   port: 9093
   # -- Target port on the container

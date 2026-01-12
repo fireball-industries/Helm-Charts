@@ -254,7 +254,7 @@ alerting:
   alertmanagers: []
     # - static_configs:
     #     - targets:
-    #         - alertmanager.monitoring.svc:9093
+    #         - alert-manager:9093
     #   scheme: http
     #   timeout: 10s
   

@@ -244,7 +244,7 @@ config:
     influxdb_v2:
       enabled: false
       urls:
-        - "http://influxdb:8086"
+        - "http://influxdb-pod:8086"
       token: "${INFLUX_TOKEN}"  # Set via environment variable
       organization: "fireball"
       bucket: "telegraf"
@@ -254,7 +254,7 @@ config:
     influxdb_v1:
       enabled: false
       urls:
-        - "http://influxdb:8086"
+        - "http://influxdb-pod:8086"
       database: "telegraf"
       username: "${INFLUX_USER}"
       password: "${INFLUX_PASSWORD}"

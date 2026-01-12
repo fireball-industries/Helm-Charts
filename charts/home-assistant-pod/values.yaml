@@ -280,7 +280,7 @@ database:
 service:
   # Main Home Assistant service
   main:
-    type: LoadBalancer  # Options: ClusterIP, NodePort, LoadBalancer
+    type: ClusterIP  # Options: ClusterIP, NodePort, LoadBalancer
     port: 8123
     targetPort: 8123
     # NodePort (if type=NodePort)

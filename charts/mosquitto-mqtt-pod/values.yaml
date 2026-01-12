@@ -157,15 +157,17 @@ mqtt:
   # Authentication
   authentication:
     # Enable password authentication
-    enabled: false
+    enabled: true
     # Allow anonymous connections
-    allowAnonymous: true
+    allowAnonymous: false
     # Password file configuration
     passwordFile:
       # Create password file from users list
-      enabled: false
+      enabled: true
       # Users (passwords will be hashed)
-      users: []
+      users:
+        - username: admin
+          password: changeme-please-update
       # - username: admin
       #   password: changeme
       # - username: sensor01

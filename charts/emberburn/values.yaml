@@ -183,7 +183,7 @@ config:
     # MQTT Publisher
     mqtt:
       enabled: false
-      broker: "mosquitto.default.svc.cluster.local"
+      broker: "mosquitto-mqtt-pod"
       port: 1883
       client_id: "emberburn"
       username: ""
@@ -196,7 +196,7 @@ config:
     # InfluxDB Storage
     influxdb:
       enabled: false
-      url: "http://influxdb.default.svc.cluster.local:8086"
+      url: "http://influxdb-pod:8086"
       token: ""
       org: "fireball-industries"
       bucket: "emberburn"
@@ -211,7 +211,7 @@ config:
     # Sparkplug B (Ignition Edge)
     sparkplug:
       enabled: false
-      broker: "mosquitto.default.svc.cluster.local"
+      broker: "mosquitto-mqtt-pod"
       port: 1883
       group_id: "Fireball"
       edge_node_id: "EmberBurn"
