@@ -10,10 +10,23 @@ keywords:
   - industrial-automation
   - plc
   - edge
-home: https://github.com/YOUR_ORG/CODESYS-Edge-Gateway-for-Linux
+  - forge-industrial
+  - factory-automation
+  - plc-discovery
+home: https://github.com/fireball-industries/helm-charts
 sources:
-  - https://github.com/YOUR_ORG/CODESYS-Edge-Gateway-for-Linux
+  - https://github.com/fireball-industries/helm-charts
+  - https://www.codesys.com/
 maintainers:
-  - name: CODESYS Gateway Team
-    email: support@example.com
-icon: https://raw.githubusercontent.com/YOUR_ORG/CODESYS-Edge-Gateway-for-Linux/main/icon.png
+  - name: Patrick Ryan
+    email: patrick@fireball-industries.com
+    url: https://fireballz.ai
+icon: https://www.codesys.com/fileadmin/data/Images/SocialMedia/CODESYS_LOGO_black_200x200.png
+
+annotations:
+  # Rancher Catalog Integration
+  catalog.cattle.io/display-name: "CODESYS Edge Gateway"
+  catalog.cattle.io/release-name: "codesys-edge-gateway"
+  catalog.cattle.io/certified: "partner"
+  catalog.cattle.io/categories: "Forge Industrial,PLC Gateway,Factory Automation"
+  catalog.cattle.io/namespace: "codesys-gateway"

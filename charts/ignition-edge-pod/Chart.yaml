@@ -22,12 +22,23 @@ keywords:
   - ignition
   - scada
   - hmi
-  - industrial
+  - industrial-automation
   - iot
   - opc-ua
   - mqtt
   - sparkplug
   - edge
+  - forge-industrial
+  - factory-automation
+  - tag-historian
+
+annotations:
+  # Rancher Catalog Integration
+  catalog.cattle.io/display-name: "Ignition Edge SCADA"
+  catalog.cattle.io/release-name: "ignition-edge"
+  catalog.cattle.io/certified: "partner"
+  catalog.cattle.io/categories: "Forge Industrial,SCADA,Factory Automation"
+  catalog.cattle.io/namespace: "ignition"
   - automation
   - manufacturing
 maintainers:

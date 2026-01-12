@@ -15,18 +15,32 @@ keywords:
   - plc
   - automation
   - x86
-  - industrial
+  - industrial-automation
+  - forge-industrial
+  - factory-automation
+  - iec-61131-3
+  - opcua
+  - modbus
 
-home: https://github.com/YOUR_ORG/YOUR_REPO
+home: https://github.com/fireball-industries/helm-charts
 sources:
-  - https://github.com/YOUR_ORG/YOUR_REPO
+  - https://github.com/fireball-industries/helm-charts
+  - https://www.codesys.com/
 
 maintainers:
   - name: Patrick Ryan
-    email: patrick@fireballindustries.com
+    email: patrick@fireball-industries.com
+    url: https://fireballz.ai
 
-# Icon URL (optional)
-# icon: https://example.com/icon.png
+icon: https://www.codesys.com/fileadmin/data/Images/SocialMedia/CODESYS_LOGO_black_200x200.png
+
+annotations:
+  # Rancher Catalog Integration
+  catalog.cattle.io/display-name: "CODESYS Control x86/AMD64"
+  catalog.cattle.io/release-name: "codesys-x86"
+  catalog.cattle.io/certified: "partner"
+  catalog.cattle.io/categories: "Forge Industrial,PLC Runtime,Factory Automation"
+  catalog.cattle.io/namespace: "codesys-x86"
 
 # Kubernetes version requirement
 kubeVersion: ">=1.24.0-0"

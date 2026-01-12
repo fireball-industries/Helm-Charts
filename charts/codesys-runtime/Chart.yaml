@@ -25,9 +25,11 @@ maintainers:
 icon: https://www.codesys.com/fileadmin/data/Images/SocialMedia/CODESYS_LOGO_black_200x200.png
 annotations:
   # Rancher Catalog Integration
-  catalog.cattle.io/display-name: "Codesys Runtime ARM"
+  catalog.cattle.io/display-name: "CODESYS Runtime ARM"
   catalog.cattle.io/release-name: "codesys-runtime-arm"
   catalog.cattle.io/certified: "partner"
+  catalog.cattle.io/categories: "Forge Industrial,PLC Runtime,Factory Automation"
+  catalog.cattle.io/namespace: "codesys-plc"
   catalog.cattle.io/kube-version: ">=1.25.0"
   catalog.cattle.io/rancher-version: ">=2.6.0"
   catalog.cattle.io/namespace: "industrial-automation"
