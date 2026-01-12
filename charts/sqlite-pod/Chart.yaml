@@ -11,6 +11,7 @@ keywords:
   - edge
   - litestream
   - industrial
+  - forge-industrial
 home: https://www.sqlite.org
 sources:
   - https://github.com/sqlite/sqlite
@@ -27,5 +28,6 @@ annotations:
   catalog.cattle.io/namespace: "industrial"
   catalog.cattle.io/release-name: "sqlite-pod"
   catalog.cattle.io/certified: "fireball"
+  catalog.cattle.io/categories: "Forge Industrial,Database,Edge"
   catalog.cattle.io/provides: "sqlite,litestream"
   catalog.cattle.io/requires: "persistent-volume"

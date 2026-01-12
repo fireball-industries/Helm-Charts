@@ -19,6 +19,7 @@ keywords:
   - messaging
   - broker
   - prometheus
+  - forge-industrial
 maintainers:
   - name: Patrick Ryan
     email: patrick@fireball.industries
@@ -29,6 +30,7 @@ annotations:
   catalog.cattle.io/release-name: mosquitto-mqtt
   catalog.cattle.io/display-name: "Mosquitto MQTT Broker"
   catalog.cattle.io/namespace: iot
+  catalog.cattle.io/categories: "Forge Industrial,Messaging,IoT"
   catalog.cattle.io/os: linux
   catalog.cattle.io/kube-version: ">=1.19.0-0"
   catalog.cattle.io/rancher-version: ">=2.5.0-0"

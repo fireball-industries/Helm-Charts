@@ -12,6 +12,7 @@ keywords:
   - timeseries
   - alerting
   - kubernetes
+  - forge-industrial
 home: https://prometheus.io
 sources:
   - https://github.com/prometheus/prometheus
@@ -26,6 +27,7 @@ annotations:
   catalog.cattle.io/display-name: "Prometheus Pod"
   catalog.cattle.io/release-name: prometheus-pod
   catalog.cattle.io/namespace: monitoring
+  catalog.cattle.io/categories: "Forge Industrial,Monitoring,Metrics"
   catalog.cattle.io/type: metrics
   catalog.cattle.io/os: linux
   catalog.cattle.io/provides-gvr: monitoring.coreos.com/v1/ServiceMonitor

@@ -21,6 +21,7 @@ keywords:
   - prometheus
   - fireball
   - podstore
+  - forge-industrial
 home: https://fireball.industries
 sources:
   - https://github.com/influxdata/telegraf
@@ -36,6 +37,7 @@ annotations:
   catalog.cattle.io/display-name: "Telegraf Metrics Collector"
   catalog.cattle.io/release-name: telegraf
   catalog.cattle.io/namespace: telegraf
+  catalog.cattle.io/categories: "Forge Industrial,Monitoring,Metrics"
   catalog.cattle.io/os: linux
   catalog.cattle.io/provides-gvr: apps/v1/deployment
   fireball.industries/product: "telegraf-pod"

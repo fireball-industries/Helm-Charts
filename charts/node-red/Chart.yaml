@@ -22,6 +22,7 @@ keywords:
   - workflow
   - mqtt
   - modbus
+  - forge-industrial
 
 home: https://nodered.org
 sources:
@@ -50,11 +51,7 @@ annotations:
   catalog.cattle.io/auto-install: "node-red=match"
   
   # UI Categories
-  catalog.cattle.io/categories: |
-    - Automation
-    - IoT
-    - Integration
-    - Development Tools
+  catalog.cattle.io/categories: "Forge Industrial,Automation,IoT,Integration"
   
   # Feature highlights
   catalog.cattle.io/featured: "true"

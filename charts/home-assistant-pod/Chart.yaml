@@ -20,6 +20,7 @@ keywords:
   - mqtt
   - home-assistant
   - building-automation
+  - forge-industrial
 
 home: https://github.com/fireballindustries/home-assistant-pod
 sources:
@@ -56,3 +57,4 @@ annotations:
   catalog.cattle.io/release-name: "industrial-iot"
   catalog.cattle.io/type: "industrial-automation"
   catalog.cattle.io/scope: "namespace"
+  catalog.cattle.io/categories: "Forge Industrial,IoT,Manufacturing"

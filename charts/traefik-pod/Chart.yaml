@@ -25,6 +25,7 @@ keywords:
   - iiot
   - routing
   - gateway
+  - forge-industrial
 
 home: https://github.com/fireball-industries/helm-charts
 sources:
@@ -50,7 +51,7 @@ annotations:
   catalog.cattle.io/rancher-version: ">=2.6.0"
   
   # Category
-  catalog.cattle.io/category: "Networking,Ingress,Industrial"
+  catalog.cattle.io/categories: "Forge Industrial,Networking,Ingress,Industrial"
   
   # Feature annotations
   catalog.cattle.io/auto-install: "traefik-pod=match"

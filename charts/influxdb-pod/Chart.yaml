@@ -13,6 +13,7 @@ keywords:
   - monitoring
   - factory
   - sensor-data
+  - forge-industrial
 home: https://github.com/fireball-industries/influxdb-pod
 sources:
   - https://github.com/influxdata/influxdb
@@ -27,6 +28,7 @@ annotations:
   catalog.cattle.io/namespace: cattle-system
   catalog.cattle.io/release-name: influxdb
   catalog.cattle.io/display-name: "InfluxDB Pod - Industrial Time-Series Database"
+  catalog.cattle.io/categories: "Forge Industrial,Database,Time-Series"
   catalog.cattle.io/kube-version: ">=1.24.0-0"
   catalog.cattle.io/os: linux
   catalog.cattle.io/provides-gvr: apps/v1/StatefulSet

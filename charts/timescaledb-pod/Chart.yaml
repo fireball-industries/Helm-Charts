@@ -16,6 +16,7 @@ keywords:
   - industrial
   - historian
   - metrics
+  - forge-industrial
 home: https://github.com/fireball-industries/timescaledb-helm
 sources:
   - https://github.com/timescale/timescaledb
@@ -31,6 +32,7 @@ annotations:
   catalog.cattle.io/display-name: "TimescaleDB - Industrial IoT Historian"
   catalog.cattle.io/release-name: "timescaledb"
   catalog.cattle.io/namespace: "databases"
+  catalog.cattle.io/categories: "Forge Industrial,Database,Time-Series"
   catalog.cattle.io/type: "database"
   catalog.cattle.io/os: "linux"
   catalog.cattle.io/auto-install: "timescaledb=match"

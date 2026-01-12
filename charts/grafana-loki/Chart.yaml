@@ -12,6 +12,7 @@ keywords:
   - monitoring
   - dashboards
   - log-aggregation
+  - forge-industrial
 home: https://github.com/fireball-industries/fireball-podstore-charts
 sources:
   - https://grafana.com/
@@ -27,6 +28,7 @@ annotations:
   catalog.cattle.io/display-name: "Grafana + Loki Pod"
   catalog.cattle.io/release-name: "grafana-loki"
   catalog.cattle.io/certified: "partner"
+  catalog.cattle.io/categories: "Forge Industrial,Monitoring,Observability"
   catalog.cattle.io/kube-version: ">=1.25.0"
   catalog.cattle.io/rancher-version: ">=2.6.0"
   catalog.cattle.io/namespace: "observability"

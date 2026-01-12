@@ -10,6 +10,7 @@ keywords:
   - monitoring
   - alerts
   - notifications
+  - forge-industrial
 home: https://github.com/fireball-industries/fireball-podstore-charts
 sources:
   - https://github.com/prometheus/alertmanager
@@ -24,6 +25,7 @@ annotations:
   catalog.cattle.io/display-name: "Alert Manager"
   catalog.cattle.io/release-name: "alert-manager"
   catalog.cattle.io/certified: "partner"
+  catalog.cattle.io/categories: "Forge Industrial,Monitoring,Alerting"
   catalog.cattle.io/kube-version: ">=1.25.0"
   catalog.cattle.io/rancher-version: ">=2.6.0"
   catalog.cattle.io/namespace: "cattle-monitoring-system"

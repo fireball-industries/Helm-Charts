@@ -32,3 +32,7 @@ annotations:
   category: Monitoring
   licenses: Apache-2.0
   # CODESYS runtime requires separate commercial license
+  
+  # Rancher Catalog - Hidden from marketplace (archived)
+  catalog.cattle.io/hidden: "true"
+  catalog.cattle.io/deprecated: "true"

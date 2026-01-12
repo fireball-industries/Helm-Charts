@@ -14,6 +14,7 @@ keywords:
   - scada
   - manufacturing
   - edge-computing
+  - forge-industrial
 home: https://github.com/fireball-industries/postgresql-pod
 sources:
   - https://github.com/postgres/postgres
@@ -28,6 +29,7 @@ annotations:
   catalog.cattle.io/display-name: "PostgreSQL Pod - Industrial Edition"
   catalog.cattle.io/release-name: "postgresql"
   catalog.cattle.io/namespace: "databases"
+  catalog.cattle.io/categories: "Forge Industrial,Database,SQL"
   catalog.cattle.io/os: "linux"
   catalog.cattle.io/type: "database"
   catalog.cattle.io/auto-install: "postgresql=16.1"

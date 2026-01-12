@@ -25,6 +25,7 @@ keywords:
   - industrial
   - k3s
   - kubernetes
+  - forge-industrial
 maintainers:
   - name: Patrick Ryan
     email: patrick@fireballindustries.com
@@ -38,6 +39,7 @@ annotations:
   catalog.cattle.io/os: linux
   catalog.cattle.io/type: cluster-tool
   catalog.cattle.io/namespace: monitoring
+  catalog.cattle.io/categories: "Forge Industrial,Monitoring,Hardware"
   
   # Artifact Hub
   artifacthub.io/category: monitoring-logging
