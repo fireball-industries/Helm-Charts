@@ -1,0 +1,80 @@
+apiVersion: v2
+name: microvm
+description: |
+  KubeVirt-powered MicroVM deployment for edge virtualization. Because sometimes
+  containers just aren't extra enough, and you need a VM inside your container
+  orchestrator inside your datacenter.
+  
+  Deploy lightweight virtual machines on Kubernetes using KubeVirt, perfect for
+  running legacy workloads, Windows applications, or when you need actual kernel
+  isolation. Supports cloud-init, persistent storage, custom networking, and
+  seamless integration with Kubernetes services.
+
+type: application
+version: 1.0.0
+appVersion: "1.0"
+
+keywords:
+  - kubevirt
+  - virtual-machine
+  - microvm
+  - edge
+  - virtualization
+  - vm
+  - qemu
+  - kvm
+  - cloud-init
+
+home: https://github.com/fireball-industries/helm-charts
+sources:
+  - https://kubevirt.io
+  - https://github.com/kubevirt/kubevirt
+  - https://documentation.suse.com/suse-edge/
+
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireballindustries.com
+    url: https://fireballindustries.com
+
+icon: https://kubevirt.io/assets/images/logos/kubevirt-icon-color.svg
+
+# Rancher Questions Annotation
+annotations:
+  catalog.cattle.io/certified: "fireball"
+  catalog.cattle.io/release-name: "microvm"
+  catalog.cattle.io/display-name: "MicroVM - KubeVirt Virtual Machine"
+  catalog.cattle.io/provides-gvr: "kubevirt.io/v1/VirtualMachine"
+  catalog.cattle.io/namespace: "default"
+  catalog.cattle.io/os: "linux"
+  catalog.cattle.io/kube-version: ">=1.24.0"
+  catalog.cattle.io/rancher-version: ">=2.6.0"
+  
+  # Category
+  catalog.cattle.io/category: "Virtualization,Edge,Infrastructure"
+  
+  # Feature annotations
+  catalog.cattle.io/auto-install: "microvm=match"
+  catalog.cattle.io/hidden: "false"
+  
+  # Prerequisites
+  catalog.cattle.io/requires: "KubeVirt operator must be installed (kubevirt-system namespace)"
+  
+  # Description for marketplace
+  catalog.cattle.io/description: |
+    Deploy lightweight virtual machines on Kubernetes using KubeVirt technology.
+    Perfect for edge computing, legacy applications, and scenarios requiring
+    kernel-level isolation.
+    
+    Features:
+    - Multiple VM presets (micro, small, medium, large)
+    - Cloud-init for automated configuration
+    - Persistent and ephemeral storage options
+    - Custom networking (pod network, multus, bridge)
+    - VNC console access
+    - Integration with Kubernetes services
+    - Resource management and limits
+    
+    Prerequisites:
+    - KubeVirt operator installed in cluster
+    - Virtualization extensions enabled on nodes
+    - CDI (Containerized Data Importer) for persistent volumes

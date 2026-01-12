@@ -1,0 +1,192 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: {{ .Values.global.vmName }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "microvm.labels" . | nindent 4 }}
+  {{- with .Values.vm.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  runStrategy: {{ .Values.vm.runStrategy }}
+  template:
+    metadata:
+      labels:
+        {{- include "microvm.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.advanced.evictionStrategy }}
+      evictionStrategy: {{ .Values.advanced.evictionStrategy }}
+      {{- end }}
+      {{- if .Values.advanced.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.advanced.terminationGracePeriodSeconds }}
+      {{- end }}
+      domain:
+        {{- with include "microvm.resources" . }}
+        resources:
+          requests:
+            {{ . | nindent 12 }}
+          limits:
+            {{ . | nindent 12 }}
+        {{- end }}
+        {{- if .Values.advanced.dedicatedCpuPlacement }}
+        cpu:
+          dedicatedCpuPlacement: true
+          {{- if .Values.advanced.cpuModel }}
+          model: {{ .Values.advanced.cpuModel }}
+          {{- end }}
+        {{- else if .Values.advanced.cpuModel }}
+        cpu:
+          model: {{ .Values.advanced.cpuModel }}
+        {{- end }}
+        memory:
+          {{- $resources := include "microvm.resources" . | fromYaml }}
+          guest: {{ $resources.memory }}
+        machine:
+          type: {{ .Values.vm.machineType }}
+        devices:
+          disks:
+            - name: boot-disk
+              disk:
+                bus: virtio
+            {{- if .Values.cloudInit.enabled }}
+            - name: cloudinit-disk
+              disk:
+                bus: virtio
+            {{- end }}
+            {{- range .Values.disks.additional }}
+            - name: {{ .name }}
+              disk:
+                bus: virtio
+            {{- end }}
+          interfaces:
+            {{- if eq .Values.networking.type "pod" }}
+            - name: default
+              {{- if .Values.networking.pod.masquerade }}
+              masquerade: {}
+              {{- else }}
+              bridge: {}
+              {{- end }}
+            {{- else if eq .Values.networking.type "bridge" }}
+            - name: default
+              bridge: {}
+            {{- end }}
+          {{- if .Values.devices.gpu.enabled }}
+          gpus:
+            - deviceName: {{ .Values.devices.gpu.deviceName }}
+              name: gpu
+          {{- end }}
+          {{- if .Values.devices.hostDevices }}
+          hostDevices:
+            {{- range .Values.devices.hostDevices }}
+            - deviceName: {{ .deviceName }}
+              name: {{ .name }}
+            {{- end }}
+          {{- end }}
+        {{- if or .Values.features.acpi .Values.features.smm .Values.features.efi.enabled }}
+        features:
+          {{- if .Values.features.acpi }}
+          acpi: {}
+          {{- end }}
+          {{- if .Values.features.smm }}
+          smm: {}
+          {{- end }}
+          {{- if .Values.features.efi.enabled }}
+          efi:
+            {{- if .Values.features.efi.secureBoot }}
+            secureBoot: true
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- if .Values.vm.hostname }}
+      hostname: {{ .Values.vm.hostname }}
+      {{- end }}
+      networks:
+        {{- if eq .Values.networking.type "pod" }}
+        - name: default
+          pod: {}
+        {{- else if eq .Values.networking.type "bridge" }}
+        - name: default
+          pod: {}
+        {{- else if eq .Values.networking.type "multus" }}
+        {{- if .Values.networking.multus.enabled }}
+        {{- range .Values.networking.multus.networks }}
+        - name: {{ .name }}
+          multus:
+            networkName: {{ .name }}
+            {{- if .namespace }}
+            namespace: {{ .namespace }}
+            {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+      {{- if or .Values.networking.dns.nameservers .Values.networking.dns.searches }}
+      dnsConfig:
+        {{- if .Values.networking.dns.nameservers }}
+        nameservers:
+          {{- range .Values.networking.dns.nameservers }}
+          - {{ . }}
+          {{- end }}
+        {{- end }}
+        {{- if .Values.networking.dns.searches }}
+        searches:
+          {{- range .Values.networking.dns.searches }}
+          - {{ . }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      volumes:
+        - name: boot-disk
+          {{- if eq .Values.disks.boot.type "containerDisk" }}
+          containerDisk:
+            image: {{ .Values.disks.boot.image }}
+          {{- else if eq .Values.disks.boot.type "dataVolume" }}
+          dataVolume:
+            name: {{ .Values.global.vmName }}-boot-dv
+          {{- else if eq .Values.disks.boot.type "persistentVolumeClaim" }}
+          persistentVolumeClaim:
+            {{- if .Values.disks.boot.existingPvcName }}
+            claimName: {{ .Values.disks.boot.existingPvcName }}
+            {{- else }}
+            claimName: {{ .Values.global.vmName }}-boot-pvc
+            {{- end }}
+          {{- else if eq .Values.disks.boot.type "ephemeral" }}
+          ephemeral:
+            persistentVolumeClaim:
+              claimName: {{ .Values.global.vmName }}-boot-ephemeral
+          {{- end }}
+        {{- if .Values.cloudInit.enabled }}
+        - name: cloudinit-disk
+          cloudInitNoCloud:
+            userDataBase64: {{ include "microvm.cloudInitUserData" . | quote }}
+            {{- if .Values.cloudInit.networkData }}
+            networkDataBase64: {{ .Values.cloudInit.networkData | b64enc | quote }}
+            {{- end }}
+        {{- end }}
+        {{- range .Values.disks.additional }}
+        - name: {{ .name }}
+          {{- if eq .type "dataVolume" }}
+          dataVolume:
+            name: {{ $.Values.global.vmName }}-{{ .name }}-dv
+          {{- else if eq .type "persistentVolumeClaim" }}
+          persistentVolumeClaim:
+            claimName: {{ .existingPvcName | default (printf "%s-%s-pvc" $.Values.global.vmName .name) }}
+          {{- else if eq .type "ephemeral" }}
+          ephemeral:
+            persistentVolumeClaim:
+              claimName: {{ $.Values.global.vmName }}-{{ .name }}-ephemeral
+          {{- end }}
+        {{- end }}

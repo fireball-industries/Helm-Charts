@@ -1,0 +1,374 @@
+categories:
+  - Virtualization
+  - Edge
+  - Infrastructure
+questions:
+  # ============================================================================
+  # VM Identity
+  # ============================================================================
+  - variable: global.vmName
+    label: "Virtual Machine Name"
+    description: "Unique name for this virtual machine (used in kubectl get vmi)"
+    type: string
+    required: true
+    default: "microvm"
+    group: "VM Configuration"
+
+  - variable: vm.hostname
+    label: "VM Hostname"
+    description: "Hostname inside the guest operating system"
+    type: string
+    required: true
+    default: "microvm"
+    group: "VM Configuration"
+
+  # ============================================================================
+  # Resource Configuration
+  # ============================================================================
+  - variable: vm.resourcePreset
+    label: "Resource Preset"
+    description: "Pre-configured CPU and memory allocation for common workloads"
+    type: enum
+    required: true
+    default: "medium"
+    group: "Resources"
+    options:
+      - "micro"
+      - "small"
+      - "medium"
+      - "large"
+      - "xlarge"
+      - "custom"
+
+  - variable: vm.resources.cpu
+    label: "CPU Cores"
+    description: "Number of virtual CPU cores"
+    type: int
+    required: true
+    default: 2
+    min: 1
+    max: 32
+    group: "Resources"
+    show_if: "vm.resourcePreset=custom"
+
+  - variable: vm.resources.memory
+    label: "Memory"
+    description: "RAM allocation (e.g., 1Gi, 2Gi, 4Gi)"
+    type: string
+    required: true
+    default: "2Gi"
+    group: "Resources"
+    show_if: "vm.resourcePreset=custom"
+
+  # ============================================================================
+  # Run Strategy
+  # ============================================================================
+  - variable: vm.runStrategy
+    label: "Run Strategy"
+    description: "VM lifecycle management strategy"
+    type: enum
+    required: true
+    default: "Always"
+    group: "VM Configuration"
+    options:
+      - "Always"
+      - "Manual"
+      - "Halted"
+      - "RerunOnFailure"
+
+  - variable: vm.machineType
+    label: "Machine Type"
+    description: "Emulated hardware platform (q35 recommended for modern systems)"
+    type: enum
+    required: true
+    default: "q35"
+    group: "VM Configuration"
+    options:
+      - "q35"
+      - "pc"
+
+  # ============================================================================
+  # Boot Disk Configuration
+  # ============================================================================
+  - variable: disks.boot.type
+    label: "Boot Disk Type"
+    description: "Storage backend for the VM boot disk"
+    type: enum
+    required: true
+    default: "containerDisk"
+    group: "Storage"
+    options:
+      - "containerDisk"
+      - "dataVolume"
+      - "persistentVolumeClaim"
+      - "ephemeral"
+
+  - variable: disks.boot.image
+    label: "Container Disk Image"
+    description: "Container image with OS disk (e.g., quay.io/containerdisks/opensuse-tumbleweed:1.0.0)"
+    type: string
+    required: false
+    default: "quay.io/containerdisks/opensuse-tumbleweed:1.0.0"
+    group: "Storage"
+    show_if: "disks.boot.type=containerDisk"
+
+  - variable: disks.boot.size
+    label: "Disk Size"
+    description: "Size of persistent boot disk (e.g., 10Gi, 20Gi)"
+    type: string
+    required: false
+    default: "10Gi"
+    group: "Storage"
+    show_if: "disks.boot.type=dataVolume||disks.boot.type=persistentVolumeClaim"
+
+  - variable: disks.boot.storageClass
+    label: "Storage Class"
+    description: "Kubernetes storage class for persistent volumes"
+    type: storageclass
+    required: false
+    default: "local-path"
+    group: "Storage"
+    show_if: "disks.boot.type=dataVolume||disks.boot.type=persistentVolumeClaim"
+
+  - variable: disks.boot.existingPvcName
+    label: "Existing PVC Name"
+    description: "Name of existing PersistentVolumeClaim to use as boot disk"
+    type: pvc
+    required: false
+    group: "Storage"
+    show_if: "disks.boot.type=persistentVolumeClaim"
+
+  # ============================================================================
+  # Cloud-Init Configuration
+  # ============================================================================
+  - variable: cloudInit.enabled
+    label: "Enable Cloud-Init"
+    description: "Automated VM configuration at boot (users, SSH, packages)"
+    type: boolean
+    required: true
+    default: true
+    group: "Cloud-Init"
+
+  - variable: cloudInit.useBase64
+    label: "Use Base64 Encoded User Data"
+    description: "If true, provide base64-encoded cloud-init data"
+    type: boolean
+    required: true
+    default: false
+    group: "Cloud-Init"
+    show_if: "cloudInit.enabled=true"
+
+  - variable: cloudInit.userData
+    label: "Cloud-Init User Data"
+    description: "Cloud-config YAML for VM initialization (creates default 'suse' user)"
+    type: multiline
+    required: false
+    default: |
+      #cloud-config
+      disable_root: false
+      ssh_pwauth: true
+      users:
+        - default
+        - name: suse
+          groups: sudo,wheel
+          shell: /bin/bash
+          sudo: ALL=(ALL) NOPASSWD:ALL
+          lock_passwd: false
+          plain_text_passwd: 'suse'
+      packages:
+        - qemu-guest-agent
+      runcmd:
+        - systemctl enable qemu-guest-agent
+        - systemctl start qemu-guest-agent
+    group: "Cloud-Init"
+    show_if: "cloudInit.enabled=true&&cloudInit.useBase64=false"
+
+  - variable: cloudInit.userDataBase64
+    label: "Base64 Encoded User Data"
+    description: "Base64-encoded cloud-init configuration"
+    type: multiline
+    required: false
+    group: "Cloud-Init"
+    show_if: "cloudInit.enabled=true&&cloudInit.useBase64=true"
+
+  # ============================================================================
+  # Networking
+  # ============================================================================
+  - variable: networking.type
+    label: "Network Type"
+    description: "Networking mode for the virtual machine"
+    type: enum
+    required: true
+    default: "pod"
+    group: "Networking"
+    options:
+      - "pod"
+      - "multus"
+      - "bridge"
+
+  - variable: networking.pod.masquerade
+    label: "Use Masquerade (NAT)"
+    description: "Enable NAT for pod networking (recommended)"
+    type: boolean
+    required: true
+    default: true
+    group: "Networking"
+    show_if: "networking.type=pod"
+
+  # ============================================================================
+  # Service Exposure
+  # ============================================================================
+  - variable: service.enabled
+    label: "Create Kubernetes Service"
+    description: "Expose VM ports via Kubernetes Service"
+    type: boolean
+    required: true
+    default: false
+    group: "Service"
+
+  - variable: service.type
+    label: "Service Type"
+    description: "Type of Kubernetes service to create"
+    type: enum
+    required: false
+    default: "ClusterIP"
+    group: "Service"
+    show_if: "service.enabled=true"
+    options:
+      - "ClusterIP"
+      - "NodePort"
+      - "LoadBalancer"
+
+  # ============================================================================
+  # Ingress Configuration
+  # ============================================================================
+  - variable: ingress.enabled
+    label: "Enable Ingress"
+    description: "Expose VM via HTTP/HTTPS ingress (requires service enabled)"
+    type: boolean
+    required: true
+    default: false
+    group: "Ingress"
+
+  - variable: ingress.host
+    label: "Ingress Hostname"
+    description: "Hostname for ingress access (e.g., microvm.example.com)"
+    type: hostname
+    required: false
+    default: "microvm.example.com"
+    group: "Ingress"
+    show_if: "ingress.enabled=true"
+
+  - variable: ingress.className
+    label: "Ingress Class"
+    description: "Ingress controller to use (nginx, traefik, etc.)"
+    type: string
+    required: false
+    default: "nginx"
+    group: "Ingress"
+    show_if: "ingress.enabled=true"
+
+  - variable: ingress.tls.enabled
+    label: "Enable TLS/HTTPS"
+    description: "Enable HTTPS with TLS certificate"
+    type: boolean
+    required: true
+    default: false
+    group: "Ingress"
+    show_if: "ingress.enabled=true"
+
+  - variable: ingress.tls.secretName
+    label: "TLS Secret Name"
+    description: "Name of Kubernetes secret containing TLS certificate"
+    type: secret
+    required: false
+    default: "microvm-tls"
+    group: "Ingress"
+    show_if: "ingress.enabled=true&&ingress.tls.enabled=true"
+
+  # ============================================================================
+  # Console Access
+  # ============================================================================
+  - variable: console.vnc.enabled
+    label: "Enable VNC Console"
+    description: "Allow VNC console access (use: virtctl vnc <vm-name>)"
+    type: boolean
+    required: true
+    default: true
+    group: "Console"
+
+  - variable: console.serial.enabled
+    label: "Enable Serial Console"
+    description: "Allow serial console access (use: virtctl console <vm-name>)"
+    type: boolean
+    required: true
+    default: true
+    group: "Console"
+
+  # ============================================================================
+  # Advanced Features
+  # ============================================================================
+  - variable: features.acpi
+    label: "Enable ACPI"
+    description: "ACPI support for graceful shutdown"
+    type: boolean
+    required: true
+    default: true
+    group: "Advanced"
+
+  - variable: features.efi.enabled
+    label: "Enable EFI Boot"
+    description: "Use UEFI firmware instead of BIOS"
+    type: boolean
+    required: true
+    default: false
+    group: "Advanced"
+
+  - variable: features.efi.secureBoot
+    label: "Enable Secure Boot"
+    description: "Enable UEFI Secure Boot (requires EFI enabled)"
+    type: boolean
+    required: true
+    default: false
+    group: "Advanced"
+    show_if: "features.efi.enabled=true"
+
+  - variable: advanced.evictionStrategy
+    label: "Eviction Strategy"
+    description: "VM behavior during node drain/maintenance"
+    type: enum
+    required: true
+    default: "None"
+    group: "Advanced"
+    options:
+      - "None"
+      - "LiveMigrate"
+      - "External"
+
+  - variable: advanced.liveMigration.enabled
+    label: "Enable Live Migration"
+    description: "Allow VM migration between nodes without downtime"
+    type: boolean
+    required: true
+    default: false
+    group: "Advanced"
+
+  # ============================================================================
+  # Monitoring
+  # ============================================================================
+  - variable: monitoring.enabled
+    label: "Enable Prometheus Metrics"
+    description: "Expose VM metrics for Prometheus"
+    type: boolean
+    required: true
+    default: true
+    group: "Monitoring"
+
+  - variable: monitoring.serviceMonitor.enabled
+    label: "Create ServiceMonitor"
+    description: "Create Prometheus Operator ServiceMonitor resource"
+    type: boolean
+    required: true
+    default: false
+    group: "Monitoring"
+    show_if: "monitoring.enabled=true"

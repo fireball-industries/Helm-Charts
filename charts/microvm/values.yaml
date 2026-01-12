@@ -1,0 +1,376 @@
+# ============================================================================
+# MicroVM (KubeVirt) Helm Chart - Default Values
+# ============================================================================
+# Fireball Industries - Patrick Ryan
+# "Virtual machines on Kubernetes: Because we can, and nobody can stop us"
+#
+# Deploy KubeVirt VirtualMachine resources for edge computing scenarios
+# Perfect for legacy apps, Windows workloads, or when containers aren't overkill enough
+# ============================================================================
+
+# Global settings
+global:
+  # Name of the virtual machine
+  # This will be the VM name in kubectl get vmi
+  vmName: "microvm"
+  
+  # Namespace for the VM
+  namespace: "default"
+
+# ============================================================================
+# VIRTUAL MACHINE CONFIGURATION
+# ============================================================================
+vm:
+  # Run strategy: Always, Manual, Halted, RerunOnFailure
+  # Always: VM should always be running (auto-restart)
+  # Manual: Requires manual start/stop via virtctl
+  # Halted: VM is stopped
+  # RerunOnFailure: Restart on crashes only
+  runStrategy: "Always"
+  
+  # Resource preset profiles
+  # Options: micro, small, medium, large, custom
+  # micro:  1 CPU, 512Mi RAM   - Minimal services, testing
+  # small:  1 CPU, 1Gi RAM     - Light workloads, edge services
+  # medium: 2 CPU, 2Gi RAM     - Standard applications (default)
+  # large:  4 CPU, 4Gi RAM     - Heavy workloads, databases
+  # custom: Use resources section below
+  resourcePreset: "medium"
+  
+  # Custom resources (used when resourcePreset: custom)
+  resources:
+    cpu: 2
+    memory: "2Gi"
+  
+  # Machine type - affects available hardware features
+  # q35: Modern Intel chipset (recommended)
+  # pc: Legacy PC chipset
+  machineType: "q35"
+  
+  # Hostname for the VM (appears in guest OS)
+  hostname: "microvm"
+  
+  # Labels to apply to the VirtualMachine resource
+  labels:
+    app: microvm
+    environment: production
+  
+  # Annotations for the VM
+  annotations: {}
+
+# ============================================================================
+# DISK CONFIGURATION
+# ============================================================================
+# VMs need boot disks. Choose your storage adventure carefully.
+# ============================================================================
+disks:
+  # Boot disk configuration
+  boot:
+    # Disk type: containerDisk, dataVolume, persistentVolumeClaim, ephemeral
+    # containerDisk: Image stored in container registry (ephemeral, fast)
+    # dataVolume: CDI-managed persistent volume (requires CDI)
+    # persistentVolumeClaim: Existing PVC
+    # ephemeral: Temporary disk (data lost on restart)
+    type: "containerDisk"
+    
+    # Container disk image (when type: containerDisk)
+    # Popular options:
+    # - quay.io/containerdisks/opensuse-tumbleweed:1.0.0
+    # - quay.io/containerdisks/ubuntu:22.04
+    # - quay.io/containerdisks/fedora:latest
+    # - quay.io/containerdisks/alpine:latest
+    image: "quay.io/containerdisks/opensuse-tumbleweed:1.0.0"
+    
+    # Disk size (for dataVolume or PVC types)
+    size: "10Gi"
+    
+    # Storage class (for persistent volumes)
+    storageClass: "local-path"
+    
+    # Existing PVC name (when type: persistentVolumeClaim)
+    existingPvcName: ""
+    
+    # Access mode for persistent volumes
+    accessMode: "ReadWriteOnce"
+  
+  # Additional data disks
+  # Each entry creates an extra disk attached to the VM
+  additional: []
+    # - name: data-disk
+    #   type: dataVolume
+    #   size: 20Gi
+    #   storageClass: local-path
+    # - name: cache-disk
+    #   type: ephemeral
+    #   size: 5Gi
+
+# ============================================================================
+# CLOUD-INIT CONFIGURATION
+# ============================================================================
+# Automated VM configuration at boot time
+# Perfect for setting up users, SSH keys, packages, etc.
+# ============================================================================
+cloudInit:
+  enabled: true
+  
+  # Cloud-init type: noCloud, configDrive
+  type: "noCloud"
+  
+  # User data (base64 encoded or plain text)
+  # If useBase64: false, this will be automatically encoded
+  useBase64: false
+  
+  # Plain text user data (YAML format)
+  # This creates a default user with SSH access
+  userData: |
+    #cloud-config
+    disable_root: false
+    ssh_pwauth: true
+    users:
+      - default
+      - name: suse
+        groups: sudo,wheel
+        shell: /bin/bash
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        lock_passwd: false
+        plain_text_passwd: 'suse'
+    package_update: true
+    package_upgrade: false
+    packages:
+      - qemu-guest-agent
+    runcmd:
+      - systemctl enable qemu-guest-agent
+      - systemctl start qemu-guest-agent
+  
+  # Alternative: Provide base64-encoded user data directly
+  # (Overrides userData if both are set)
+  userDataBase64: ""
+  
+  # Network configuration (optional)
+  networkData: ""
+
+# ============================================================================
+# NETWORKING CONFIGURATION
+# ============================================================================
+networking:
+  # Network type: pod, multus, bridge
+  # pod: Standard Kubernetes pod networking (simplest)
+  # multus: Multiple network interfaces via Multus CNI
+  # bridge: Linux bridge networking (requires node configuration)
+  type: "pod"
+  
+  # Pod network settings (when type: pod)
+  pod:
+    # Use masquerade mode (NAT)
+    masquerade: true
+  
+  # Multus network attachments (when type: multus)
+  # Requires Multus CNI installed in cluster
+  multus:
+    enabled: false
+    networks: []
+      # - name: bridge-network
+      #   namespace: default
+  
+  # DNS settings
+  dns:
+    # Custom nameservers
+    nameservers: []
+      # - 8.8.8.8
+      # - 1.1.1.1
+    
+    # Search domains
+    searches: []
+      # - cluster.local
+
+# ============================================================================
+# SERVICE EXPOSURE
+# ============================================================================
+# Expose VM ports via Kubernetes Service
+# Use virtctl expose or create services manually
+# ============================================================================
+service:
+  enabled: false
+  
+  # Service type: ClusterIP, NodePort, LoadBalancer
+  type: "ClusterIP"
+  
+  # Service ports
+  ports: []
+    # - name: ssh
+    #   port: 22
+    #   targetPort: 22
+    #   protocol: TCP
+    # - name: http
+    #   port: 80
+    #   targetPort: 80
+    #   protocol: TCP
+  
+  # Annotations for the service
+  annotations: {}
+
+# ============================================================================
+# INGRESS CONFIGURATION
+# ============================================================================
+ingress:
+  enabled: false
+  
+  # Ingress class name
+  className: "nginx"
+  
+  # Hostname for ingress
+  host: "microvm.example.com"
+  
+  # Path and path type
+  path: "/"
+  pathType: "Prefix"
+  
+  # Target service port
+  servicePort: 80
+  
+  # TLS configuration
+  tls:
+    enabled: false
+    secretName: "microvm-tls"
+  
+  # Annotations for ingress
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+
+# ============================================================================
+# CONSOLE & ACCESS
+# ============================================================================
+console:
+  # Enable VNC console access
+  # Access via: virtctl vnc <vm-name>
+  vnc:
+    enabled: true
+  
+  # Enable serial console
+  # Access via: virtctl console <vm-name>
+  serial:
+    enabled: true
+
+# ============================================================================
+# NODE PLACEMENT
+# ============================================================================
+# Control where VMs can be scheduled
+# Important for hardware requirements (KVM, virtualization extensions)
+# ============================================================================
+nodeSelector: {}
+  # kubevirt.io/schedulable: "true"
+  # node-role.kubernetes.io/worker: "true"
+
+# Tolerations for node taints
+tolerations: []
+  # - key: "kubevirt"
+  #   operator: "Equal"
+  #   value: "true"
+  #   effect: "NoSchedule"
+
+# Affinity rules
+affinity: {}
+  # nodeAffinity:
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #     nodeSelectorTerms:
+  #     - matchExpressions:
+  #       - key: kubevirt.io/schedulable
+  #         operator: In
+  #         values:
+  #         - "true"
+
+# ============================================================================
+# FEATURES & DEVICES
+# ============================================================================
+features:
+  # ACPI shutdown support
+  acpi: true
+  
+  # SMM (Secure Boot support)
+  smm: false
+  
+  # EFI boot
+  efi:
+    enabled: false
+    secureBoot: false
+
+# Guest devices
+devices:
+  # GPU passthrough (requires node configuration)
+  gpu:
+    enabled: false
+    deviceName: ""
+  
+  # Host devices passthrough
+  hostDevices: []
+    # - name: sound
+    #   deviceName: intel-hda
+
+# ============================================================================
+# MONITORING & OBSERVABILITY
+# ============================================================================
+monitoring:
+  # Enable Prometheus metrics
+  # Exposed by KubeVirt components automatically
+  enabled: true
+  
+  # ServiceMonitor for Prometheus Operator
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels: {}
+
+# ============================================================================
+# ADVANCED SETTINGS
+# ============================================================================
+advanced:
+  # Eviction strategy: LiveMigrate, External, None
+  # LiveMigrate: Migrate VM before node drain (requires live migration support)
+  # External: Handled externally
+  # None: VM is terminated
+  evictionStrategy: "None"
+  
+  # Termination grace period (seconds)
+  terminationGracePeriodSeconds: 30
+  
+  # Enable live migration
+  liveMigration:
+    enabled: false
+  
+  # CPU model - specific CPU features
+  # Options: host-model, host-passthrough, or specific model
+  cpuModel: "host-model"
+  
+  # Dedicated CPU resources (pinning)
+  dedicatedCpuPlacement: false
+  
+  # NUMA topology
+  numa:
+    enabled: false
+
+# ============================================================================
+# PRESETS OVERRIDE
+# ============================================================================
+# Resource presets for quick deployment
+# Uncomment to override the resourcePreset selection
+# ============================================================================
+presets:
+  micro:
+    cpu: 1
+    memory: "512Mi"
+  
+  small:
+    cpu: 1
+    memory: "1Gi"
+  
+  medium:
+    cpu: 2
+    memory: "2Gi"
+  
+  large:
+    cpu: 4
+    memory: "4Gi"
+  
+  xlarge:
+    cpu: 8
+    memory: "8Gi"

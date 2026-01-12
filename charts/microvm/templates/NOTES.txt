@@ -1,0 +1,168 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║  MicroVM (KubeVirt) Virtual Machine Deployed Successfully! 🚀               ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+Virtual Machine: {{ .Values.global.vmName }}
+Namespace:       {{ .Values.global.namespace }}
+Run Strategy:    {{ .Values.vm.runStrategy }}
+{{- $resources := include "microvm.resources" . | fromYaml }}
+Resources:       {{ $resources.cpu }} CPU, {{ $resources.memory }} RAM
+Boot Disk:       {{ .Values.disks.boot.type }}
+{{- if eq .Values.disks.boot.type "containerDisk" }}
+Image:           {{ .Values.disks.boot.image }}
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 NEXT STEPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Check VM Status:
+   
+   kubectl get vm {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+   kubectl get vmi {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+
+2. Wait for VM to be Running:
+
+   kubectl wait --for=condition=Ready vmi/{{ .Values.global.vmName }} -n {{ .Values.global.namespace }} --timeout=5m
+
+{{- if eq .Values.vm.runStrategy "Manual" }}
+
+3. Start the VM (Manual runStrategy):
+
+   virtctl start {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+{{- end }}
+
+{{- if .Values.console.vnc.enabled }}
+
+3. Access VNC Console:
+
+   virtctl vnc {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+{{- end }}
+
+{{- if .Values.console.serial.enabled }}
+
+4. Access Serial Console:
+
+   virtctl console {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+{{- end }}
+
+{{- if .Values.cloudInit.enabled }}
+
+5. SSH Access (after cloud-init completes):
+
+   # Get VM IP address
+   kubectl get vmi {{ .Values.global.vmName }} -n {{ .Values.global.namespace }} -o jsonpath='{.status.interfaces[0].ipAddress}'
+   
+   # SSH via virtctl (recommended)
+   virtctl ssh suse@{{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+   
+   # Default credentials (from cloud-init):
+   Username: suse
+   Password: suse
+   
+   ⚠️  SECURITY: Change the default password immediately in production!
+{{- end }}
+
+{{- if .Values.service.enabled }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌐 SERVICE ENDPOINTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Service Name: {{ .Values.global.vmName }}
+Service Type: {{ .Values.service.type }}
+
+{{- if eq .Values.service.type "ClusterIP" }}
+Access from within cluster:
+{{- range .Values.service.ports }}
+  {{ .name }}: {{ $.Values.global.vmName }}.{{ $.Values.global.namespace }}.svc.cluster.local:{{ .port }}
+{{- end }}
+{{- else if eq .Values.service.type "NodePort" }}
+Access via NodePort:
+{{- range .Values.service.ports }}
+  {{ .name }}: <NODE-IP>:<NODE-PORT>
+{{- end }}
+
+Get NodePort:
+  kubectl get svc {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+{{- else if eq .Values.service.type "LoadBalancer" }}
+Access via LoadBalancer:
+  
+  kubectl get svc {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+  
+Wait for EXTERNAL-IP to be assigned.
+{{- end }}
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔗 INGRESS ACCESS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Hostname: {{ .Values.ingress.host }}
+{{- if .Values.ingress.tls.enabled }}
+URL:      https://{{ .Values.ingress.host }}{{ .Values.ingress.path }}
+{{- else }}
+URL:      http://{{ .Values.ingress.host }}{{ .Values.ingress.path }}
+{{- end }}
+
+Verify DNS points to your ingress controller before accessing.
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛠️  VM MANAGEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Stop VM:
+  virtctl stop {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+
+Start VM:
+  virtctl start {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+
+Restart VM:
+  virtctl restart {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+
+Pause VM:
+  virtctl pause vm {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+
+Unpause VM:
+  virtctl unpause vm {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+
+Delete VM:
+  kubectl delete vm {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 MONITORING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+View VM details:
+  kubectl describe vm {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+  kubectl describe vmi {{ .Values.global.vmName }} -n {{ .Values.global.namespace }}
+
+View virt-launcher pod:
+  kubectl get pods -n {{ .Values.global.namespace }} | grep {{ .Values.global.vmName }}
+
+View logs:
+  kubectl logs -n {{ .Values.global.namespace }} virt-launcher-{{ .Values.global.vmName }}-xxxxx
+
+{{- if .Values.monitoring.enabled }}
+Prometheus metrics available via KubeVirt components.
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Chart Documentation: charts/microvm/README.md
+KubeVirt Docs:       https://kubevirt.io
+SUSE Edge Docs:      https://documentation.suse.com/suse-edge/
+Cloud-Init:          https://cloudinit.readthedocs.io/
+
+Support: patrick@fireballindustries.com
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  Fireball Industries - "Ignite Your Factory Efficiency™"                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝

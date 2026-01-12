@@ -1,0 +1,47 @@
+{{- if and (eq .Values.disks.boot.type "dataVolume") (not .Values.disks.boot.existingPvcName) }}
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: {{ .Values.global.vmName }}-boot-dv
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "microvm.labels" . | nindent 4 }}
+spec:
+  source:
+    registry:
+      url: "docker://{{ .Values.disks.boot.image }}"
+  storage:
+    accessModes:
+      - {{ .Values.disks.boot.accessMode }}
+    resources:
+      requests:
+        storage: {{ .Values.disks.boot.size }}
+    {{- if .Values.disks.boot.storageClass }}
+    storageClassName: {{ .Values.disks.boot.storageClass }}
+    {{- end }}
+{{- end }}
+---
+{{- range .Values.disks.additional }}
+{{- if eq .type "dataVolume" }}
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: {{ $.Values.global.vmName }}-{{ .name }}-dv
+  namespace: {{ $.Values.global.namespace }}
+  labels:
+    {{- include "microvm.labels" $ | nindent 4 }}
+spec:
+  source:
+    blank: {}
+  storage:
+    accessModes:
+      - {{ .accessMode | default "ReadWriteOnce" }}
+    resources:
+      requests:
+        storage: {{ .size }}
+    {{- if .storageClass }}
+    storageClassName: {{ .storageClass }}
+    {{- end }}
+---
+{{- end }}
+{{- end }}
