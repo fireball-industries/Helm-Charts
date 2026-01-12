@@ -1,68 +1,71 @@
 # Rancher Auto-Deployment Guide
 
-**Automatic Chart Detection & Self-Service Deployment for Multi-Tenant K3s**
+**Automatic Chart Catalog for Multi-Tenant K3s**
 
-**Deployment Model:** Self-Service Multi-Tenant Platform
-- **Fireball Industries provides** a catalog of 20+ Helm charts
-- **Tenants have access** to browse and install charts
-- **Tenants choose** which services they want to deploy
-- **Self-service model** - tenants manage their own deployments
+## 🎯 Overview
 
----
+**ADMIN (Fireball Industries):**
+- Configure GitHub repository connection **ONCE** at cluster level
+- Rancher automatically watches GitHub and syncs new/updated charts
+- Provide curated catalog of 20+ Helm charts to all tenants
 
-## 🎯 What This Does
-
-**When you push changes to this GitHub repository:**
-- ✅ Rancher auto-detects new charts (5-15 minutes)
-- ✅ Rancher auto-detects chart updates (5-15 minutes)
-- ✅ Tenants see "Upgrade Available" for their deployed services
-- ✅ Tenants choose when to upgrade (self-service)
-
-**This provides a self-service catalog where tenants control their deployments.**
+**TENANTS (Clients):**
+- Browse Apps → Charts in Rancher UI
+- See all Fireball Industries charts automatically available
+- Install/upgrade charts with one click
+- **NO GitHub access required. NO repository import needed.**
 
 ---
 
-## 🏗️ Architecture Overview
+## 🚀 How It Works
 
-### Your Self-Service Platform Model:
+**When you (admin) push changes to GitHub:**
+1. ✅ Rancher automatically detects new charts (5-15 minutes)
+2. ✅ Rancher automatically detects chart updates (5-15 minutes)
+3. ✅ Charts appear in tenant catalog immediately
+4. ✅ Tenants see "Upgrade Available" for deployed services
+5. ✅ Tenants click "Upgrade" when ready
+
+**Tenants never interact with GitHub. Everything is in Rancher UI.**
+
+---
+
+## 🏗️ Architecture
 
 ```
-Fireball Industries (Platform Provider)
-    ↓
-Provides 20+ Chart Catalog
-    ↓
-┌─────────────────────────────────────┐
-│ Tenant A          Tenant B          │
-│ CHOOSES:          CHOOSES:          │
-│ - Grafana         - Ignition        │
-│ - CODESYS         - Node-RED        │
-│ - MQTT            - PostgreSQL      │
-│ (namespace A)     (namespace B)     │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│ ADMIN (Fireball Industries)                     │
+│                                                  │
+│ GitHub Repo ──→ Rancher Catalog (configured once)│
+│  charts/           ↓                             │
+│   ├─ emberburn    Auto-sync every 15 min        │
+│   ├─ codesys                                     │
+│   └─ ignition                                    │
+└─────────────────────────────────────────────────┘
+                      ↓
+          ┌──────────────────────┐
+          │  Rancher Catalog     │
+          │  (Apps → Charts)     │
+          └──────────────────────┘
+                      ↓
+    ┌─────────────────────────────────────┐
+    │ TENANTS (Browse & Install)          │
+    │                                     │
+    │ Tenant A          Tenant B          │
+    │ INSTALLS:         INSTALLS:         │
+    │ - Grafana         - Ignition        │
+    │ - CODESYS         - Node-RED        │
+    │ - MQTT            - PostgreSQL      │
+    │ (namespace A)     (namespace B)     │
+    └─────────────────────────────────────┘
 ```
 
 **Key Points:**
-- ✅ You provide the chart catalog (20+ services available)
-- ✅ Tenants have Rancher access to install charts
-- ✅ Tenants choose which services they want
-- ✅ Tenants manage their own upgrades
-- ✅ Each tenant has isolated namespace
-
-### Deployment Flow:
-
-```
-You push chart update to GitHub
-    ↓
-Rancher detects change (5-15 minutes polling)
-    ↓
-Charts show "Upgrade Available" in tenant UI
-    ↓
-Tenants click "Upgrade" when ready
-    ↓
-Tenant services restart with new version (self-service)
-```
-
-**Tenants control when and what they upgrade.**
+- ✅ Admin configures GitHub repo connection **ONE TIME**
+- ✅ Rancher automatically syncs charts from GitHub
+- ✅ All tenants see the same catalog automatically
+- ✅ Tenants browse and install via Rancher UI only
+- ✅ **NO GitHub import by tenants**
 
 ---
 
@@ -71,11 +74,13 @@ Tenant services restart with new version (self-service)
 This is the primary deployment method. Tenants browse the chart catalog and install what they need.
 
 ### Step 1: Navigate to Rancher Repositories
+ADMIN SETUP (One-Time Configuration)
 
-```
-Rancher UI → ☰ Menu → Apps → Repositories
-```
+**⚠️ ADMIN ONLY - Tenants do NOT perform this setup**
 
+This is done **ONCE** by Fireball Industries admin. After this, all tenants automatically see the chart catalog.
+
+### Step 1: Navigate to Rancher Repositories (Admin Only)
 ### Step 2: Click "Create"
 
 ### Step 3: Configure Git Repository
@@ -114,9 +119,53 @@ Skip TLS Verification: false
 
 Rancher will:
 1. Clone the repository
-2. Scan `charts/` directory
-3. Index all Chart.yaml files
-4. Make charts available in Apps & Marketplace
+2. Scan `charts/` directory **for ALL tenants**
+
+**Initial indexing takes 1-2 minutes.**
+
+---
+
+## ✅ TOPTIONAL: Fleet for Forced Deployment
+
+**⚠️ ADMIN ONLY - Use this to FORCE deploy services to tenant namespaces**
+
+The catalog method above lets tenants choose what to install. Fleet is for when YOU want to force-deploy services to all tenants automatically
+
+### Step 1: Browse Catalog
+```
+Rancher UI → ☰ Menu → Apps → Charts
+```
+
+### Step 2: See Fireball Industries Charts
+All charts are automa vs Catalog?
+
+**Use Catalog (Recommended):**
+- ✅ Tenants browse and choose what to install
+- ✅ Tenants control their own upgrades
+- ✅ Self-service model
+- ✅ **This is your primary deployment method**
+
+**Use Fleet (Optional):**
+- Force-deploy monitoring to all tenants (Prometheus, Grafana)
+- Deploy baseline infrastructure automatically
+- Auto-update services across all tenants
+- **Use sparingly - tenants lose control**
+### Step 3: Install Charts
+```
+Click chart → Install
+Choose namespace
+Configure values (or use defaults)
+Click Install
+```
+
+### Step 4: Manage Deployments
+```
+Apps → Installed Apps
+See all deployed services
+Click "Upgrade" when updates available
+```
+
+**That's it. Tenants never see GitHubarketplace
 
 **Initial indexing takes 1-2 minutes.**
 
@@ -564,53 +613,59 @@ Continuous Delivery → Bundles → tenant-services
 **Configure Rancher Notifiers:**
 ```
 ☰ Menu → Notifiers → Create
-Type: Slack
-Webhook URL: https://hooks.slack.com/...
+TypeADMIN (You) - One-Time Setup:
+1. ✅ Configure GitHub repo in Rancher (one time)
+2. ✅ Set polling interval (5-15 minutes recommended)
+3. ✅ Push charts to GitHub
+4. ✅ Rancher automatically syncs catalog
 
-Alerts:
-- Fleet deployment failed
-- Fleet deployment succeeded
-- Drift detected (manual changes vs Git)
+### TENANTS (Clients) - Zero Setup:
+1. ✅ Log into Rancher
+2. ✅ Browse Apps → Charts
+3. ✅ See all Fireball Industries charts automatically
+4. ✅ Install what they need with one click
+5. ✅ **NO GitHub import. NO repo configuration.**
+
+### What is Automatic:
+- ✅ New charts appear in catalog (5-15 min after you push to GitHub)
+- ✅ Chart updates appear in catalog (5-15 min after you push)
+- ✅ All tenants see the same catalog automatically
+- ✅ Tenants see "Upgrade Available" when you release updates
+
+### What Tenants Control:
+- ✅ Which charts to install
+- ✅ When to upgrade
+- ✅ Configuration values
+- ✅ Their own namespace
+
+### Verify Admin Setup:
+
+**Check Repository Status:**
+```
+Apps → Repositories → fireball-industries
 ```
 
----
+**Should show:**
+- Status: ✅ **Active**
+- Chart Count: **21** (or current number of charts)
+- Last Synced: *(timestamp within last 15 minutes)*
 
-## ⚠️ CRITICAL: Running Pods Auto-Upgrade
-
-**Unlike basic Helm charts, Fleet DOES auto-upgrade running pods:**
-
-### What Auto-Upgrades:
-- ✅ **Chart version changes** (Chart.yaml version bump)
-- ✅ **Image tag changes** (values.yaml image.tag update)
-- ✅ **Template changes** (deployment.yaml, service.yaml, etc.)
-- ✅ **Values changes** (values.yaml configuration updates)
-- ✅ **ConfigMap/Secret changes** (auto-triggers pod restart)
-
-### What Triggers Pod Restart:
-- ✅ Helm upgrade (Fleet runs `helm upgrade`)
-- ✅ ConfigMap change (annotations force restart)
-- ✅ Image pull (imagePullPolicy: Always)
-
-### Rolling Update Behavior:
-```yaml
-# Fleet ensures zero-downtime upgrades
-spec:
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 0  # Keep old pods running
-      maxSurge: 1        # Start new pod first
+**View Tenant Catalog (what clients see):**
+```
+Apps → Charts
 ```
 
-**Old pods stay running until new pods are healthy.**
-
+**Should see all charts grouped by category:**
+- **Forge Industrial:** CODESYS Runtime ARM, CODESYS AMD64-X86, CODESYS Edge Gateway, Ignition Edge, EmberBurn
+- **Databases:** PostgreSQL, TimescaleDB, InfluxDB
+- **Monitoring:** Prometheus, Grafana, Loki, Alertmanager, Node Exporter
 ---
 
-## 🎯 Summary
+## 🔄 Workflow Examples
 
-### What IS Automatic (With Fleet):
-- ✅ New charts auto-deploy to all tenants (15 sec after push)
-- ✅ Chart updates auto-upgrade all tenants (15 sec after push)
+### When You Add a New Chart
+
+**Adminpdates auto-upgrade all tenants (15 sec after push)
 - ✅ Container image updates auto-restart pods (15 sec after push)
 - ✅ ConfigMap changes auto-restart pods (15 sec after push)
 - ✅ Rolling updates (zero downtime)
@@ -633,11 +688,15 @@ spec:
 Apps → Repositories → fireball-industries
 ```
 
-**Should show:**
-- Status: ✅ **Active**
-- Chart Count: **21** (or current number of charts)
-- Last Synced: *(timestamp within last 15 minutes)*
+**Tenant sees:**
+- New chart appears in Apps → Charts automatically
+- No action needed on tenant side
 
+---
+
+### When You Update an Existing Chart
+
+**Admin
 ### View Available Charts:
 
 ```
@@ -700,11 +759,16 @@ git commit -m "EmberBurn v1.1.0 - Add MQTT TLS support"
 git push origin main
 ```
 
-**What Happens Automatically:**
-```
-1. GitHub receives push (immediate)
-2. Rancher polls repository (5-15 minutes later)
-3. Rancher detects emberburn chart version changed (1.0.0 → 1.1.0)
+**Tenants with v1.0.0 deployed see:**
+- "Upgrade Available" badge in their Installed Apps
+- Click Upgrade → Review → Confirm
+- Their pods upgrade to v1.1.0
+
+---
+
+### When You Update a Container Image
+
+**Admindetects emberburn chart version changed (1.0.0 → 1.1.0)
 4. Rancher indexes new version
 5. Both versions now available in catalog:
    - emberburn 1.0.0 (old)
@@ -724,40 +788,28 @@ git push origin main
 # charts/emberburn/values.yaml
 tag: "1.2.3" → "1.2.4"
 
-# Optionally bump chart version too
-# Chart.yaml: version: 1.1.0 → 1.1.1
-
-git add charts/emberburn/
-git commit -m "EmberBurn: Update to v1.2.4 (security patches)"
-git push origin main
-```
-
-**What Happens Automatically:**
-```
-1. GitHub receives push (immediate)
-2. Rancher polls repository (5-15 minutes later)
-3. Rancher detects chart change
-4. New chart version (1.1.1) appears in catalog
-5. Users see "Upgrade Available" badge
-```
-
-**Timeline:** 5-15 minutes from push to chart update available
+**Tenants see:**
+- "Upgrade Available" badge
+- They choose when to upgrade
 
 ---
 
-## ⚠️ CRITICAL: Running Pods Do NOT Auto-Upgrade
+## ⚠️ IMPORTANT: Catalog vs Auto-Deployment
 
-**When you push chart updates, Rancher makes the NEW VERSION available, but:**
+### Catalog Method (Default - Recommended):
+- ✅ Tenants see new charts in catalog automatically
+- ✅ Tenants choose what to install
+- ✅ Tenants choose when to upgrade
+- ❌ Existing pods do NOT auto-upgrade
+- ✅ **Tenant has full control**
 
-### Already-Deployed Pods:
-- ❌ **Do NOT automatically upgrade**
-- ❌ **Do NOT pull new images automatically**
-- ❌ **Keep running old version**
-- ✅ **Show "Upgrade Available" badge in Rancher UI**
+### Fleet Method (Optional - Admin Controlled):
+- ✅ Auto-deploys services to tenant namespaces
+- ✅ Auto-upgrades on chart updates
+- ❌ Tenants lose control over deployment timing
+- ✅ **Admin has full control**
 
-### Users MUST Manually Upgrade:
-
-**Via Rancher UI:**
+**For multi-tenant model: Use Catalog (let tenants choose).**ia Rancher UI:**
 ```
 Apps → Installed Apps → emberburn-deployment
 See: "🔄 Upgrade Available" badge
@@ -773,46 +825,57 @@ helm upgrade emberburn ./charts/emberburn \
   --reuse-values
 ```
 
-**Via kubectl (force pod restart with same config):**
-```bash
-kubectl rollout restart deployment/emberburn -n emberburn
+**V🏭 Multi-Tenant Behavior
+
+### What Tenants See:
+
+**All tenants see the SAME catalog:**
+- ✅ All 20+ Fireball Industries charts visible to everyone
+- ✅ No tenant can modify the catalog
+- ✅ No tenant needs to import anything
+
+**Example tenant view (Apps → Charts):**
 ```
-
----
-
-## 🚀 Force Immediate Chart Detection
-
-**Don't want to wait 5-15 minutes?**
-
-### Manual Refresh:
-
+Available Charts:
+├─ Fireball Industries
+│  ├─ CODESYS Runtime (v1.2.3)
+│  ├─ Ignition Edge (v2.1.0)
+│  ├─ EmberBurn (v1.1.0)
+│  ├─ Node-RED (v3.0.2)
+│  └─ ... (all 20+ charts)
 ```
-Apps → Repositories → fireball-industries
-⋮ Menu → Refresh
-```
-
-Rancher re-scans repository immediately (takes ~30 seconds).
-
----
-
-## 🏭 Multi-Tenant Behavior
-
-### Chart Visibility:
-
-**All charts visible to all projects/namespaces:**
-- ✅ Tenant A can see all charts
-- ✅ Tenant B can see all charts
-- ✅ Tenant C can see all charts
 
 ### Deployment Isolation:
 
-**Each tenant deploys independently:**
-- ✅ Tenant A deploys EmberBurn v1.0.0 to namespace `tenant-a`
-- ✅ Tenant B deploys EmberBurn v1.1.0 to namespace `tenant-b`
-- ✅ Tenant C doesn't deploy EmberBurn at all
+**Each tenant deploys to their own namespace:**
+- ✅ Tenant A installs EmberBurn v1.0.0 to namespace `tenant-a`
+- ✅ Tenant B installs EmberBurn v1.1.0 to namespace `tenant-b`
+- ✅ Tenant C doesn't install EmberBurn at all
 - ❌ Tenants can't see each other's deployments
+- ✅ Tenants can only manage their own namespace
 
-### Upgrade Control:
+### Upgrade Independence:
+
+**Each tenant upgrades on their own schedule:**
+- Tenant A: stays on v1.0.0 (waits for testing)
+- Tenant B: upgrades to v1.2.0 immediately
+- Tenant C: deploys for first time (gets latest v1.2.0)
+
+**You (admin) can't force upgrades. Tenants control their deployments.**
+
+---
+
+## 🚀 Admin Tools
+
+### Force Immediate Catalog Sync
+
+**Don't want to wait 5-15 minutes for polling?**
+
+```
+Apps → Repositories → fireball-industries → ⋮ → Refresh
+```
+
+Rancher re-scans GitHub immediately (~30 seconds).
 
 **Each tenant upgrades independently:**
 - Tenant A stays on v1.0.0 (doesn't upgrade)
@@ -830,41 +893,8 @@ Rancher re-scans repository immediately (takes ~30 seconds).
 ```yaml
 apiVersion: v2
 name: emberburn
-version: 1.2.3  # Chart version (increment when chart changes)
-appVersion: "4.5.6"  # App version (matches container image version)
-```
 
-**Version Increment Rules:**
-
-| Change Type | Chart Version | Example |
-|-------------|---------------|---------|
-| **Breaking change** (removed values, API changes) | Major: 1.0.0 → 2.0.0 | New values.yaml structure |
-| **New feature** (added values, new templates) | Minor: 1.2.0 → 1.3.0 | Add MQTT TLS support |
-| **Bug fix** (template fix, doc update) | Patch: 1.2.3 → 1.2.4 | Fix typo in deployment.yaml |
-| **Image update only** (no chart changes) | Patch: 1.2.3 → 1.2.4 | Update image tag |
-
----
-
-## 🔧 Troubleshooting Fleet Deployments
-
-### Problem: Fleet Not Deploying After Push
-
-**Check Git Repo Status:**
-```
-Continuous Delivery → Git Repos → fireball-helm-charts
-Status: Active / ⚠️ Failed
-Last Synced: [timestamp]
-```
-
-**Common Causes:**
-
-1. **fleet.yaml syntax error**
-   ```bash
-   # Validate YAML locally
-   yamllint fleet.yaml
-   ```
-
-2. **Git authentication failed**
+### Problem: Tenants Can't See Charts
    - Check PAT hasn't expired
    - Verify `repo` scope granted
 
@@ -899,8 +929,30 @@ Status: Active / ⚠️ Failed
    # Validate locally before pushing
    helm lint charts/my-chart/
    ```
+Admin: Check Repository Status:**
+```
+Apps → Repositories → fireball-industries
+```
 
-3. **Wrong directory structure**
+**Should show:**
+- Status: ✅ Active
+- Last Synced: (recent timestamp)
+
+**Common Causes:**
+
+1. **Repository not configured**
+   - Admin needs to add GitHub repo (see ADMIN SETUP section)
+
+2. **Polling hasn't happened yet**
+   - Wait 15 minutes or click Refresh
+
+3. **Invalid Chart.yaml syntax**
+   ```bash
+   # Admin: Validate locally before pushing
+   helm lint charts/my-chart/
+   ```
+
+4. **Wrong directory structure**
    ```
    ✅ Correct:
    charts/
@@ -914,23 +966,19 @@ Status: Active / ⚠️ Failed
      Chart.yaml  # Not in charts/ directory
    ```
 
-4. **Git authentication failed (private repos)**
-   - Check PAT hasn't expired
-   - Verify `repo` scope granted
+5. **Git authentication failed (private repos)**
+   - Admin: Check GitHub PAT hasn't expired
+   - Admin:te new repository (same settings)
+```
 
 ---
 
-### Problem: Chart Shows Old Version
-
-**Rancher caches chart metadata.**
-
-**Force Cache Refresh:**
+##Admin: Force Cache Refresh:**
 ```
-Apps → Repositories → fireball-industries
-⋮ Menu → Refresh
+Apps → Repositories → fireball-industries → ⋮ → Refresh
 ```
 
-**Or delete and re-add repository:**
+**Admin: Or delete and re-add repository:**
 ```
 ⋮ Menu → Delete
 Create new repository (same settings)
@@ -938,38 +986,18 @@ Create new repository (same settings)
 
 ---
 
-### Problem: Deployed Pod Not Updating
+### Problem: Tenant Says Update Not Working
 
 **This is EXPECTED BEHAVIOR.**
 
-Rancher does NOT auto-upgrade running pods. You must:
+Charts in the catalog do NOT auto-upgrade running pods.
 
-1. **Check for updates:**
-   ```
-   Apps → Installed Apps → [your-app]
-   Look for "🔄 Upgrade Available" badge
-   ```
+**Tenant must:**
+1. Go to Apps → Installed Apps
+2. Look for "🔄 Upgrade Available" badge
+3. Click the app → Upgrade → Review → Confirm
 
-2. **Manually upgrade:**
-   ```
-   Click app → Upgrade → Review changes → Upgrade
-   ```
-
-**For auto-upgrades, use Rancher Fleet (GitOps) - see next section.**
-
----
-
-## 🌊 GitOps Auto-Upgrades (Optional)
-
-**Want deployed pods to auto-upgrade when you push changes?**
-
-Use **Rancher Fleet** for continuous deployment.
-
-### How Fleet Works:
-
-```
-Push chart update to Git
-    ↓
+**Tenants control when they upgrade (not automatic)
 Fleet detects change (polling)
     ↓
 Fleet auto-upgrades all deployments matching fleet.yaml rules
@@ -980,78 +1008,21 @@ Pods restart with new version (automatic)
 ### Quick Fleet Setup:
 
 **1. Create fleet.yaml in repo root:**
-```yaml
-# fleet.yaml
-defaultNamespace: default
+``# Problem: Tenant Asking How to Import Charts
 
-# Auto-deploy to all clusters
-targets:
-  - clusterSelector: {}
+**They don't need to!**
 
-# Helm configuration
-helm:
-  chart: charts/emberburn
-  releaseName: emberburn
-  values:
-    # Override values here
-    image:
-      tag: latest  # or pin to version
+**Tell them:**
+```
+1. Log into Rancher
+2. Click Apps → Charts
+3. All Fireball Industries charts are already there
+4. Click the chart you want → Install
 ```
 
-**2. Add Fleet Repository in Rancher:**
-```
-Continuous Delivery → Git Repos → Add Repository
-Git Repo URL: https://github.com/fireball-industries/Helm-Charts
-Branch: main
-Path: /  # Root contains fleet.yaml
-```
-
-**3. Fleet Auto-Deploys:**
-- Polls Git every 15 seconds (configurable)
-- Detects chart changes
-- Automatically runs `helm upgrade` on all matching clusters
-- Pods restart with new version
-
-**⚠️ Use with caution in multi-tenant environments:**
-- Fleet auto-upgrades ALL matching deployments
-- No per-tenant control
-- Good for: internal services, monitoring, infrastructure
-- Bad for: tenant-controlled apps, production workloads
-
----
-
-## 📈 Recommended Workflow
-
-### For Infrastructure/Platform Charts (Prometheus, Grafana, etc.):
-1. ✅ Use Rancher Git Repository (chart catalog)
-2. ✅ Use Fleet for auto-deployment
-3. ✅ Push updates → auto-deploys everywhere
-
-### For Tenant-Controlled Charts (CODESYS, Ignition, EmberBurn):
-1. ✅ Use Rancher Git Repository (chart catalog)
-2. ❌ Do NOT use Fleet (tenants control upgrades)
-3. ✅ Push updates → tenants see "Upgrade Available" → tenants choose when to upgrade
-
----
-
-## 🎯 Summary
-
-### What IS Automatic:
-- ✅ New charts appear in catalog (5-15 min after push)
-- ✅ Chart updates appear in catalog (5-15 min after push)
-- ✅ All tenants see new/updated charts
-- ✅ Rancher indexes metadata automatically
-
-### What is NOT Automatic:
-- ❌ Running pods do NOT auto-upgrade
-- ❌ Container image updates require manual helm upgrade
-- ❌ Users must click "Upgrade" button in Rancher UI
-
-### To Make Pod Upgrades Automatic:
-- Use **Rancher Fleet** (GitOps)
-- Only recommended for infrastructure, not tenant workloads
-
----
+**If they still don't see charts:**
+- Admin needs to configure the GitHub repo (see ADMIN SETUP)
+- Charts will appear automatically for all tenants once configured
 
 ## 🔥 Quick Reference Commands
 
@@ -1091,3 +1062,57 @@ helm upgrade my-app fireball-industries/emberburn \
 ---
 
 **Fireball Industries - We Play With Fire So You Don't Have To™** 🔥
+🔥 Quick Reference
+
+### Admin Commands
+
+**Check catalog sync status:**
+```
+Apps → Repositories → fireball-industries
+Status: ✅ Active
+Last Synced: [timestamp]
+```
+
+**Force immediate sync:**
+```
+Apps → Repositories → fireball-industries → ⋮ → Refresh
+```
+
+**Validate chart before pushing:**
+```bash
+helm lint charts/my-chart/
+```
+
+**View charts via CLI:**
+```bash
+helm search repo fireball-industries
+```
+
+---
+
+### Tenant Instructions
+
+**Browse available charts:**
+```
+Rancher UI → Apps → Charts
+```
+
+**Install a chart:**
+```
+1. Click chart name
+2. Click Install
+3. Choose namespace
+4. Configure values
+5. Click Install
+```
+
+**Upgrade installed chart:**
+```
+1. Apps → Installed Apps
+2. Find app with "Upgrade Available" badge
+3. Click app → Upgrade
+4. Review changes
+5. Click Upgrade
+```
+
+**NO GitHub commands. NO repository imports. Everything in Rancher UI.**
