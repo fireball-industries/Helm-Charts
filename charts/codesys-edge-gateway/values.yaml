@@ -5,10 +5,10 @@
 # Image configuration
 image:
   # Repository for the CODESYS Edge Gateway image
-  # Options: ghcr.io/YOUR_ORG/codesys-edge-gateway or localhost:5000/codesys-edge-gateway
-  repository: ghcr.io/YOUR_ORG/codesys-edge-gateway
+  # Options: ghcr.io/fireball-industries/codesys-edge-gateway or localhost:5000/codesys-edge-gateway
+  repository: ghcr.io/fireball-industries/codesys-edge-gateway
   # Image tag - corresponds to CODESYS Gateway version
-  tag: "4.18.0.0"
+  tag: "latest"
   # Image pull policy
   pullPolicy: IfNotPresent
   # Target architecture: arm32, arm64, x86, x64
