@@ -1,0 +1,55 @@
+# Edge Deployment
+# SQLite for edge computing with local backup
+
+sqlite:
+  databaseName: "edge.db"
+  walMode: true
+  journalMode: "WAL"
+  synchronous: "NORMAL"
+  cacheSize: -1000  # 1MB cache (limited RAM)
+  pageSize: 4096
+
+litestream:
+  enabled: true
+  replication:
+    snapshotInterval: "6h"  # Less frequent on edge
+    retention: "48h"  # 2 days
+    validationInterval: "24h"
+  s3:
+    enabled: false
+  localBackup:
+    enabled: true
+    path: /backup
+    size: 5Gi
+    storageClass: "local-path"
+
+web:
+  enabled: true
+  readOnly: true
+  service:
+    type: NodePort
+    port: 8080
+  ingress:
+    enabled: false
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: "local-path"
+  accessMode: ReadWriteOnce
+
+resources:
+  preset: small
+
+monitoring:
+  healthcheck:
+    enabled: true
+
+nodeSelector:
+  node-role.kubernetes.io/edge: "true"
+
+tolerations:
+  - key: "edge"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"

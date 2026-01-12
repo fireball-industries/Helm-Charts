@@ -1,0 +1,339 @@
+# SQLite Pod Configuration
+# Fireball Industries - Ignite Your Factory Efficiency
+
+# SQLite Configuration
+sqlite:
+  # Number of replicas (always 1 for SQLite)
+  replicas: 1
+  
+  # SQLite image configuration
+  image:
+    repository: nouchka/sqlite3
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  # Database file name
+  databaseName: "industrial.db"
+  
+  # Enable WAL (Write-Ahead Logging) mode for better concurrency
+  walMode: true
+  
+  # Journal mode: DELETE, TRUNCATE, PERSIST, MEMORY, WAL, OFF
+  journalMode: "WAL"
+  
+  # Synchronous mode: OFF, NORMAL, FULL, EXTRA
+  # NORMAL is safe for WAL mode and provides good performance
+  synchronous: "NORMAL"
+  
+  # Auto-vacuum mode: NONE, FULL, INCREMENTAL
+  autoVacuum: "INCREMENTAL"
+  
+  # Cache size in pages (negative = KB, positive = pages)
+  # -2000 = 2MB cache
+  cacheSize: -2000
+  
+  # Page size in bytes (512, 1024, 2048, 4096, 8192, 16384, 32768, 65536)
+  pageSize: 4096
+  
+  # Busy timeout in milliseconds
+  busyTimeout: 5000
+
+# Litestream Configuration (Continuous Replication)
+litestream:
+  enabled: true
+  
+  image:
+    repository: litestream/litestream
+    tag: "0.3.13"
+    pullPolicy: IfNotPresent
+  
+  # Replication configuration
+  replication:
+    # Snapshot interval
+    snapshotInterval: "1h"
+    
+    # Retention period for snapshots
+    retention: "24h"
+    
+    # Validation interval
+    validationInterval: "6h"
+  
+  # S3-compatible backup configuration
+  s3:
+    enabled: false
+    bucket: "sqlite-backups"
+    path: "production"
+    endpoint: ""  # For MinIO or custom S3 endpoints
+    region: "us-east-1"
+    accessKeyId: ""
+    secretAccessKey: ""
+    forcePathStyle: false
+  
+  # Local backup configuration (to another PVC)
+  localBackup:
+    enabled: false
+    path: "/backup"
+    size: "5Gi"
+    storageClass: "local-path"
+
+# Web Interface (SQLite Web - Optional)
+web:
+  enabled: false
+  
+  image:
+    repository: coleifer/sqlite-web
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8080
+  
+  # Ingress configuration
+  ingress:
+    enabled: false
+    className: "traefik"
+    host: "sqlite-web.factory.local"
+    path: /
+    pathType: Prefix
+    tls:
+      enabled: false
+      secretName: sqlite-web-tls
+    annotations: {}
+  
+  # Read-only mode for web interface
+  readOnly: true
+
+# Service Configuration
+service:
+  # Service type: ClusterIP, NodePort, LoadBalancer
+  type: ClusterIP
+  
+  # Service port (for sqlite-web or custom wrapper)
+  port: 8080
+  
+  # NodePort (if type is NodePort)
+  nodePort: ""
+  
+  # Service annotations
+  annotations: {}
+
+# Persistence Configuration
+persistence:
+  enabled: true
+  
+  # Storage size for database files
+  size: 5Gi
+  
+  # Storage class
+  storageClass: "local-path"
+  
+  # Access mode
+  accessMode: ReadWriteOnce
+  
+  # Use existing PVC
+  existingClaim: ""
+  
+  # Mount paths
+  paths:
+    data: /data
+    backup: /backup
+
+# Init Scripts (Run on first startup)
+initScripts:
+  enabled: false
+  
+  # ConfigMap name containing SQL scripts
+  configMap: ""
+  
+  # Scripts to run (will be executed in alphabetical order)
+  scripts: {}
+  #   01-schema.sql: |
+  #     CREATE TABLE IF NOT EXISTS sensors (
+  #       id INTEGER PRIMARY KEY AUTOINCREMENT,
+  #       name TEXT NOT NULL,
+  #       type TEXT NOT NULL,
+  #       location TEXT,
+  #       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  #     );
+  #   02-indexes.sql: |
+  #     CREATE INDEX IF NOT EXISTS idx_sensors_location ON sensors(location);
+
+# Resource Management
+resources:
+  # Resource preset: micro, small, medium, large, custom
+  preset: small
+  
+  # Custom resource limits (used when preset is "custom")
+  custom:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  
+  # Preset definitions
+  presets:
+    micro:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+    small:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    medium:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 512Mi
+    large:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 2000m
+        memory: 1Gi
+
+# Security Context
+security:
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+  
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+
+# Monitoring Configuration
+monitoring:
+  # Enable Prometheus metrics (via custom exporter)
+  metrics:
+    enabled: false
+    port: 9090
+    path: /metrics
+  
+  # ServiceMonitor for Prometheus Operator
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels: {}
+  
+  # Health checks
+  healthcheck:
+    enabled: true
+    livenessProbe:
+      exec:
+        command:
+          - sh
+          - -c
+          - "test -f /data/{{ .Values.sqlite.databaseName }}"
+      initialDelaySeconds: 10
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readinessProbe:
+      exec:
+        command:
+          - sh
+          - -c
+          - "test -f /data/{{ .Values.sqlite.databaseName }}"
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+# Backup Configuration
+backup:
+  enabled: false
+  
+  # Backup schedule (cron format)
+  schedule: "0 2 * * *"  # 2 AM daily
+  
+  # Backup retention (days)
+  retention: 7
+  
+  # Backup destination
+  destination:
+    # Local path (on PVC)
+    local:
+      enabled: true
+      path: /backup
+    
+    # S3-compatible storage
+    s3:
+      enabled: false
+      bucket: "sqlite-backups"
+      path: "production"
+      endpoint: ""
+      region: "us-east-1"
+      accessKeyId: ""
+      secretAccessKey: ""
+
+# Advanced Configuration
+advanced:
+  # Service account
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+  
+  # Pod annotations
+  podAnnotations: {}
+  
+  # Pod labels
+  podLabels: {}
+  
+  # Environment variables
+  env: []
+  #   - name: TZ
+  #     value: "America/Chicago"
+  
+  # Extra volumes
+  extraVolumes: []
+  
+  # Extra volume mounts
+  extraVolumeMounts: []
+  
+  # Init containers
+  initContainers: []
+  
+  # Sidecar containers
+  sidecars: []
+
+# Node Selection
+nodeSelector: {}
+#   kubernetes.io/hostname: edge-node-01
+
+# Tolerations
+tolerations: []
+#   - key: "edge"
+#     operator: "Equal"
+#     value: "true"
+#     effect: "NoSchedule"
+
+# Affinity
+affinity: {}
+#   nodeAffinity:
+#     requiredDuringSchedulingIgnoredDuringExecution:
+#       nodeSelectorTerms:
+#         - matchExpressions:
+#             - key: node-role.kubernetes.io/edge
+#               operator: In
+#               values:
+#                 - "true"

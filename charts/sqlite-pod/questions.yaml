@@ -1,0 +1,356 @@
+questions:
+# Basic Configuration
+- variable: sqlite.databaseName
+  label: Database Name
+  description: "Name of the SQLite database file"
+  type: string
+  default: "industrial.db"
+  required: true
+  group: "Database Configuration"
+
+- variable: sqlite.walMode
+  label: Enable WAL Mode
+  description: "Write-Ahead Logging for better concurrency (recommended)"
+  type: boolean
+  default: true
+  group: "Database Configuration"
+
+- variable: sqlite.journalMode
+  label: Journal Mode
+  description: "SQLite journal mode for transaction handling"
+  type: enum
+  default: "WAL"
+  required: true
+  group: "Database Configuration"
+  options:
+    - "WAL"
+    - "DELETE"
+    - "TRUNCATE"
+    - "PERSIST"
+    - "MEMORY"
+    - "OFF"
+
+- variable: sqlite.synchronous
+  label: Synchronous Mode
+  description: "How often SQLite syncs data to disk (NORMAL recommended for WAL)"
+  type: enum
+  default: "NORMAL"
+  required: true
+  group: "Database Configuration"
+  options:
+    - "OFF"
+    - "NORMAL"
+    - "FULL"
+    - "EXTRA"
+
+- variable: sqlite.pageSize
+  label: Page Size (bytes)
+  description: "Database page size in bytes"
+  type: enum
+  default: 4096
+  required: true
+  group: "Database Configuration"
+  options:
+    - 512
+    - 1024
+    - 2048
+    - 4096
+    - 8192
+    - 16384
+    - 32768
+    - 65536
+
+# Litestream Replication
+- variable: litestream.enabled
+  label: Enable Litestream Replication
+  description: "Continuous replication and backup for SQLite"
+  type: boolean
+  default: true
+  group: "Litestream"
+
+- variable: litestream.replication.snapshotInterval
+  label: Snapshot Interval
+  description: "How often to create snapshots (e.g., 1h, 6h, 24h)"
+  type: string
+  default: "1h"
+  show_if: "litestream.enabled=true"
+  group: "Litestream"
+
+- variable: litestream.replication.retention
+  label: Retention Period
+  description: "How long to keep snapshots (e.g., 24h, 7d)"
+  type: string
+  default: "24h"
+  show_if: "litestream.enabled=true"
+  group: "Litestream"
+
+- variable: litestream.s3.enabled
+  label: Enable S3 Backup
+  description: "Replicate to S3-compatible storage"
+  type: boolean
+  default: false
+  show_if: "litestream.enabled=true"
+  group: "Litestream"
+
+- variable: litestream.s3.bucket
+  label: S3 Bucket
+  description: "S3 bucket name for backups"
+  type: string
+  default: "sqlite-backups"
+  show_if: "litestream.s3.enabled=true"
+  group: "Litestream"
+
+- variable: litestream.s3.path
+  label: S3 Path
+  description: "Path within bucket for backups"
+  type: string
+  default: "production"
+  show_if: "litestream.s3.enabled=true"
+  group: "Litestream"
+
+- variable: litestream.s3.region
+  label: S3 Region
+  description: "AWS region or custom endpoint region"
+  type: string
+  default: "us-east-1"
+  show_if: "litestream.s3.enabled=true"
+  group: "Litestream"
+
+- variable: litestream.s3.endpoint
+  label: S3 Endpoint
+  description: "Custom S3 endpoint (for MinIO, etc.). Leave blank for AWS."
+  type: string
+  default: ""
+  show_if: "litestream.s3.enabled=true"
+  group: "Litestream"
+
+- variable: litestream.s3.accessKeyId
+  label: S3 Access Key ID
+  description: "S3 access key ID"
+  type: string
+  default: ""
+  show_if: "litestream.s3.enabled=true"
+  group: "Litestream"
+
+- variable: litestream.s3.secretAccessKey
+  label: S3 Secret Access Key
+  description: "S3 secret access key"
+  type: password
+  default: ""
+  show_if: "litestream.s3.enabled=true"
+  group: "Litestream"
+
+# Web Interface
+- variable: web.enabled
+  label: Enable Web Interface
+  description: "Deploy SQLite Web UI for database management"
+  type: boolean
+  default: false
+  group: "Web Interface"
+
+- variable: web.readOnly
+  label: Read-Only Mode
+  description: "Enable read-only mode for web interface"
+  type: boolean
+  default: true
+  show_if: "web.enabled=true"
+  group: "Web Interface"
+
+- variable: web.service.type
+  label: Web Service Type
+  description: "Kubernetes service type for web interface"
+  type: enum
+  default: "ClusterIP"
+  show_if: "web.enabled=true"
+  group: "Web Interface"
+  options:
+    - "ClusterIP"
+    - "NodePort"
+    - "LoadBalancer"
+
+- variable: web.service.port
+  label: Web Service Port
+  description: "Port for web interface"
+  type: int
+  default: 8080
+  min: 1
+  max: 65535
+  show_if: "web.enabled=true"
+  group: "Web Interface"
+
+- variable: web.ingress.enabled
+  label: Enable Web Ingress
+  description: "Create Ingress resource for web interface"
+  type: boolean
+  default: false
+  show_if: "web.enabled=true"
+  group: "Web Interface"
+
+- variable: web.ingress.className
+  label: Ingress Class
+  description: "Ingress controller class name"
+  type: string
+  default: "traefik"
+  show_if: "web.ingress.enabled=true"
+  group: "Web Interface"
+
+- variable: web.ingress.host
+  label: Web Hostname
+  description: "Hostname for web interface"
+  type: hostname
+  default: "sqlite-web.factory.local"
+  show_if: "web.ingress.enabled=true"
+  group: "Web Interface"
+
+- variable: web.ingress.tls.enabled
+  label: Enable TLS
+  description: "Enable HTTPS for web interface"
+  type: boolean
+  default: false
+  show_if: "web.ingress.enabled=true"
+  group: "Web Interface"
+
+# Persistence
+- variable: persistence.enabled
+  label: Enable Persistence
+  description: "Store database on persistent volume"
+  type: boolean
+  default: true
+  required: true
+  group: "Storage"
+
+- variable: persistence.size
+  label: Storage Size
+  description: "Size of persistent volume for database"
+  type: string
+  default: "5Gi"
+  required: true
+  show_if: "persistence.enabled=true"
+  group: "Storage"
+
+- variable: persistence.storageClass
+  label: Storage Class
+  description: "Storage class for persistent volume"
+  type: storageclass
+  default: "local-path"
+  show_if: "persistence.enabled=true"
+  group: "Storage"
+
+- variable: persistence.existingClaim
+  label: Existing PVC
+  description: "Use existing PersistentVolumeClaim (leave blank to create new)"
+  type: pvc
+  default: ""
+  show_if: "persistence.enabled=true"
+  group: "Storage"
+
+# Resource Presets
+- variable: resources.preset
+  label: Resource Preset
+  description: "Pre-configured resource allocations"
+  type: enum
+  default: "small"
+  required: true
+  group: "Resources"
+  options:
+    - "micro"
+    - "small"
+    - "medium"
+    - "large"
+    - "custom"
+
+- variable: resources.custom.requests.cpu
+  label: CPU Request
+  description: "Minimum CPU cores (e.g., 100m, 1000m)"
+  type: string
+  default: "100m"
+  show_if: "resources.preset=custom"
+  group: "Resources"
+
+- variable: resources.custom.requests.memory
+  label: Memory Request
+  description: "Minimum memory (e.g., 128Mi, 1Gi)"
+  type: string
+  default: "128Mi"
+  show_if: "resources.preset=custom"
+  group: "Resources"
+
+- variable: resources.custom.limits.cpu
+  label: CPU Limit
+  description: "Maximum CPU cores (e.g., 500m, 2000m)"
+  type: string
+  default: "500m"
+  show_if: "resources.preset=custom"
+  group: "Resources"
+
+- variable: resources.custom.limits.memory
+  label: Memory Limit
+  description: "Maximum memory (e.g., 256Mi, 2Gi)"
+  type: string
+  default: "256Mi"
+  show_if: "resources.preset=custom"
+  group: "Resources"
+
+# Backup
+- variable: backup.enabled
+  label: Enable Automated Backups
+  description: "Schedule automatic database backups"
+  type: boolean
+  default: false
+  group: "Backup"
+
+- variable: backup.schedule
+  label: Backup Schedule
+  description: "Cron schedule for backups (e.g., 0 2 * * * for 2 AM daily)"
+  type: string
+  default: "0 2 * * *"
+  show_if: "backup.enabled=true"
+  group: "Backup"
+
+- variable: backup.retention
+  label: Backup Retention (days)
+  description: "Number of days to keep backups"
+  type: int
+  default: 7
+  min: 1
+  max: 365
+  show_if: "backup.enabled=true"
+  group: "Backup"
+
+# Monitoring
+- variable: monitoring.healthcheck.enabled
+  label: Enable Health Checks
+  description: "Kubernetes liveness and readiness probes"
+  type: boolean
+  default: true
+  group: "Monitoring"
+
+- variable: monitoring.serviceMonitor.enabled
+  label: Enable ServiceMonitor
+  description: "Create ServiceMonitor for Prometheus Operator"
+  type: boolean
+  default: false
+  group: "Monitoring"
+
+- variable: monitoring.serviceMonitor.interval
+  label: Scrape Interval
+  description: "Prometheus scrape interval"
+  type: string
+  default: "30s"
+  show_if: "monitoring.serviceMonitor.enabled=true"
+  group: "Monitoring"
+
+# Advanced
+- variable: advanced.serviceAccount.create
+  label: Create Service Account
+  description: "Create a dedicated ServiceAccount for the pod"
+  type: boolean
+  default: true
+  group: "Advanced"
+
+- variable: nodeSelector
+  label: Node Selector
+  description: "Schedule pod on specific nodes (JSON format)"
+  type: string
+  default: "{}"
+  group: "Advanced"

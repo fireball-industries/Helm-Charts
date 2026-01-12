@@ -1,0 +1,99 @@
+1. Get the SQLite database pod name:
+
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "sqlite.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+
+2. Access the SQLite database directly:
+
+  kubectl exec -it --namespace {{ .Release.Namespace }} $POD_NAME -c sqlite -- sqlite3 {{ .Values.persistence.paths.data }}/{{ .Values.sqlite.databaseName }}
+
+3. Database configuration:
+
+   Database file: {{ .Values.persistence.paths.data }}/{{ .Values.sqlite.databaseName }}
+   Journal mode: {{ .Values.sqlite.journalMode }}
+   Synchronous: {{ .Values.sqlite.synchronous }}
+   Page size: {{ .Values.sqlite.pageSize }} bytes
+   {{- if .Values.sqlite.walMode }}
+   WAL mode: ENABLED (improves concurrency)
+   {{- end }}
+
+{{- if .Values.litestream.enabled }}
+
+4. Litestream replication:
+
+   Replication is ENABLED
+   {{- if .Values.litestream.s3.enabled }}
+   Destination: S3 ({{ .Values.litestream.s3.bucket }}/{{ .Values.litestream.s3.path }})
+   {{- else if .Values.litestream.localBackup.enabled }}
+   Destination: Local backup ({{ .Values.persistence.paths.backup }})
+   {{- end }}
+   Snapshot interval: {{ .Values.litestream.replication.snapshotInterval }}
+   Retention: {{ .Values.litestream.replication.retention }}
+
+   Check replication status:
+   kubectl exec -it --namespace {{ .Release.Namespace }} $POD_NAME -c litestream -- litestream snapshots {{ .Values.persistence.paths.data }}/{{ .Values.sqlite.databaseName }}
+
+   Restore from backup:
+   kubectl exec -it --namespace {{ .Release.Namespace }} $POD_NAME -c litestream -- litestream restore -o /tmp/restored.db {{ .Values.persistence.paths.data }}/{{ .Values.sqlite.databaseName }}
+{{- end }}
+
+{{- if .Values.web.enabled }}
+
+5. Access SQLite Web Interface:
+
+{{- if .Values.web.ingress.enabled }}
+{{- if .Values.web.ingress.tls.enabled }}
+   https://{{ .Values.web.ingress.host }}{{ .Values.web.ingress.path }}
+{{- else }}
+   http://{{ .Values.web.ingress.host }}{{ .Values.web.ingress.path }}
+{{- end }}
+{{- else if eq .Values.web.service.type "NodePort" }}
+   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "sqlite.fullname" . }})
+   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+   echo http://$NODE_IP:$NODE_PORT
+{{- else if eq .Values.web.service.type "LoadBalancer" }}
+   export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "sqlite.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+   echo http://$SERVICE_IP:{{ .Values.web.service.port }}
+{{- else }}
+   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:{{ .Values.web.service.port }}
+   echo "Visit http://127.0.0.1:8080 to access SQLite Web"
+{{- end }}
+   {{- if .Values.web.readOnly }}
+   Web interface is in READ-ONLY mode
+   {{- end }}
+{{- end }}
+
+6. Backup the database:
+
+   kubectl exec --namespace {{ .Release.Namespace }} $POD_NAME -c sqlite -- sqlite3 {{ .Values.persistence.paths.data }}/{{ .Values.sqlite.databaseName }} ".backup '/tmp/backup.db'"
+   kubectl cp --namespace {{ .Release.Namespace }} $POD_NAME:/tmp/backup.db ./backup.db -c sqlite
+
+7. Copy a file into the database:
+
+   kubectl cp --namespace {{ .Release.Namespace }} ./mydata.sql $POD_NAME:/tmp/mydata.sql -c sqlite
+   kubectl exec --namespace {{ .Release.Namespace }} $POD_NAME -c sqlite -- sqlite3 {{ .Values.persistence.paths.data }}/{{ .Values.sqlite.databaseName }} ".read /tmp/mydata.sql"
+
+8. Common SQLite commands:
+
+   .tables              # List all tables
+   .schema              # Show all table schemas
+   .schema table_name   # Show specific table schema
+   .mode column         # Format output in columns
+   .headers on          # Show column headers
+   .databases           # Show attached databases
+   .dump                # Dump database to SQL
+   .quit                # Exit SQLite
+
+9. Performance optimization:
+
+   The database is configured with:
+   - WAL mode for better write concurrency
+   - {{ .Values.sqlite.cacheSize }} cache size
+   - {{ .Values.sqlite.busyTimeout }}ms busy timeout
+   - {{ .Values.sqlite.pageSize }} byte page size
+
+For more information:
+- SQLite Documentation: https://www.sqlite.org/docs.html
+{{- if .Values.litestream.enabled }}
+- Litestream Documentation: https://litestream.io/guides/
+{{- end }}
+- Fireball Industries: support@fireballindustries.com

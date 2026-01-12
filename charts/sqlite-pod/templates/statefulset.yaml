@@ -1,0 +1,205 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "sqlite.fullname" . }}
+  labels:
+    {{- include "sqlite.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "sqlite.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "sqlite.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.advanced.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "sqlite.selectorLabels" . | nindent 8 }}
+        {{- with .Values.advanced.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if .Values.advanced.serviceAccount.create }}
+      serviceAccountName: {{ include "sqlite.serviceAccountName" . }}
+      {{- end }}
+      {{- with .Values.security.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.advanced.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        {{- if .Values.litestream.enabled }}
+        - name: litestream
+          image: "{{ .Values.litestream.image.repository }}:{{ .Values.litestream.image.tag }}"
+          imagePullPolicy: {{ .Values.litestream.image.pullPolicy }}
+          {{- with .Values.security.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          args:
+            - replicate
+            - -config
+            - /etc/litestream/litestream.yml
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.paths.data }}
+            - name: litestream-config
+              mountPath: /etc/litestream
+            {{- if and .Values.litestream.localBackup.enabled (not .Values.litestream.s3.enabled) }}
+            - name: backup
+              mountPath: {{ .Values.persistence.paths.backup }}
+            {{- end }}
+          {{- if .Values.litestream.s3.enabled }}
+          env:
+            - name: LITESTREAM_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sqlite.fullname" . }}-litestream
+                  key: accessKeyId
+            - name: LITESTREAM_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sqlite.fullname" . }}-litestream
+                  key: secretAccessKey
+          {{- end }}
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+        {{- end }}
+        - name: sqlite
+          image: "{{ .Values.sqlite.image.repository }}:{{ .Values.sqlite.image.tag }}"
+          imagePullPolicy: {{ .Values.sqlite.image.pullPolicy }}
+          {{- with .Values.security.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # Initialize database if it doesn't exist
+              if [ ! -f {{ .Values.persistence.paths.data }}/{{ .Values.sqlite.databaseName }} ]; then
+                echo "Initializing new database..."
+                sqlite3 {{ .Values.persistence.paths.data }}/{{ .Values.sqlite.databaseName }} <<EOF
+              PRAGMA journal_mode={{ .Values.sqlite.journalMode }};
+              PRAGMA synchronous={{ .Values.sqlite.synchronous }};
+              PRAGMA page_size={{ .Values.sqlite.pageSize }};
+              PRAGMA auto_vacuum={{ .Values.sqlite.autoVacuum }};
+              PRAGMA cache_size={{ .Values.sqlite.cacheSize }};
+              PRAGMA busy_timeout={{ .Values.sqlite.busyTimeout }};
+              {{- if .Values.initScripts.enabled }}
+              .read /docker-entrypoint-initdb.d/init.sql
+              {{- end }}
+              EOF
+              fi
+              
+              # Keep container running
+              echo "SQLite database ready at {{ .Values.persistence.paths.data }}/{{ .Values.sqlite.databaseName }}"
+              tail -f /dev/null
+          {{- with .Values.advanced.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.monitoring.healthcheck.enabled }}
+          livenessProbe:
+            {{- toYaml .Values.monitoring.healthcheck.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.monitoring.healthcheck.readinessProbe | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- include "sqlite.resources" . | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.paths.data }}
+            {{- if .Values.initScripts.enabled }}
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+            {{- end }}
+            {{- with .Values.advanced.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- if .Values.web.enabled }}
+        - name: sqlite-web
+          image: "{{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}"
+          imagePullPolicy: {{ .Values.web.image.pullPolicy }}
+          args:
+            - --host=0.0.0.0
+            - --port={{ .Values.web.service.port }}
+            {{- if .Values.web.readOnly }}
+            - --read-only
+            {{- end }}
+            - {{ .Values.persistence.paths.data }}/{{ .Values.sqlite.databaseName }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.web.service.port }}
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.paths.data }}
+        {{- end }}
+        {{- with .Values.advanced.sidecars }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      volumes:
+        {{- if .Values.litestream.enabled }}
+        - name: litestream-config
+          configMap:
+            name: {{ include "sqlite.fullname" . }}-litestream
+        {{- end }}
+        {{- if .Values.initScripts.enabled }}
+        - name: init-scripts
+          configMap:
+            name: {{ default (printf "%s-init" (include "sqlite.fullname" .)) .Values.initScripts.configMap }}
+        {{- end }}
+        {{- if and .Values.litestream.enabled .Values.litestream.localBackup.enabled (not .Values.litestream.s3.enabled) }}
+        - name: backup
+          persistentVolumeClaim:
+            claimName: {{ include "sqlite.fullname" . }}-backup
+        {{- end }}
+        {{- with .Values.advanced.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - {{ .Values.persistence.accessMode }}
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+  {{- end }}

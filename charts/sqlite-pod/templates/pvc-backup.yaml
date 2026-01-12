@@ -1,0 +1,17 @@
+{{- if and .Values.litestream.enabled .Values.litestream.localBackup.enabled (not .Values.litestream.s3.enabled) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "sqlite.fullname" . }}-backup
+  labels:
+    {{- include "sqlite.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.litestream.localBackup.storageClass }}
+  storageClassName: {{ .Values.litestream.localBackup.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.litestream.localBackup.size }}
+{{- end }}

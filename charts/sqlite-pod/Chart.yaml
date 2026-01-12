@@ -1,0 +1,31 @@
+apiVersion: v2
+name: sqlite-pod
+description: SQLite embedded database with Litestream replication for edge deployments
+type: application
+version: 1.0.0
+appVersion: "3.45.0"
+keywords:
+  - sqlite
+  - database
+  - embedded
+  - edge
+  - litestream
+  - industrial
+home: https://www.sqlite.org
+sources:
+  - https://github.com/sqlite/sqlite
+  - https://github.com/benbjohnson/litestream
+maintainers:
+  - name: Fireball Industries
+    email: support@fireballindustries.com
+annotations:
+  category: Database
+  licenses: Public Domain
+  # Rancher UI annotations
+  catalog.cattle.io/display-name: "SQLite Embedded Database"
+  catalog.cattle.io/type: "database"
+  catalog.cattle.io/namespace: "industrial"
+  catalog.cattle.io/release-name: "sqlite-pod"
+  catalog.cattle.io/certified: "fireball"
+  catalog.cattle.io/provides: "sqlite,litestream"
+  catalog.cattle.io/requires: "persistent-volume"

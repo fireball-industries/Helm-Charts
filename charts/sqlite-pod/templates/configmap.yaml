@@ -1,0 +1,34 @@
+{{- if .Values.litestream.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sqlite.fullname" . }}-litestream
+  labels:
+    {{- include "sqlite.labels" . | nindent 4 }}
+data:
+  litestream.yml: |
+    dbs:
+      - path: {{ .Values.persistence.paths.data }}/{{ .Values.sqlite.databaseName }}
+        replicas:
+          {{- if .Values.litestream.s3.enabled }}
+          - type: s3
+            bucket: {{ .Values.litestream.s3.bucket }}
+            path: {{ .Values.litestream.s3.path }}
+            {{- if .Values.litestream.s3.endpoint }}
+            endpoint: {{ .Values.litestream.s3.endpoint }}
+            {{- end }}
+            region: {{ .Values.litestream.s3.region }}
+            {{- if .Values.litestream.s3.forcePathStyle }}
+            force-path-style: true
+            {{- end }}
+            snapshot-interval: {{ .Values.litestream.replication.snapshotInterval }}
+            retention: {{ .Values.litestream.replication.retention }}
+            validation-interval: {{ .Values.litestream.replication.validationInterval }}
+          {{- else if .Values.litestream.localBackup.enabled }}
+          - type: file
+            path: {{ .Values.persistence.paths.backup }}
+            snapshot-interval: {{ .Values.litestream.replication.snapshotInterval }}
+            retention: {{ .Values.litestream.replication.retention }}
+            validation-interval: {{ .Values.litestream.replication.validationInterval }}
+          {{- end }}
+{{- end }}

@@ -1,0 +1,45 @@
+# Development Environment
+# Basic SQLite for testing
+
+sqlite:
+  databaseName: "dev.db"
+  walMode: true
+  journalMode: "WAL"
+  synchronous: "NORMAL"
+
+litestream:
+  enabled: false
+
+web:
+  enabled: true
+  readOnly: false
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: false
+
+persistence:
+  enabled: true
+  size: 2Gi
+  storageClass: "local-path"
+
+resources:
+  preset: micro
+
+initScripts:
+  enabled: true
+  scripts:
+    01-schema.sql: |
+      -- Development test schema
+      CREATE TABLE IF NOT EXISTS test_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        value REAL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      INSERT INTO test_data (name, value) VALUES
+        ('test1', 100.5),
+        ('test2', 200.7),
+        ('test3', 300.2);

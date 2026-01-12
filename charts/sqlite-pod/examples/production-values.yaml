@@ -1,0 +1,69 @@
+# Production Environment
+# SQLite with S3 replication
+
+sqlite:
+  databaseName: "production.db"
+  walMode: true
+  journalMode: "WAL"
+  synchronous: "NORMAL"
+  autoVacuum: "INCREMENTAL"
+  cacheSize: -4000  # 4MB cache
+  pageSize: 4096
+  busyTimeout: 10000
+
+litestream:
+  enabled: true
+  replication:
+    snapshotInterval: "1h"
+    retention: "168h"  # 7 days
+    validationInterval: "12h"
+  s3:
+    enabled: true
+    bucket: "factory-sqlite-backups"
+    path: "production"
+    region: "us-east-1"
+    endpoint: ""
+    accessKeyId: "your-access-key-id"
+    secretAccessKey: "your-secret-access-key"
+    forcePathStyle: false
+
+web:
+  enabled: true
+  readOnly: true  # Read-only for safety
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: true
+    className: "traefik"
+    host: "sqlite.factory.local"
+    path: /
+    pathType: Prefix
+    tls:
+      enabled: false
+
+persistence:
+  enabled: true
+  size: 20Gi
+  storageClass: "longhorn"
+  accessMode: ReadWriteOnce
+
+resources:
+  preset: small
+
+monitoring:
+  healthcheck:
+    enabled: true
+  serviceMonitor:
+    enabled: false
+
+advanced:
+  serviceAccount:
+    create: true
+  env:
+    - name: TZ
+      value: "America/Chicago"
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
