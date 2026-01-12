@@ -17,6 +17,8 @@ home: https://github.com/fireball-industries/helm-charts
 sources:
   - https://github.com/fireball-industries/helm-charts
   - https://www.codesys.com/
+  - https://github.com/fireball-industries/Codesys-Edge-Gateway-Release
+  - https://github.com/fireball-industries/Codesys-Edge-Gateway-Release/releases/tag/EdgeGatewayLinux-4.18.0.0
 maintainers:
   - name: Patrick Ryan
     email: patrick@fireball-industries.com

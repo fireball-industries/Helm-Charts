@@ -12,12 +12,14 @@ description: |
 
 type: application
 version: 1.0.0
-appVersion: "8.1"
+appVersion: "8.3.2"
 kubeVersion: ">=1.19.0-0"
 home: https://github.com/fireball-industries/ignition-edge-pod
 sources:
   - https://github.com/fireball-industries/ignition-edge-pod
   - https://www.inductiveautomation.com/ignition/edge
+  - https://github.com/fireball-industries/Ignition-Edge
+  - https://github.com/fireball-industries/Ignition-Edge/releases/tag/X86-64
 keywords:
   - ignition
   - scada

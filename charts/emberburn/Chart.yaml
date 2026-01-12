@@ -26,15 +26,15 @@ keywords:
   - fireball-industries
   - forge-industrial
 
-home: https://fireballindustries.com/emberburn
+home: https://fireballz.ai/emberburn
 sources:
   - https://github.com/fireball-industries/helm-charts
-  - https://github.com/fireball-industries/emberburn
+  - https://github.com/fireball-industries/Small-Application
 
 maintainers:
   - name: Patrick Ryan
-    email: patrick@fireballindustries.com
-    url: https://fireballindustries.com
+    email: patrick@fireball-industries.com
+    url: https://fireballz.ai
 
 icon: https://fireballindustries.com/assets/emberburn-icon.svg
 

@@ -36,8 +36,9 @@ global:
 # ============================================================================
 image:
   # Ignition Edge official Docker image
+  # GitHub Release: https://github.com/fireball-industries/Ignition-Edge/releases/tag/X86-64
   repository: ghcr.io/fireball-industries/ignition-edge
-  tag: "latest"
+  tag: "8.3.2"
   pullPolicy: IfNotPresent
   # Pull secrets for private registries
   pullSecrets: []
@@ -45,7 +46,7 @@ image:
 # Init container for gateway provisioning
 initImage:
   repository: ghcr.io/fireball-industries/ignition-edge
-  tag: "latest"
+  tag: "8.3.2"
   pullPolicy: IfNotPresent
 
 # JMX exporter sidecar for Prometheus metrics

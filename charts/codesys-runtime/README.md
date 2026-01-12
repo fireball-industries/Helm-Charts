@@ -8,6 +8,12 @@ Deploy CODESYS Control for Linux as a containerized PLC runtime with web-based H
 
 CODESYS Control for Linux ARM SL is an IEC 61131-3-compliant SoftPLC that converts your ARM hardware into a high-performance industrial controller. This Helm chart deploys the runtime with integrated WebVisu web server in a single pod.
 
+**Current Version:** CODESYS Control for Linux ARM SL 4.18.0.0
+
+**GitHub Releases:**
+- [ARM 64-Bit Release](https://github.com/fireball-industries/CodesysControlLinuxARM64/releases/tag/64-Bit)
+- [ARM 32-Bit Release](https://github.com/fireball-industries/CodesysControlLinuxARM64/releases/tag/32-Bit)
+
 **Architecture Support:**
 - **ARM 32-bit (ARMv7)**: Raspberry Pi 2/3, older ARM boards
 - **ARM 64-bit (ARMv8/AArch64)**: Raspberry Pi 4+, modern ARM platforms

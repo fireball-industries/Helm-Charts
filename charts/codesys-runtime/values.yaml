@@ -26,11 +26,14 @@ runtime:
   # -- Container image configuration
   image:
     # -- CODESYS runtime image repository (customize with your image)
+    # GitHub Releases: https://github.com/fireball-industries/CodesysControlLinuxARM64/releases
+    # ARM64: https://github.com/fireball-industries/CodesysControlLinuxARM64/releases/tag/64-Bit
+    # ARM32: https://github.com/fireball-industries/CodesysControlLinuxARM64/releases/tag/32-Bit
     repository: "ghcr.io/fireball-industries/codesys-runtime-arm64"
     # -- Image pull policy
     pullPolicy: IfNotPresent
-    # -- Image tag (CODESYS version)
-    tag: "latest"
+    # -- Image tag (CODESYS version 4.18.0.0)
+    tag: "4.18.0.0"
     # -- Architecture-specific tag suffix (auto-applied based on architecture.type)
     # Final image: {repository}:{tag}-{architecture.type}
   

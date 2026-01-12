@@ -2,6 +2,10 @@
 
 A production-ready Helm chart for deploying CODESYS Edge Gateway for Linux on Kubernetes.
 
+**Current Version:** CODESYS Edge Gateway for Linux 4.18.0.0
+
+**GitHub Release:** [EdgeGatewayLinux-4.18.0.0](https://github.com/fireball-industries/Codesys-Edge-Gateway-Release/releases/tag/EdgeGatewayLinux-4.18.0.0)
+
 ## Introduction
 
 This chart bootstraps a CODESYS Edge Gateway deployment on a Kubernetes cluster using the Helm package manager. The gateway provides extended connectivity between the CODESYS Automation Server and CODESYS PLCs in local networks.

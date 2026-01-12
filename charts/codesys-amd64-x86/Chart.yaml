@@ -8,7 +8,7 @@ type: application
 version: 1.0.0
 
 # This is the version number of the application being deployed.
-appVersion: "3.5.19.0"
+appVersion: "4.18.0.0"
 
 keywords:
   - codesys
@@ -26,6 +26,8 @@ home: https://github.com/fireball-industries/helm-charts
 sources:
   - https://github.com/fireball-industries/helm-charts
   - https://www.codesys.com/
+  - https://github.com/fireball-industries/CodesysControlLinuxAMD64X86
+  - https://github.com/fireball-industries/CodesysControlLinuxAMD64X86/releases/tag/AMD64-X86
 
 maintainers:
   - name: Patrick Ryan

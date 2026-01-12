@@ -29,9 +29,9 @@ pod:
 # EmberBurn container configuration
 emberburn:
   image:
-    repository: fireballindustries/emberburn
-    tag: "1.0.0"
-    pullPolicy: IfNotPresent
+    repository: ghcr.io/fireball-industries/emberburn
+    tag: "latest"
+    pullPolicy: Always  # Use Always for development, IfNotPresent for production
   
   # OPC UA Server configuration
   opcua:

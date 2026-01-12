@@ -4,19 +4,20 @@
 
 # CODESYS runtime configuration
 codesys:
-  version: "3.5.19.0"
+  version: "4.18.0.0"
   
 # Architecture selection - choose 'amd64' or '386'
 # Only one architecture deployment will be active
 architecture: amd64
 
 # Image configuration
+# GitHub Release: https://github.com/fireball-industries/CodesysControlLinuxAMD64X86/releases/tag/AMD64-X86
 image:
   registry: ghcr.io
   repository: fireball-industries/codesys-runtime-amd64
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "latest"
+  tag: "4.18.0.0"
 
 # Image pull secrets for private registries
 imagePullSecrets: []

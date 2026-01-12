@@ -18,6 +18,9 @@ home: https://github.com/fireball-industries/fireball-podstore-charts
 sources:
   - https://www.codesys.com/
   - https://github.com/fireball-industries/fireball-podstore-charts
+  - https://github.com/fireball-industries/CodesysControlLinuxARM64
+  - https://github.com/fireball-industries/CodesysControlLinuxARM64/releases/tag/64-Bit
+  - https://github.com/fireball-industries/CodesysControlLinuxARM64/releases/tag/32-Bit
 maintainers:
   - name: Patrick Ryan
     email: patrick@fireball-industries.com

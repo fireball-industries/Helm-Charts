@@ -1,5 +1,9 @@
 # CODESYS Control for Linux x86/AMD64 - README
 
+**Current Version:** CODESYS Control for Linux SL 4.18.0.0
+
+**GitHub Release:** [AMD64-X86 Release](https://github.com/fireball-industries/CodesysControlLinuxAMD64X86/releases/tag/AMD64-X86)
+
 ## Service Type Configuration Guide
 
 ### Understanding Kubernetes Service Types

@@ -5,10 +5,11 @@
 # Image configuration
 image:
   # Repository for the CODESYS Edge Gateway image
+  # GitHub Release: https://github.com/fireball-industries/Codesys-Edge-Gateway-Release/releases/tag/EdgeGatewayLinux-4.18.0.0
   # Options: ghcr.io/fireball-industries/codesys-edge-gateway or localhost:5000/codesys-edge-gateway
   repository: ghcr.io/fireball-industries/codesys-edge-gateway
-  # Image tag - corresponds to CODESYS Gateway version
-  tag: "latest"
+  # Image tag - corresponds to CODESYS Gateway version 4.18.0.0
+  tag: "4.18.0.0"
   # Image pull policy
   pullPolicy: IfNotPresent
   # Target architecture: arm32, arm64, x86, x64

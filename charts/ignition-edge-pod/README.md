@@ -4,10 +4,14 @@
 
 **Because your operators deserve better than a Windows XP touchscreen running FactoryTalk from 2005**
 
+**Current Version:** Ignition Edge Linux X86-64 8.3.2
+
+**GitHub Release:** [X86-64 Release](https://github.com/fireball-industries/Ignition-Edge/releases/tag/X86-64)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.19+-blue.svg)](https://kubernetes.io/)
 [![Helm](https://img.shields.io/badge/Helm-v3.0+-blue.svg)](https://helm.sh/)
-[![Ignition](https://img.shields.io/badge/Ignition-8.1-orange.svg)](https://inductiveautomation.com/)
+[![Ignition](https://img.shields.io/badge/Ignition-8.3.2-orange.svg)](https://inductiveautomation.com/)
 
 </div>
 
