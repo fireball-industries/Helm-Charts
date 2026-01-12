@@ -1,0 +1,415 @@
+categories:
+  - Networking
+  - Ingress
+  - Industrial
+questions:
+  # ============================================================================
+  # Deployment Configuration
+  # ============================================================================
+  - variable: deployment.kind
+    label: "Deployment Type"
+    description: "Choose deployment strategy for Traefik instances"
+    type: enum
+    required: true
+    default: "Deployment"
+    group: "Deployment"
+    options:
+      - "Deployment"
+      - "DaemonSet"
+
+  - variable: deployment.replicas
+    label: "Number of Replicas"
+    description: "How many Traefik instances to run (ignored for DaemonSet)"
+    type: int
+    required: true
+    default: 1
+    min: 1
+    max: 10
+    group: "Deployment"
+    show_if: "deployment.kind=Deployment"
+
+  - variable: deployment.resourcePreset
+    label: "Resource Preset"
+    description: "Pre-configured resource allocation based on deployment size"
+    type: enum
+    required: true
+    default: "standard"
+    group: "Deployment"
+    options:
+      - "edge"
+      - "standard"
+      - "enterprise"
+      - "custom"
+
+  # ============================================================================
+  # Service Exposure
+  # ============================================================================
+  - variable: service.type
+    label: "Service Type"
+    description: "How to expose Traefik to external traffic"
+    type: enum
+    required: true
+    default: "LoadBalancer"
+    group: "Service"
+    options:
+      - "ClusterIP"
+      - "NodePort"
+      - "LoadBalancer"
+
+  - variable: service.loadBalancerIP
+    label: "LoadBalancer IP"
+    description: "Static IP for LoadBalancer (if supported by provider)"
+    type: string
+    required: false
+    group: "Service"
+    show_if: "service.type=LoadBalancer"
+
+  - variable: service.nodePorts.web
+    label: "HTTP NodePort"
+    description: "NodePort for HTTP traffic (30000-32767)"
+    type: int
+    required: false
+    default: 30080
+    min: 30000
+    max: 32767
+    group: "Service"
+    show_if: "service.type=NodePort"
+
+  - variable: service.nodePorts.websecure
+    label: "HTTPS NodePort"
+    description: "NodePort for HTTPS traffic (30000-32767)"
+    type: int
+    required: false
+    default: 30443
+    min: 30000
+    max: 32767
+    group: "Service"
+    show_if: "service.type=NodePort"
+
+  # ============================================================================
+  # Ports Configuration
+  # ============================================================================
+  - variable: ports.web.enabled
+    label: "Enable HTTP (Port 80)"
+    description: "Accept HTTP traffic on port 80"
+    type: boolean
+    required: true
+    default: true
+    group: "Ports"
+
+  - variable: ports.web.redirectTo
+    label: "Redirect HTTP to HTTPS"
+    description: "Automatically redirect all HTTP traffic to HTTPS"
+    type: enum
+    required: false
+    default: ""
+    group: "Ports"
+    show_if: "ports.web.enabled=true"
+    options:
+      - ""
+      - "websecure"
+
+  - variable: ports.websecure.enabled
+    label: "Enable HTTPS (Port 443)"
+    description: "Accept HTTPS traffic on port 443"
+    type: boolean
+    required: true
+    default: true
+    group: "Ports"
+
+  - variable: ports.mqtt.enabled
+    label: "Enable MQTT (Port 1883)"
+    description: "Accept plain MQTT traffic for industrial IoT"
+    type: boolean
+    required: true
+    default: false
+    group: "Ports"
+
+  - variable: ports.mqtts.enabled
+    label: "Enable MQTTS (Port 8883)"
+    description: "Accept encrypted MQTT traffic"
+    type: boolean
+    required: true
+    default: false
+    group: "Ports"
+
+  - variable: ports.modbus.enabled
+    label: "Enable Modbus TCP (Port 502)"
+    description: "Accept Modbus TCP traffic for industrial automation"
+    type: boolean
+    required: true
+    default: false
+    group: "Ports"
+
+  - variable: ports.opcua.enabled
+    label: "Enable OPC-UA (Port 4840)"
+    description: "Accept OPC-UA traffic for industrial protocols"
+    type: boolean
+    required: true
+    default: false
+    group: "Ports"
+
+  # ============================================================================
+  # Dashboard
+  # ============================================================================
+  - variable: traefik.dashboard.enabled
+    label: "Enable Dashboard"
+    description: "Enable Traefik web dashboard for monitoring and configuration"
+    type: boolean
+    required: true
+    default: true
+    group: "Dashboard"
+
+  - variable: traefik.dashboard.expose
+    label: "Expose Dashboard"
+    description: "⚠️ Make dashboard accessible externally (disable for production)"
+    type: boolean
+    required: true
+    default: true
+    group: "Dashboard"
+    show_if: "traefik.dashboard.enabled=true"
+
+  - variable: traefik.dashboard.domain
+    label: "Dashboard Domain"
+    description: "Domain name for accessing dashboard (e.g., traefik.factory.local)"
+    type: hostname
+    required: false
+    default: "traefik.local"
+    group: "Dashboard"
+    show_if: "traefik.dashboard.enabled=true&&traefik.dashboard.expose=true"
+
+  - variable: traefik.dashboard.auth.enabled
+    label: "Enable Dashboard Authentication"
+    description: "Require username/password for dashboard access (recommended)"
+    type: boolean
+    required: true
+    default: false
+    group: "Dashboard"
+    show_if: "traefik.dashboard.enabled=true"
+
+  # ============================================================================
+  # TLS / SSL
+  # ============================================================================
+  - variable: tls.enabled
+    label: "Enable TLS/SSL"
+    description: "Enable HTTPS encryption for secure communications"
+    type: boolean
+    required: true
+    default: true
+    group: "TLS/SSL"
+
+  - variable: tls.certResolvers.letsencrypt.enabled
+    label: "Enable Let's Encrypt"
+    description: "Automatically obtain SSL certificates from Let's Encrypt"
+    type: boolean
+    required: true
+    default: false
+    group: "TLS/SSL"
+    show_if: "tls.enabled=true"
+
+  - variable: tls.certResolvers.letsencrypt.email
+    label: "Let's Encrypt Email"
+    description: "Email address for Let's Encrypt certificate notifications"
+    type: string
+    required: false
+    default: "admin@example.com"
+    group: "TLS/SSL"
+    show_if: "tls.enabled=true&&tls.certResolvers.letsencrypt.enabled=true"
+
+  - variable: tls.certResolvers.letsencrypt.challengeType
+    label: "ACME Challenge Type"
+    description: "How to verify domain ownership for Let's Encrypt"
+    type: enum
+    required: false
+    default: "tlsChallenge"
+    group: "TLS/SSL"
+    show_if: "tls.enabled=true&&tls.certResolvers.letsencrypt.enabled=true"
+    options:
+      - "tlsChallenge"
+      - "httpChallenge"
+      - "dnsChallenge"
+
+  - variable: tls.defaultCertificate.enabled
+    label: "Use Custom Default Certificate"
+    description: "Provide your own SSL certificate instead of Let's Encrypt"
+    type: boolean
+    required: true
+    default: false
+    group: "TLS/SSL"
+    show_if: "tls.enabled=true"
+
+  - variable: tls.defaultCertificate.secretName
+    label: "Certificate Secret Name"
+    description: "Name of Kubernetes secret containing TLS certificate"
+    type: secret
+    required: false
+    group: "TLS/SSL"
+    show_if: "tls.enabled=true&&tls.defaultCertificate.enabled=true"
+
+  # ============================================================================
+  # Logging & Monitoring
+  # ============================================================================
+  - variable: traefik.log.level
+    label: "Log Level"
+    description: "Verbosity of Traefik logs"
+    type: enum
+    required: true
+    default: "INFO"
+    group: "Logging"
+    options:
+      - "DEBUG"
+      - "INFO"
+      - "WARN"
+      - "ERROR"
+
+  - variable: traefik.accessLog.enabled
+    label: "Enable Access Logs"
+    description: "Log all HTTP requests (useful for troubleshooting)"
+    type: boolean
+    required: true
+    default: true
+    group: "Logging"
+
+  - variable: traefik.metrics.prometheus.enabled
+    label: "Enable Prometheus Metrics"
+    description: "Expose metrics for Prometheus monitoring"
+    type: boolean
+    required: true
+    default: true
+    group: "Monitoring"
+
+  - variable: monitoring.serviceMonitor.enabled
+    label: "Create ServiceMonitor"
+    description: "Create Prometheus Operator ServiceMonitor resource"
+    type: boolean
+    required: true
+    default: false
+    group: "Monitoring"
+    show_if: "traefik.metrics.prometheus.enabled=true"
+
+  # ============================================================================
+  # Storage
+  # ============================================================================
+  - variable: persistence.enabled
+    label: "Enable Persistent Storage"
+    description: "Store SSL certificates and configuration persistently"
+    type: boolean
+    required: true
+    default: true
+    group: "Storage"
+
+  - variable: persistence.size
+    label: "Storage Size"
+    description: "Size of persistent volume for certificates and config"
+    type: string
+    required: false
+    default: "1Gi"
+    group: "Storage"
+    show_if: "persistence.enabled=true"
+
+  - variable: persistence.storageClass
+    label: "Storage Class"
+    description: "Kubernetes storage class for persistent volume"
+    type: storageclass
+    required: false
+    default: "local-path"
+    group: "Storage"
+    show_if: "persistence.enabled=true"
+
+  # ============================================================================
+  # High Availability
+  # ============================================================================
+  - variable: ha.enabled
+    label: "Enable High Availability"
+    description: "Deploy multiple Traefik instances for redundancy"
+    type: boolean
+    required: true
+    default: false
+    group: "High Availability"
+
+  - variable: ha.replicas
+    label: "HA Replicas"
+    description: "Number of Traefik instances for high availability"
+    type: int
+    required: false
+    default: 3
+    min: 2
+    max: 10
+    group: "High Availability"
+    show_if: "ha.enabled=true"
+
+  - variable: ha.podDisruptionBudget.enabled
+    label: "Enable Pod Disruption Budget"
+    description: "Prevent all instances from being terminated simultaneously"
+    type: boolean
+    required: true
+    default: false
+    group: "High Availability"
+    show_if: "ha.enabled=true"
+
+  # ============================================================================
+  # Middleware
+  # ============================================================================
+  - variable: middleware.rateLimit.enabled
+    label: "Enable Rate Limiting"
+    description: "Limit requests per second to prevent abuse"
+    type: boolean
+    required: true
+    default: false
+    group: "Middleware"
+
+  - variable: middleware.rateLimit.average
+    label: "Average Requests/Second"
+    description: "Average number of requests allowed per second"
+    type: int
+    required: false
+    default: 100
+    min: 1
+    max: 10000
+    group: "Middleware"
+    show_if: "middleware.rateLimit.enabled=true"
+
+  - variable: middleware.ipWhitelist.enabled
+    label: "Enable IP Whitelist"
+    description: "Restrict access to specific IP addresses/ranges"
+    type: boolean
+    required: true
+    default: false
+    group: "Middleware"
+
+  - variable: middleware.headers.enabled
+    label: "Enable Security Headers"
+    description: "Add security headers to HTTP responses"
+    type: boolean
+    required: true
+    default: true
+    group: "Middleware"
+
+  - variable: middleware.headers.sslRedirect
+    label: "Force SSL Redirect"
+    description: "Automatically redirect HTTP to HTTPS"
+    type: boolean
+    required: true
+    default: false
+    group: "Middleware"
+    show_if: "middleware.headers.enabled=true"
+
+  # ============================================================================
+  # Ingress Class
+  # ============================================================================
+  - variable: ingressClass.enabled
+    label: "Create IngressClass"
+    description: "Register Traefik as an ingress controller"
+    type: boolean
+    required: true
+    default: true
+    group: "Ingress Class"
+
+  - variable: ingressClass.isDefaultClass
+    label: "Set as Default Ingress Controller"
+    description: "Make Traefik the default for all Ingress resources"
+    type: boolean
+    required: true
+    default: true
+    group: "Ingress Class"
+    show_if: "ingressClass.enabled=true"

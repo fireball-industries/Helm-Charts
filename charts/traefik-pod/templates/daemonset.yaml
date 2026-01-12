@@ -1,0 +1,74 @@
+{{- if eq .Values.deployment.kind "DaemonSet" }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "traefik.fullname" . }}
+  labels:
+    {{- include "traefik.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "traefik.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "traefik.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "traefik.fullname" . }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- with .Values.security.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: traefik
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.security.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          args:
+            - --global.checkNewVersion={{ .Values.global.checkNewVersion }}
+            - --global.sendAnonymousUsage={{ .Values.global.sendAnonymousUsage }}
+            {{- if .Values.traefik.api.enabled }}
+            - --api={{ .Values.traefik.api.enabled }}
+            - --api.dashboard={{ .Values.traefik.api.dashboard }}
+            - --api.insecure={{ .Values.traefik.api.insecure }}
+            {{- end }}
+            {{- if .Values.traefik.metrics.prometheus.enabled }}
+            - --metrics.prometheus=true
+            {{- end }}
+            {{- if .Values.traefik.accessLog.enabled }}
+            - --accesslog=true
+            {{- end }}
+            - --log.level={{ .Values.traefik.log.level }}
+            - --entrypoints.web.address=:{{ .Values.ports.web.port }}
+            - --entrypoints.websecure.address=:{{ .Values.ports.websecure.port }}
+            - --entrypoints.traefik.address=:{{ .Values.ports.traefik.port }}
+            - --entrypoints.metrics.address=:{{ .Values.ports.metrics.port }}
+            - --providers.kubernetesingress=true
+            - --providers.kubernetescrd=true
+          ports:
+            - name: web
+              containerPort: {{ .Values.ports.web.port }}
+              hostPort: {{ .Values.ports.web.exposedPort }}
+            - name: websecure
+              containerPort: {{ .Values.ports.websecure.port }}
+              hostPort: {{ .Values.ports.websecure.exposedPort }}
+            - name: traefik
+              containerPort: {{ .Values.ports.traefik.port }}
+            - name: metrics
+              containerPort: {{ .Values.ports.metrics.port }}
+          resources:
+            {{- include "traefik.resources" . | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

@@ -1,0 +1,21 @@
+{{- if and .Values.traefik.dashboard.enabled .Values.traefik.dashboard.expose }}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "traefik.fullname" . }}-dashboard
+  labels:
+    {{- include "traefik.labels" . | nindent 4 }}
+spec:
+  entryPoints:
+    - traefik
+  routes:
+    - match: PathPrefix(`/dashboard`) || PathPrefix(`/api`)
+      kind: Rule
+      services:
+        - name: api@internal
+          kind: TraefikService
+      {{- if .Values.traefik.dashboard.auth.enabled }}
+      middlewares:
+        - name: {{ include "traefik.fullname" . }}-dashboard-auth
+      {{- end }}
+{{- end }}

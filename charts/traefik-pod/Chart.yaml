@@ -1,0 +1,84 @@
+apiVersion: v2
+name: traefik-pod
+description: |
+  Industrial-grade Traefik ingress controller for edge computing and factory automation.
+  Because manually configuring nginx reverse proxies at 2am is nobody's idea of fun.
+  
+  Traefik is a modern HTTP reverse proxy and load balancer that makes deploying
+  microservices easy. Perfect for routing traffic to your industrial pods (MQTT,
+  InfluxDB, Node-RED, etc.) with automatic SSL, dashboard monitoring, and zero-downtime
+  deployments. Supports Docker, Kubernetes, and every protocol your factory floor throws at it.
+
+type: application
+version: 1.0.0
+appVersion: "3.2.0"
+
+keywords:
+  - traefik
+  - ingress
+  - reverse-proxy
+  - load-balancer
+  - ssl
+  - tls
+  - industrial
+  - edge
+  - iiot
+  - routing
+  - gateway
+
+home: https://github.com/fireball-industries/helm-charts
+sources:
+  - https://github.com/traefik/traefik
+  - https://doc.traefik.io/traefik/
+
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireballindustries.com
+    url: https://fireballindustries.com
+
+icon: https://raw.githubusercontent.com/traefik/traefik/master/docs/content/assets/img/traefik.logo.png
+
+# Rancher Questions Annotation
+annotations:
+  catalog.cattle.io/certified: "fireball"
+  catalog.cattle.io/release-name: "traefik"
+  catalog.cattle.io/display-name: "Traefik - Ingress Controller & Reverse Proxy"
+  catalog.cattle.io/provides-gvr: "apps/v1/Deployment"
+  catalog.cattle.io/namespace: "traefik"
+  catalog.cattle.io/os: "linux"
+  catalog.cattle.io/kube-version: ">=1.22.0"
+  catalog.cattle.io/rancher-version: ">=2.6.0"
+  
+  # Category
+  catalog.cattle.io/category: "Networking,Ingress,Industrial"
+  
+  # Feature annotations
+  catalog.cattle.io/auto-install: "traefik-pod=match"
+  catalog.cattle.io/hidden: "false"
+  
+  # Branding
+  catalog.cattle.io/vendor: "Fireball Industries"
+  catalog.cattle.io/vendor-url: "https://fireballindustries.com"
+  catalog.cattle.io/tagline: "Ignite Your Factory Efficiency™"
+  
+  # Description for marketplace
+  catalog.cattle.io/description: |
+    Production-ready Traefik ingress controller for industrial Kubernetes environments.
+    
+    Features:
+    - Automatic service discovery and routing
+    - Built-in SSL/TLS with Let's Encrypt support
+    - Real-time dashboard and metrics
+    - TCP/UDP load balancing for industrial protocols (MQTT, Modbus, OPC-UA)
+    - Zero-downtime deployments
+    - Middleware for authentication, rate limiting, headers
+    - Integration with all industrial pods (MQTT, InfluxDB, Node-RED, Grafana)
+    - Edge-optimized with minimal resource footprint
+    - High availability support
+    
+    Perfect for:
+    - Factory automation networks
+    - Edge computing gateways
+    - IIoT platform routing
+    - SCADA system integration
+    - Multi-tenant industrial deployments

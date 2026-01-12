@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "traefik.fullname" . }}
+  labels:
+    {{- include "traefik.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if and (eq .Values.service.type "LoadBalancer") .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.service.loadBalancerIP }}
+  {{- end }}
+  {{- with .Values.service.externalIPs }}
+  externalIPs:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  ports:
+    {{- if .Values.ports.web.enabled }}
+    - name: web
+      port: {{ .Values.ports.web.exposedPort }}
+      targetPort: web
+      protocol: {{ .Values.ports.web.protocol }}
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.web }}
+      nodePort: {{ .Values.service.nodePorts.web }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.ports.websecure.enabled }}
+    - name: websecure
+      port: {{ .Values.ports.websecure.exposedPort }}
+      targetPort: websecure
+      protocol: {{ .Values.ports.websecure.protocol }}
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.websecure }}
+      nodePort: {{ .Values.service.nodePorts.websecure }}
+      {{- end }}
+    {{- end }}
+    - name: traefik
+      port: {{ .Values.ports.traefik.exposedPort }}
+      targetPort: traefik
+      protocol: {{ .Values.ports.traefik.protocol }}
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.traefik }}
+      nodePort: {{ .Values.service.nodePorts.traefik }}
+      {{- end }}
+    - name: metrics
+      port: {{ .Values.ports.metrics.exposedPort }}
+      targetPort: metrics
+      protocol: {{ .Values.ports.metrics.protocol }}
+    {{- if .Values.ports.mqtt.enabled }}
+    - name: mqtt
+      port: {{ .Values.ports.mqtt.exposedPort }}
+      targetPort: mqtt
+      protocol: {{ .Values.ports.mqtt.protocol }}
+    {{- end }}
+    {{- if .Values.ports.mqtts.enabled }}
+    - name: mqtts
+      port: {{ .Values.ports.mqtts.exposedPort }}
+      targetPort: mqtts
+      protocol: {{ .Values.ports.mqtts.protocol }}
+    {{- end }}
+    {{- if .Values.ports.modbus.enabled }}
+    - name: modbus
+      port: {{ .Values.ports.modbus.exposedPort }}
+      targetPort: modbus
+      protocol: {{ .Values.ports.modbus.protocol }}
+    {{- end }}
+    {{- if .Values.ports.opcua.enabled }}
+    - name: opcua
+      port: {{ .Values.ports.opcua.exposedPort }}
+      targetPort: opcua
+      protocol: {{ .Values.ports.opcua.protocol }}
+    {{- end }}
+  selector:
+    {{- include "traefik.selectorLabels" . | nindent 4 }}

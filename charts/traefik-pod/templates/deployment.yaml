@@ -1,0 +1,169 @@
+{{- if eq .Values.deployment.kind "Deployment" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "traefik.fullname" . }}
+  labels:
+    {{- include "traefik.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.ha.enabled }}
+  replicas: {{ .Values.deployment.replicas }}
+  {{- else }}
+  replicas: {{ .Values.ha.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "traefik.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "traefik.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "traefik.fullname" . }}
+      {{- with .Values.security.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: traefik
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.security.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          args:
+            - --global.checkNewVersion={{ .Values.global.checkNewVersion }}
+            - --global.sendAnonymousUsage={{ .Values.global.sendAnonymousUsage }}
+            {{- if .Values.traefik.api.enabled }}
+            - --api={{ .Values.traefik.api.enabled }}
+            - --api.dashboard={{ .Values.traefik.api.dashboard }}
+            - --api.insecure={{ .Values.traefik.api.insecure }}
+            {{- end }}
+            {{- if .Values.traefik.metrics.prometheus.enabled }}
+            - --metrics.prometheus=true
+            - --metrics.prometheus.addEntryPointsLabels={{ .Values.traefik.metrics.prometheus.addEntryPointsLabels }}
+            - --metrics.prometheus.addServicesLabels={{ .Values.traefik.metrics.prometheus.addServicesLabels }}
+            {{- end }}
+            {{- if .Values.traefik.accessLog.enabled }}
+            - --accesslog=true
+            - --accesslog.format={{ .Values.traefik.accessLog.format }}
+            {{- end }}
+            - --log.level={{ .Values.traefik.log.level }}
+            - --log.format={{ .Values.traefik.log.format }}
+            - --entrypoints.web.address=:{{ .Values.ports.web.port }}
+            {{- if and .Values.ports.web.enabled .Values.ports.web.redirectTo }}
+            - --entrypoints.web.http.redirections.entrypoint.to={{ .Values.ports.web.redirectTo }}
+            - --entrypoints.web.http.redirections.entrypoint.scheme=https
+            {{- end }}
+            - --entrypoints.websecure.address=:{{ .Values.ports.websecure.port }}
+            {{- if .Values.ports.websecure.tls.enabled }}
+            - --entrypoints.websecure.http.tls=true
+            {{- end }}
+            - --entrypoints.traefik.address=:{{ .Values.ports.traefik.port }}
+            - --entrypoints.metrics.address=:{{ .Values.ports.metrics.port }}
+            {{- if .Values.ports.mqtt.enabled }}
+            - --entrypoints.mqtt.address=:{{ .Values.ports.mqtt.port }}
+            {{- end }}
+            {{- if .Values.ports.mqtts.enabled }}
+            - --entrypoints.mqtts.address=:{{ .Values.ports.mqtts.port }}
+            {{- end }}
+            {{- if .Values.ports.modbus.enabled }}
+            - --entrypoints.modbus.address=:{{ .Values.ports.modbus.port }}
+            {{- end }}
+            {{- if .Values.ports.opcua.enabled }}
+            - --entrypoints.opcua.address=:{{ .Values.ports.opcua.port }}
+            {{- end }}
+            - --providers.kubernetesingress=true
+            - --providers.kubernetescrd=true
+            {{- if .Values.tls.certResolvers.letsencrypt.enabled }}
+            - --certificatesresolvers.letsencrypt.acme.email={{ .Values.tls.certResolvers.letsencrypt.email }}
+            - --certificatesresolvers.letsencrypt.acme.storage={{ .Values.tls.certResolvers.letsencrypt.storage }}
+            {{- if eq .Values.tls.certResolvers.letsencrypt.challengeType "tlsChallenge" }}
+            - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+            {{- else if eq .Values.tls.certResolvers.letsencrypt.challengeType "httpChallenge" }}
+            - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+            - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint={{ .Values.tls.certResolvers.letsencrypt.httpChallenge.entryPoint }}
+            {{- else if eq .Values.tls.certResolvers.letsencrypt.challengeType "dnsChallenge" }}
+            - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
+            - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider={{ .Values.tls.certResolvers.letsencrypt.dnsChallenge.provider }}
+            {{- end }}
+            {{- end }}
+          ports:
+            {{- if .Values.ports.web.enabled }}
+            - name: web
+              containerPort: {{ .Values.ports.web.port }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.ports.websecure.enabled }}
+            - name: websecure
+              containerPort: {{ .Values.ports.websecure.port }}
+              protocol: TCP
+            {{- end }}
+            - name: traefik
+              containerPort: {{ .Values.ports.traefik.port }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.ports.metrics.port }}
+              protocol: TCP
+            {{- if .Values.ports.mqtt.enabled }}
+            - name: mqtt
+              containerPort: {{ .Values.ports.mqtt.port }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.ports.mqtts.enabled }}
+            - name: mqtts
+              containerPort: {{ .Values.ports.mqtts.port }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.ports.modbus.enabled }}
+            - name: modbus
+              containerPort: {{ .Values.ports.modbus.port }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.ports.opcua.enabled }}
+            - name: opcua
+              containerPort: {{ .Values.ports.opcua.port }}
+              protocol: TCP
+            {{- end }}
+          resources:
+            {{- include "traefik.resources" . | nindent 12 }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.path }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim }}
+          {{- else }}
+          persistentVolumeClaim:
+            claimName: {{ include "traefik.fullname" . }}
+          {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
