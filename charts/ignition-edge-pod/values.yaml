@@ -178,7 +178,7 @@ databases:
   postgresql:
     enabled: true
     name: "production_db"
-    host: "postgresql"
+    host: "postgresql-pod"
     port: 5432
     database: "ignition"
     username: "ignition"
@@ -194,7 +194,7 @@ databases:
   timescaledb:
     enabled: true
     name: "historian_db"
-    host: "timescaledb"
+    host: "timescaledb-pod"
     port: 5432
     database: "historian"
     username: "ignition"
@@ -275,7 +275,7 @@ mqtt:
     enabled: true
     # MQTT broker configuration
     broker:
-      host: "mqtt-broker"
+      host: "mosquitto-mqtt-pod"
       port: 1883
       # TLS configuration
       ssl: false
@@ -297,7 +297,7 @@ mqtt:
     enabled: true
     # Central MQTT broker
     broker:
-      host: "central-mqtt"
+      host: "mosquitto-mqtt-pod"
       port: 1883
       ssl: false
       username: ""
