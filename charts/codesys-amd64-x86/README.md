@@ -10,7 +10,68 @@
 
 The CODESYS chart supports multiple service types for different deployment scenarios. Choose the right service type based on your infrastructure and access requirements.
 
-#### Service Type: NodePort (Default)
+#### Service Type: LoadBalancer (Default)
+
+**Best for:** Production, k3s with MetalLB, cloud providers, multi-node clusters
+
+```yaml
+service:
+  type: LoadBalancer
+  annotations:
+    metallb.universe.tf/address-pool: industrial  # For MetalLB
+    # loadBalancerIP: 192.168.1.100  # Optional: specific IP
+  plc:
+    port: 11740
+    targetPort: 11740
+  webvisu:
+    port: 2455
+    targetPort: 2455
+  opcua:
+    port: 4840
+    targetPort: 4840
+```
+
+**Access Pattern:**
+- CODESYS IDE: `<load-balancer-ip>:11740`
+- WebVisu: `http://<load-balancer-ip>:2455`
+- OPC UA: `opc.tcp://<load-balancer-ip>:4840`
+
+**Advantages:**
+- ✅ Standard industrial ports (no NodePort range limits)
+- ✅ Automatic IP assignment
+- ✅ Professional appearance
+- ✅ Easier firewall rules
+- ✅ Works with Traefik/Ingress integration
+- ✅ Consistent with CODESYS ARM chart
+
+**Disadvantages:**
+- ❌ Requires load balancer (MetalLB for bare-metal)
+- ❌ May consume scarce IP addresses
+- ❌ Cloud providers may charge per LoadBalancer
+
+**MetalLB Configuration Example:**
+```yaml
+# Install MetalLB first:
+# kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.12/config/manifests/metallb-native.yaml
+
+# Create IP address pool:
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: industrial
+  namespace: metallb-system
+spec:
+  addresses:
+  - 192.168.1.100-192.168.1.110  # Your factory network IPs
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: industrial
+  namespace: metallb-system
+```
+
+#### Service Type: NodePort
 
 **Best for:** Development, single-node clusters, direct access from factory network
 

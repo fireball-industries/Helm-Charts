@@ -95,29 +95,30 @@ affinity: {}
 
 # Service configuration
 service:
-  type: NodePort
-  # Annotations for the service
+  type: LoadBalancer
+  # Annotations for the service (e.g., MetalLB address pool)
   annotations: {}
+    # metallb.universe.tf/address-pool: industrial
   
   # PLC communication port
   plc:
     port: 11740
     targetPort: 11740
-    nodePort: 31740
+    nodePort: 31740  # Only used if type: NodePort
     protocol: TCP
   
   # Web visualization port
   webvisu:
     port: 2455
     targetPort: 2455
-    nodePort: 32455
+    nodePort: 32455  # Only used if type: NodePort
     protocol: TCP
   
   # OPC UA port
   opcua:
     port: 4840
     targetPort: 4840
-    nodePort: 34840
+    nodePort: 34840  # Only used if type: NodePort
     protocol: TCP
 
 # Persistent storage configuration
