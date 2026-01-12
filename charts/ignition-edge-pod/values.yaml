@@ -215,6 +215,43 @@ databases:
   #   database: "mes"
   #   username: "ignition"
   #   password: "password"
+  
+  # InfluxDB for tag storage and analytics
+  influxdb:
+    enabled: false
+    name: "influxdb_tags"
+    host: "influxdb-pod"
+    port: 8086
+    # InfluxDB v1.x configuration
+    v1:
+      enabled: true
+      database: "ignition_tags"
+      username: ""
+      password: ""
+      existingSecret: ""
+      passwordKey: "influxdb-password"
+      retentionPolicy: "90d"
+      # Write precision: ns, us, ms, s, m, h
+      writePrecision: "ms"
+    # InfluxDB v2.x configuration
+    v2:
+      enabled: false
+      organization: "fireball-industries"
+      bucket: "ignition_tags"
+      token: ""
+      existingSecret: ""
+      tokenKey: "influxdb-token"
+    # Connection settings
+    maxConnections: 10
+    batchSize: 1000
+    flushInterval: 1000  # milliseconds
+    # Use for tag historian alternative to TimescaleDB
+    tagHistorian:
+      enabled: false
+      # Sample mode: OnChange, Periodic
+      sampleMode: "OnChange"
+      # For periodic sampling (seconds)
+      sampleRate: 1
 
 # ============================================================================
 # OPC UA Configuration

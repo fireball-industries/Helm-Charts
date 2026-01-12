@@ -262,3 +262,125 @@ metrics:
 logging:
   level: INFO
   format: json
+
+# ==================== Integration Configurations ====================
+# Optional integrations for enhanced gateway monitoring and management
+
+# Database integration for gateway metrics and PLC discovery cache
+database:
+  # Enable database integration
+  enabled: false
+  
+  # PostgreSQL for gateway metrics and PLC registry
+  postgresql:
+    enabled: false
+    # Service name in Kubernetes cluster
+    host: "postgresql-pod"
+    port: 5432
+    database: "gateway_data"
+    # Schema for gateway tables
+    schema: "codesys_gateway"
+    username: "postgres"
+    password: ""
+    existingSecret: ""
+    # SSL mode
+    sslMode: "disable"
+  
+  # InfluxDB for time-series gateway metrics
+  influxdb:
+    enabled: false
+    host: "influxdb-pod"
+    port: 8086
+    database: "gateway_metrics"
+    organization: "fireball-industries"
+    bucket: "gateway_data"
+    username: ""
+    password: ""
+    existingSecret: ""
+
+# MQTT integration for gateway event publishing
+mqtt:
+  # Enable MQTT event publishing
+  enabled: false
+  
+  broker:
+    # Service name in Kubernetes cluster
+    host: "mosquitto-mqtt-pod"
+    port: 1883
+    # Enable SSL/TLS
+    tls:
+      enabled: false
+      port: 8883
+    # Authentication
+    username: ""
+    password: ""
+    existingSecret: ""
+    # Client ID
+    clientId: "codesys-edge-gateway"
+    # Quality of Service
+    qos: 1
+    keepAlive: 60
+  
+  # Topics for gateway events
+  topics:
+    # Base topic
+    base: "factory/gateway"
+    # Gateway status topic
+    status: "factory/gateway/status"
+    # PLC discovery events
+    discovery: "factory/gateway/discovery"
+    # Connection events
+    connections: "factory/gateway/connections"
+
+# Enhanced monitoring with Prometheus ServiceMonitor
+monitoring:
+  # Enable enhanced monitoring
+  enabled: false
+  
+  # Prometheus ServiceMonitor
+  serviceMonitor:
+    enabled: false
+    namespace: monitoring
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+  
+  # Grafana dashboard
+  grafana:
+    dashboards:
+      enabled: false
+      namespace: monitoring
+      labels:
+        grafana_dashboard: "1"
+
+# Security enhancements
+security:
+  # Pod Security Standards compliance level
+  # Options: privileged, baseline, restricted
+  podSecurityStandard: "baseline"
+  
+  # Network segmentation
+  networkSegmentation:
+    enabled: false
+    # Allow traffic only from specific namespaces
+    allowedNamespaces:
+      - codesys-plc
+      - default
+  
+  # Secrets encryption
+  secretsEncryption:
+    enabled: false
+    # Use sealed secrets or external secrets operator
+    provider: "sealed-secrets"  # Options: sealed-secrets, external-secrets
+  
+  # TLS configuration for gateway communication
+  tls:
+    enabled: false
+    # Certificate source: cert-manager, manual, existing-secret
+    certificateSource: "cert-manager"
+    # For cert-manager
+    issuerRef:
+      name: "ca-issuer"
+      kind: "ClusterIssuer"
+    # For existing secret
+    existingSecret: ""
