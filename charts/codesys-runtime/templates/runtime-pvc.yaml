@@ -2,10 +2,10 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "codesys-runtime.runtime.pvcName" . }}
-  namespace: {{ include "codesys-runtime.namespace" . }}
+  name: {{ include "codesys-runtime-arm.runtime.pvcName" . }}
+  namespace: {{ include "codesys-runtime-arm.namespace" . }}
   labels:
-    {{- include "codesys-runtime.runtime.labels" . | nindent 4 }}
+    {{- include "codesys-runtime-arm.runtime.labels" . | nindent 4 }}
   {{- with .Values.runtime.persistence.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

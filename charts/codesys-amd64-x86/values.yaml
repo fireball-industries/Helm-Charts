@@ -13,7 +13,7 @@ architecture: amd64
 # Image configuration
 image:
   registry: ghcr.io
-  repository: YOUR_ORG/codesys-control-x86
+  repository: fireball-industries/codesys-runtime-amd64
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"

@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "codesys-runtime.name" -}}
+{{- define "codesys-runtime-arm.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "codesys-runtime.fullname" -}}
+{{- define "codesys-runtime-arm.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "codesys-runtime.chart" -}}
+{{- define "codesys-runtime-arm.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "codesys-runtime.labels" -}}
-helm.sh/chart: {{ include "codesys-runtime.chart" . }}
-{{ include "codesys-runtime.selectorLabels" . }}
+{{- define "codesys-runtime-arm.labels" -}}
+helm.sh/chart: {{ include "codesys-runtime-arm.chart" . }}
+{{ include "codesys-runtime-arm.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -46,49 +46,49 @@ fireball.io/category: industrial-automation
 {{/*
 Selector labels for runtime
 */}}
-{{- define "codesys-runtime.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "codesys-runtime.name" . }}
+{{- define "codesys-runtime-arm.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "codesys-runtime-arm.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Runtime specific labels
 */}}
-{{- define "codesys-runtime.runtime.labels" -}}
-{{ include "codesys-runtime.labels" . }}
+{{- define "codesys-runtime-arm.runtime.labels" -}}
+{{ include "codesys-runtime-arm.labels" . }}
 app.kubernetes.io/component: plc-runtime
 {{- end }}
 
 {{/*
 Runtime selector labels
 */}}
-{{- define "codesys-runtime.runtime.selectorLabels" -}}
-{{ include "codesys-runtime.selectorLabels" . }}
+{{- define "codesys-runtime-arm.runtime.selectorLabels" -}}
+{{ include "codesys-runtime-arm.selectorLabels" . }}
 app.kubernetes.io/component: plc-runtime
 {{- end }}
 
 {{/*
 WebVisu specific labels
 */}}
-{{- define "codesys-runtime.webvisu.labels" -}}
-{{ include "codesys-runtime.labels" . }}
+{{- define "codesys-runtime-arm.webvisu.labels" -}}
+{{ include "codesys-runtime-arm.labels" . }}
 app.kubernetes.io/component: webvisu
 {{- end }}
 
 {{/*
 WebVisu selector labels
 */}}
-{{- define "codesys-runtime.webvisu.selectorLabels" -}}
-{{ include "codesys-runtime.selectorLabels" . }}
+{{- define "codesys-runtime-arm.webvisu.selectorLabels" -}}
+{{ include "codesys-runtime-arm.selectorLabels" . }}
 app.kubernetes.io/component: webvisu
 {{- end }}
 
 {{/*
 Create the name of the runtime service account
 */}}
-{{- define "codesys-runtime.runtime.serviceAccountName" -}}
+{{- define "codesys-runtime-arm.runtime.serviceAccountName" -}}
 {{- if .Values.runtime.serviceAccount.create }}
-{{- default (printf "%s-runtime" (include "codesys-runtime.fullname" .)) .Values.runtime.serviceAccount.name }}
+{{- default (printf "%s-runtime" (include "codesys-runtime-arm.fullname" .)) .Values.runtime.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.runtime.serviceAccount.name }}
 {{- end }}
@@ -97,9 +97,9 @@ Create the name of the runtime service account
 {{/*
 Create the name of the webvisu service account
 */}}
-{{- define "codesys-runtime.webvisu.serviceAccountName" -}}
+{{- define "codesys-runtime-arm.webvisu.serviceAccountName" -}}
 {{- if .Values.webvisu.serviceAccount.create }}
-{{- default (printf "%s-webvisu" (include "codesys-runtime.fullname" .)) .Values.webvisu.serviceAccount.name }}
+{{- default (printf "%s-webvisu" (include "codesys-runtime-arm.fullname" .)) .Values.webvisu.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.webvisu.serviceAccount.name }}
 {{- end }}
@@ -108,7 +108,7 @@ Create the name of the webvisu service account
 {{/*
 Get the namespace
 */}}
-{{- define "codesys-runtime.namespace" -}}
+{{- define "codesys-runtime-arm.namespace" -}}
 {{- if .Values.namespace.create }}
 {{- .Values.namespace.name }}
 {{- else }}
@@ -119,7 +119,7 @@ Get the namespace
 {{/*
 Determine runtime resources based on preset
 */}}
-{{- define "codesys-runtime.runtime.resources" -}}
+{{- define "codesys-runtime-arm.runtime.resources" -}}
 {{- if eq .Values.runtime.resources.preset "custom" }}
 requests:
   cpu: {{ .Values.runtime.resources.custom.requests.cpu }}
@@ -154,7 +154,7 @@ limits:
 {{/*
 Determine webvisu resources based on preset
 */}}
-{{- define "codesys-runtime.webvisu.resources" -}}
+{{- define "codesys-runtime-arm.webvisu.resources" -}}
 {{- if eq .Values.webvisu.resources.preset "custom" }}
 requests:
   cpu: {{ .Values.webvisu.resources.custom.requests.cpu }}
@@ -189,6 +189,6 @@ limits:
 {{/*
 PVC name for runtime
 */}}
-{{- define "codesys-runtime.runtime.pvcName" -}}
-{{- printf "%s-runtime-storage" (include "codesys-runtime.fullname" .) }}
+{{- define "codesys-runtime-arm.runtime.pvcName" -}}
+{{- printf "%s-runtime-storage" (include "codesys-runtime-arm.fullname" .) }}
 {{- end }}

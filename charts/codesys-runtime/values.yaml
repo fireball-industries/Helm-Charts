@@ -1,4 +1,4 @@
-# Default values for codesys-runtime Helm chart
+# Default values for codesys-runtime-arm Helm chart
 # CODESYS Control for Linux ARM SL - Industrial PLC Runtime with integrated WebVisu
 # Fireball Industries Podstore - Patrick Ryan
 

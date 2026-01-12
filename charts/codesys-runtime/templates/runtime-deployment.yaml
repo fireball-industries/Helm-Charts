@@ -2,15 +2,15 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "codesys-runtime.fullname" . }}-runtime
-  namespace: {{ include "codesys-runtime.namespace" . }}
+  name: {{ include "codesys-runtime-arm.fullname" . }}-runtime
+  namespace: {{ include "codesys-runtime-arm.namespace" . }}
   labels:
-    {{- include "codesys-runtime.runtime.labels" . | nindent 4 }}
+    {{- include "codesys-runtime-arm.runtime.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.runtime.replicaCount }}
   selector:
     matchLabels:
-      {{- include "codesys-runtime.runtime.selectorLabels" . | nindent 6 }}
+      {{- include "codesys-runtime-arm.runtime.selectorLabels" . | nindent 6 }}
   strategy:
     type: Recreate  # PLC should not run multiple instances simultaneously
   template:
@@ -20,14 +20,14 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "codesys-runtime.runtime.selectorLabels" . | nindent 8 }}
+        {{- include "codesys-runtime-arm.runtime.selectorLabels" . | nindent 8 }}
         fireball.io/component: plc-runtime
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "codesys-runtime.runtime.serviceAccountName" . }}
+      serviceAccountName: {{ include "codesys-runtime-arm.runtime.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.runtime.podSecurityContext | nindent 8 }}
       {{- if .Values.runtime.hostNetwork }}
@@ -80,7 +80,7 @@ spec:
             failureThreshold: {{ .Values.runtime.startupProbe.failureThreshold }}
           {{- end }}
           resources:
-            {{- include "codesys-runtime.runtime.resources" . | nindent 12 }}
+            {{- include "codesys-runtime-arm.runtime.resources" . | nindent 12 }}
           env:
             - name: CODESYS_LICENSE_TYPE
               value: {{ .Values.runtime.config.license.type | quote }}
@@ -125,7 +125,7 @@ spec:
         {{- if .Values.runtime.persistence.enabled }}
         - name: runtime-storage
           persistentVolumeClaim:
-            claimName: {{ include "codesys-runtime.runtime.pvcName" . }}
+            claimName: {{ include "codesys-runtime-arm.runtime.pvcName" . }}
         {{- else }}
         - name: runtime-storage
           emptyDir: {}

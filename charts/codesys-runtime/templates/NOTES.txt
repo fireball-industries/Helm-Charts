@@ -1,7 +1,7 @@
 🎉 CODESYS Control for Linux ARM SL has been deployed!
 
 RELEASE: {{ .Release.Name }}
-NAMESPACE: {{ include "codesys-runtime.namespace" . }}
+NAMESPACE: {{ include "codesys-runtime-arm.namespace" . }}
 VERSION: {{ .Chart.AppVersion }}
 ARCHITECTURE: {{ .Values.runtime.architecture.type }}
 
@@ -33,7 +33,7 @@ ARCHITECTURE: {{ .Values.runtime.architecture.type }}
 
 1️⃣ Get LoadBalancer IP address:
 
-   kubectl get svc {{ include "codesys-runtime.fullname" . }}-runtime -n {{ include "codesys-runtime.namespace" . }}
+   kubectl get svc {{ include "codesys-runtime-arm.fullname" . }}-runtime -n {{ include "codesys-runtime-arm.namespace" . }}
 
 2️⃣ Connect from CODESYS Development System:
 
@@ -52,9 +52,9 @@ ARCHITECTURE: {{ .Values.runtime.architecture.type }}
 1️⃣ Get Node IP and ports:
 
    export NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}')
-   export CODESYS_PORT=$(kubectl get svc {{ include "codesys-runtime.fullname" . }}-runtime -n {{ include "codesys-runtime.namespace" . }} -o jsonpath='{.spec.ports[?(@.name=="codesys")].nodePort}')
-   export WEBVISU_PORT=$(kubectl get svc {{ include "codesys-runtime.fullname" . }}-runtime -n {{ include "codesys-runtime.namespace" . }} -o jsonpath='{.spec.ports[?(@.name=="webvisu")].nodePort}')
-   export OPCUA_PORT=$(kubectl get svc {{ include "codesys-runtime.fullname" . }}-runtime -n {{ include "codesys-runtime.namespace" . }} -o jsonpath='{.spec.ports[?(@.name=="opcua")].nodePort}')
+   export CODESYS_PORT=$(kubectl get svc {{ include "codesys-runtime-arm.fullname" . }}-runtime -n {{ include "codesys-runtime-arm.namespace" . }} -o jsonpath='{.spec.ports[?(@.name=="codesys")].nodePort}')
+   export WEBVISU_PORT=$(kubectl get svc {{ include "codesys-runtime-arm.fullname" . }}-runtime -n {{ include "codesys-runtime-arm.namespace" . }} -o jsonpath='{.spec.ports[?(@.name=="webvisu")].nodePort}')
+   export OPCUA_PORT=$(kubectl get svc {{ include "codesys-runtime-arm.fullname" . }}-runtime -n {{ include "codesys-runtime-arm.namespace" . }} -o jsonpath='{.spec.ports[?(@.name=="opcua")].nodePort}')
 
 2️⃣ Access points:
 
@@ -66,11 +66,11 @@ ARCHITECTURE: {{ .Values.runtime.architecture.type }}
 
 1️⃣ Port-forward for local access:
 
-   kubectl port-forward -n {{ include "codesys-runtime.namespace" . }} svc/{{ include "codesys-runtime.fullname" . }}-runtime {{ .Values.runtime.service.ports.codesys.port }}:{{ .Values.runtime.service.ports.codesys.port }}
+   kubectl port-forward -n {{ include "codesys-runtime-arm.namespace" . }} svc/{{ include "codesys-runtime-arm.fullname" . }}-runtime {{ .Values.runtime.service.ports.codesys.port }}:{{ .Values.runtime.service.ports.codesys.port }}
 
 2️⃣ In another terminal for WebVisu:
 
-   kubectl port-forward -n {{ include "codesys-runtime.namespace" . }} svc/{{ include "codesys-runtime.fullname" . }}-runtime {{ .Values.runtime.service.ports.webvisu.port }}:{{ .Values.runtime.service.ports.webvisu.port }}
+   kubectl port-forward -n {{ include "codesys-runtime-arm.namespace" . }} svc/{{ include "codesys-runtime-arm.fullname" . }}-runtime {{ .Values.runtime.service.ports.webvisu.port }}:{{ .Values.runtime.service.ports.webvisu.port }}
 
 3️⃣ Access locally:
 
@@ -93,23 +93,23 @@ ARCHITECTURE: {{ .Values.runtime.architecture.type }}
 🔧 COMMON OPERATIONS
 
 Monitor Runtime Status:
-  kubectl get pods -n {{ include "codesys-runtime.namespace" . }} -l app.kubernetes.io/component=plc-runtime
+  kubectl get pods -n {{ include "codesys-runtime-arm.namespace" . }} -l app.kubernetes.io/component=plc-runtime
 
 View Runtime Logs:
-  kubectl logs -n {{ include "codesys-runtime.namespace" . }} -l app.kubernetes.io/component=plc-runtime -f
+  kubectl logs -n {{ include "codesys-runtime-arm.namespace" . }} -l app.kubernetes.io/component=plc-runtime -f
 
 {{- if eq .Values.runtime.config.license.type "demo" }}
 
 Restart Runtime (Demo Mode Expired):
-  kubectl rollout restart deployment -n {{ include "codesys-runtime.namespace" . }} {{ include "codesys-runtime.fullname" . }}-runtime
+  kubectl rollout restart deployment -n {{ include "codesys-runtime-arm.namespace" . }} {{ include "codesys-runtime-arm.fullname" . }}-runtime
 
 {{- end }}
 
 Check Runtime Health:
-  kubectl exec -n {{ include "codesys-runtime.namespace" . }} -it deployment/{{ include "codesys-runtime.fullname" . }}-runtime -- codesyscontrol status
+  kubectl exec -n {{ include "codesys-runtime-arm.namespace" . }} -it deployment/{{ include "codesys-runtime-arm.fullname" . }}-runtime -- codesyscontrol status
 
 Scale Runtime (use with caution - PLC typically runs single instance):
-  kubectl scale deployment {{ include "codesys-runtime.fullname" . }}-runtime -n {{ include "codesys-runtime.namespace" . }} --replicas=1
+  kubectl scale deployment {{ include "codesys-runtime-arm.fullname" . }}-runtime -n {{ include "codesys-runtime-arm.namespace" . }} --replicas=1
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

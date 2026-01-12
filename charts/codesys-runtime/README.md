@@ -1,4 +1,4 @@
-# CODESYS Runtime
+# CODESYS Runtime ARM
 
 **Industrial Automation PLC Runtime - IEC 61131-3 SoftPLC for ARM64**
 
@@ -51,12 +51,12 @@ helm repo add fireball-podstore https://YOUR-USERNAME.github.io/fireball-podstor
 helm repo update
 
 # Basic installation (demo mode)
-helm install my-plc fireball-podstore/codesys-runtime \
+helm install my-plc fireball-podstore/codesys-runtime-arm \
   --namespace codesys-plc \
   --create-namespace
 
 # With custom configuration
-helm install my-plc fireball-podstore/codesys-runtime \
+helm install my-plc fireball-podstore/codesys-runtime-arm \
   --namespace codesys-plc \
   --create-namespace \
   --set runtime.resources.preset=large \
@@ -127,7 +127,7 @@ kubectl logs -n codesys-plc -l app.kubernetes.io/component=plc-runtime -f
 For production with real license:
 
 ```bash
-helm upgrade my-plc fireball-podstore/codesys-runtime \
+helm upgrade my-plc fireball-podstore/codesys-runtime-arm \
   --set runtime.config.license.type=soft-container \
   --set runtime.config.license.content="BASE64_ENCODED_LICENSE"
 ```
@@ -284,3 +284,4 @@ Crafted by **Patrick Ryan** for engineers who want their PLCs to run like it's 2
 ---
 
 **Built with ❤️ by Fireball Industries | Automating the Future**
+

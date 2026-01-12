@@ -1,4 +1,4 @@
-# CODESYS Runtime
+# CODESYS Runtime ARM
 
 **Containerized Industrial PLC - Because your factory deserves cloud-native too** 🏭
 
@@ -21,7 +21,7 @@ Deploy via Rancher UI - browse to **Apps & Marketplace**, find "CODESYS Runtime"
 Or via command line if you're into that:
 
 ```bash
-helm install my-plc fireball-podstore/codesys-runtime \
+helm install my-plc fireball-podstore/codesys-runtime-arm \
   --namespace codesys-plc \
   --create-namespace
 ```

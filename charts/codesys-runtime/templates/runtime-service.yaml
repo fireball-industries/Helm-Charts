@@ -2,10 +2,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "codesys-runtime.fullname" . }}-runtime
-  namespace: {{ include "codesys-runtime.namespace" . }}
+  name: {{ include "codesys-runtime-arm.fullname" . }}-runtime
+  namespace: {{ include "codesys-runtime-arm.namespace" . }}
   labels:
-    {{- include "codesys-runtime.runtime.labels" . | nindent 4 }}
+    {{- include "codesys-runtime-arm.runtime.labels" . | nindent 4 }}
   {{- with .Values.runtime.service.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -38,5 +38,5 @@ spec:
       nodePort: {{ .Values.runtime.service.ports.webvisu.nodePort }}
       {{- end }}
   selector:
-    {{- include "codesys-runtime.runtime.selectorLabels" . | nindent 4 }}
+    {{- include "codesys-runtime-arm.runtime.selectorLabels" . | nindent 4 }}
 {{- end }}

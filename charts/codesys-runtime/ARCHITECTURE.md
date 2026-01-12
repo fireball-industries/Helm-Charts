@@ -57,7 +57,7 @@ The CODESYS chart has been **corrected** to reflect the actual product architect
 ### Helm Chart Structure
 
 ```
-charts/codesys-runtime/
+charts/codesys-runtime-arm/
 ├── Chart.yaml              # Metadata
 ├── values.yaml             # Single pod config with architecture selection
 ├── questions.yaml          # Rancher UI with arm32/arm64 selection
@@ -160,3 +160,5 @@ This would be a separate implementation from the runtime chart.
 **Corrected by:** Patrick Ryan, Fireball Industries  
 **Date:** January 11, 2026  
 **Reference:** Official CODESYS product documentation
+
+

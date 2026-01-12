@@ -2,10 +2,10 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "codesys-runtime.fullname" . }}-webvisu
-  namespace: {{ include "codesys-runtime.namespace" . }}
+  name: {{ include "codesys-runtime-arm.fullname" . }}-webvisu
+  namespace: {{ include "codesys-runtime-arm.namespace" . }}
   labels:
-    {{- include "codesys-runtime.labels" . | nindent 4 }}
+    {{- include "codesys-runtime-arm.labels" . | nindent 4 }}
     app.kubernetes.io/component: webvisu-ingress
   {{- with .Values.runtime.ingress.annotations }}
   annotations:
@@ -35,7 +35,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "codesys-runtime.fullname" $ }}-runtime
+                name: {{ include "codesys-runtime-arm.fullname" $ }}-runtime
                 port:
                   name: webvisu
           {{- end }}

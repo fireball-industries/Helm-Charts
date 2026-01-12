@@ -4,7 +4,7 @@ kind: Namespace
 metadata:
   name: {{ .Values.namespace.name }}
   labels:
-    {{- include "codesys-runtime.labels" . | nindent 4 }}
+    {{- include "codesys-runtime-arm.labels" . | nindent 4 }}
     fireball.io/managed-by: podstore
     fireball.io/owner: patrick-ryan
     fireball.io/type: industrial-automation
