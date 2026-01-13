@@ -1,0 +1,396 @@
+apiVersion: v1
+entries:
+  alert-manager:
+    - name: alert-manager
+      version: 1.0.0
+      appVersion: v0.26.0
+      description: Enterprise-grade Prometheus Alertmanager for managing and routing alerts to various notification channels including Slack, email, PagerDuty, and more.
+      apiVersion: v2
+      type: application
+      keywords:
+        - alertmanager
+        - prometheus
+        - monitoring
+        - alerts
+        - notifications
+        - forge-industrial
+      home: https://github.com/fireball-industries/fireball-podstore-charts
+      sources:
+        - https://github.com/prometheus/alertmanager
+        - https://github.com/fireball-industries/fireball-podstore-charts
+      maintainers:
+        - name: Patrick Ryan
+          email: patrick@fireball-industries.com
+          url: https://fireball-industries.com
+      icon: https://raw.githubusercontent.com/prometheus/prometheus/main/documentation/images/prometheus-logo.svg
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/alert-manager
+      annotations:
+        catalog.cattle.io/display-name: "Alert Manager"
+        catalog.cattle.io/release-name: "alert-manager"
+        catalog.cattle.io/certified: "partner"
+        catalog.cattle.io/categories: "Forge Industrial,Monitoring,Alerting"
+        catalog.cattle.io/kube-version: ">=1.25.0"
+        catalog.cattle.io/rancher-version: ">=2.6.0"
+
+  codesys-amd64-x86:
+    - name: codesys-amd64-x86
+      version: 1.0.0
+      appVersion: "4.18.0.0"
+      description: Industrial automation PLC runtime - CODESYS Control for Linux x86_64 with WebVisu and OPC UA server
+      apiVersion: v2
+      type: application
+      keywords:
+        - codesys
+        - plc
+        - industrial-automation
+        - scada
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/codesys-amd64-x86
+
+  codesys-edge-gateway:
+    - name: codesys-edge-gateway
+      version: 1.0.0
+      appVersion: "4.18.0.0"
+      description: CODESYS Edge Gateway for industrial protocol conversion and edge computing
+      apiVersion: v2
+      type: application
+      keywords:
+        - codesys
+        - edge-gateway
+        - industrial-automation
+        - protocol-conversion
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/codesys-edge-gateway
+
+  codesys-runtime-arm:
+    - name: codesys-runtime-arm
+      version: 1.0.0
+      appVersion: "4.18.0.0"
+      description: Industrial automation PLC runtime - CODESYS Control for Linux ARM64 with WebVisu and OPC UA server for IEC 61131-3 programming
+      apiVersion: v2
+      type: application
+      keywords:
+        - codesys
+        - plc
+        - industrial-automation
+        - scada
+        - iec-61131-3
+        - ethercat
+        - profinet
+        - modbus
+        - opcua
+        - forge-industrial
+      home: https://github.com/fireball-industries/fireball-podstore-charts
+      sources:
+        - https://www.codesys.com/
+        - https://github.com/fireball-industries/fireball-podstore-charts
+      maintainers:
+        - name: Patrick Ryan
+          email: patrick@fireball-industries.com
+          url: https://fireball-industries.com
+      icon: https://www.codesys.com/fileadmin/data/Images/SocialMedia/CODESYS_LOGO_black_200x200.png
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/codesys-runtime
+
+  emberburn:
+    - name: emberburn
+      version: 1.0.0
+      appVersion: "1.0.0"
+      description: Industrial automation toolkit and utilities
+      apiVersion: v2
+      type: application
+      keywords:
+        - automation
+        - industrial
+        - utilities
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/emberburn
+
+  grafana-loki:
+    - name: grafana-loki
+      version: 1.0.0
+      appVersion: "2.9.0"
+      description: Loki log aggregation system for industrial and edge environments
+      apiVersion: v2
+      type: application
+      keywords:
+        - loki
+        - grafana
+        - logging
+        - monitoring
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/grafana-loki
+
+  industrial-iot:
+    - name: industrial-iot
+      version: 1.0.0
+      appVersion: "2024.12.0"
+      description: Production-ready Industrial IoT platform powered by Home Assistant for smart manufacturing, building automation, and edge computing
+      apiVersion: v2
+      type: application
+      keywords:
+        - industrial-iot
+        - manufacturing
+        - automation
+        - edge-computing
+        - scada
+        - opcua
+        - modbus
+        - mqtt
+        - home-assistant
+        - building-automation
+        - forge-industrial
+      home: https://github.com/fireballindustries/home-assistant-pod
+      sources:
+        - https://github.com/home-assistant/core
+        - https://github.com/fireballindustries/home-assistant-pod
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/home-assistant-pod
+
+  ignition-edge-pod:
+    - name: ignition-edge-pod
+      version: 1.0.0
+      appVersion: "8.1.0"
+      description: Inductive Automation Ignition Edge gateway for industrial SCADA and IIoT
+      apiVersion: v2
+      type: application
+      keywords:
+        - ignition
+        - scada
+        - industrial-automation
+        - iiot
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/ignition-edge-pod
+
+  influxdb-pod:
+    - name: influxdb-pod
+      version: 1.0.0
+      appVersion: "2.7.0"
+      description: Time-series database optimized for industrial IoT and monitoring data
+      apiVersion: v2
+      type: application
+      keywords:
+        - influxdb
+        - time-series
+        - database
+        - monitoring
+        - iiot
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/influxdb-pod
+
+  microvm:
+    - name: microvm
+      version: 1.0.0
+      appVersion: "1.0.0"
+      description: Lightweight virtual machine runtime for edge computing
+      apiVersion: v2
+      type: application
+      keywords:
+        - microvm
+        - virtualization
+        - edge-computing
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/microvm
+
+  mosquitto-mqtt-pod:
+    - name: mosquitto-mqtt-pod
+      version: 1.0.0
+      appVersion: "2.0.0"
+      description: Eclipse Mosquitto MQTT broker for industrial IoT messaging
+      apiVersion: v2
+      type: application
+      keywords:
+        - mqtt
+        - mosquitto
+        - messaging
+        - iiot
+        - broker
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/mosquitto-mqtt-pod
+
+  n8n-pod:
+    - name: n8n-pod
+      version: 1.0.0
+      appVersion: "1.0.0"
+      description: Workflow automation platform for industrial integration and data pipelines
+      apiVersion: v2
+      type: application
+      keywords:
+        - n8n
+        - automation
+        - workflow
+        - integration
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/n8n-pod
+
+  node-exporter-pod:
+    - name: node-exporter-pod
+      version: 1.0.0
+      appVersion: "1.7.0"
+      description: Prometheus Node Exporter for hardware and OS metrics collection
+      apiVersion: v2
+      type: application
+      keywords:
+        - prometheus
+        - node-exporter
+        - monitoring
+        - metrics
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/node-exporter-pod
+
+  node-red:
+    - name: node-red
+      version: 1.0.0
+      appVersion: "3.1.0"
+      description: Flow-based visual programming for IoT, automation, and integration
+      apiVersion: v2
+      type: application
+      keywords:
+        - node-red
+        - automation
+        - iot
+        - integration
+        - low-code
+        - workflow
+        - mqtt
+        - modbus
+        - forge-industrial
+      home: https://nodered.org
+      sources:
+        - https://github.com/node-red/node-red
+        - https://github.com/fireball-industries/helm-charts
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/node-red
+
+  postgresql-pod:
+    - name: postgresql-pod
+      version: 1.0.0
+      appVersion: "16.0"
+      description: PostgreSQL relational database for industrial data management
+      apiVersion: v2
+      type: application
+      keywords:
+        - postgresql
+        - database
+        - sql
+        - relational
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/postgresql-pod
+
+  prometheus-pod:
+    - name: prometheus-pod
+      version: 1.0.0
+      appVersion: "2.48.0"
+      description: Prometheus monitoring system and time-series database for industrial metrics
+      apiVersion: v2
+      type: application
+      keywords:
+        - prometheus
+        - monitoring
+        - metrics
+        - time-series
+        - alerting
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/prometheus-pod
+
+  sqlite-pod:
+    - name: sqlite-pod
+      version: 1.0.0
+      appVersion: "3.44.0"
+      description: Lightweight embedded database for edge computing and local storage
+      apiVersion: v2
+      type: application
+      keywords:
+        - sqlite
+        - database
+        - embedded
+        - edge-computing
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/sqlite-pod
+
+  telegraf-pod:
+    - name: telegraf-pod
+      version: 1.0.0
+      appVersion: "1.28.0"
+      description: InfluxData Telegraf metrics collection agent for industrial protocols
+      apiVersion: v2
+      type: application
+      keywords:
+        - telegraf
+        - metrics
+        - monitoring
+        - collection
+        - influxdb
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/telegraf-pod
+
+  timescaledb-pod:
+    - name: timescaledb-pod
+      version: 1.0.0
+      appVersion: "2.13.0"
+      description: TimescaleDB time-series database optimized for industrial IoT data
+      apiVersion: v2
+      type: application
+      keywords:
+        - timescaledb
+        - time-series
+        - postgresql
+        - database
+        - iiot
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/timescaledb-pod
+
+  traefik-pod:
+    - name: traefik-pod
+      version: 1.0.0
+      appVersion: "2.10.0"
+      description: Traefik reverse proxy and load balancer for edge and industrial deployments
+      apiVersion: v2
+      type: application
+      keywords:
+        - traefik
+        - reverse-proxy
+        - load-balancer
+        - ingress
+        - edge-computing
+        - forge-industrial
+      created: "2026-01-12T00:00:00Z"
+      urls:
+        - charts/traefik-pod
+
+generated: "2026-01-12T00:00:00Z"
