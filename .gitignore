@@ -31,3 +31,6 @@ temp/
 
 # Chart lock files (if any)
 Chart.lock
+charts/Grafana-Loki-Pod/
+charts/industrial-iot/
+charts/sorbotics-pod/
