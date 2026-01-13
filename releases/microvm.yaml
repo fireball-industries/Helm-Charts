@@ -1,0 +1,20 @@
+# Fleet Helm Release: MicroVM
+# Deploys MicroVM infrastructure from OCI registry
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: infrastructure
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: microvm
+  namespace: kube-system
+spec:
+  chart: microvm
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: infrastructure
+  valuesContent: |-
+    # Default values - customize as needed
+    replicaCount: 1

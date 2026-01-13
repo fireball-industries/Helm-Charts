@@ -1,0 +1,23 @@
+# Rancher Fleet Configuration for Fireball Industries Helm Charts
+# This file configures how Fleet deploys charts from OCI registry
+
+# Default values for all chart deployments
+defaultNamespace: default
+
+# Namespace where Fleet manages releases
+namespace: fleet-default
+
+# Target clusters - adjust based on your cluster labels
+targetCustomizations:
+- name: production
+  clusterSelector:
+    matchLabels:
+      env: production
+
+- name: staging
+  clusterSelector:
+    matchLabels:
+      env: staging
+
+- name: all-clusters
+  clusterSelector: {}

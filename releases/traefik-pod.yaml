@@ -1,0 +1,16 @@
+# Fleet Helm Release: Traefik
+# Deploys Traefik ingress controller from OCI registry
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: traefik-pod
+  namespace: kube-system
+spec:
+  chart: traefik-pod
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: infrastructure
+  valuesContent: |-
+    # Default values - customize as needed
+    service:
+      type: LoadBalancer

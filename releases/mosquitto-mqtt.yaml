@@ -1,0 +1,22 @@
+# Fleet Helm Release: Mosquitto MQTT
+# Deploys Mosquitto MQTT broker from OCI registry
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: iot
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: mosquitto-mqtt
+  namespace: kube-system
+spec:
+  chart: mosquitto-mqtt
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: iot
+  valuesContent: |-
+    # Default values - customize as needed
+    service:
+      type: LoadBalancer
+      port: 1883

@@ -1,0 +1,17 @@
+# Fleet Helm Release: SQLite
+# Deploys SQLite from OCI registry
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: sqlite-pod
+  namespace: kube-system
+spec:
+  chart: sqlite-pod
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: databases
+  valuesContent: |-
+    # Default values - customize as needed
+    persistence:
+      enabled: true
+      size: 5Gi

@@ -1,0 +1,17 @@
+# Fleet Helm Release: Industrial IoT (Home Assistant)
+# Deploys Home Assistant industrial IoT platform from OCI registry
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: industrial-iot
+  namespace: kube-system
+spec:
+  chart: industrial-iot
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: iot
+  valuesContent: |-
+    # Default values - customize as needed
+    persistence:
+      enabled: true
+      size: 10Gi

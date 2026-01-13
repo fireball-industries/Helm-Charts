@@ -1,0 +1,15 @@
+# Fleet Helm Release: Prometheus
+# Deploys Prometheus from OCI registry
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: prometheus-pod
+  namespace: kube-system
+spec:
+  chart: prometheus-pod
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: monitoring
+  valuesContent: |-
+    # Default values - customize as needed
+    replicaCount: 1

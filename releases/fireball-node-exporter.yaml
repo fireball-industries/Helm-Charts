@@ -1,0 +1,16 @@
+# Fleet Helm Release: Fireball Node Exporter
+# Deploys Node Exporter from OCI registry
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: fireball-node-exporter
+  namespace: kube-system
+spec:
+  chart: fireball-node-exporter
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: monitoring
+  valuesContent: |-
+    # Default values - customize as needed
+    hostNetwork: true
+    hostPID: true

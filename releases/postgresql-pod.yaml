@@ -1,0 +1,17 @@
+# Fleet Helm Release: PostgreSQL
+# Deploys PostgreSQL from OCI registry
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: postgresql-pod
+  namespace: kube-system
+spec:
+  chart: postgresql-pod
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: databases
+  valuesContent: |-
+    # Default values - customize as needed
+    persistence:
+      enabled: true
+      size: 10Gi

@@ -1,0 +1,17 @@
+# Fleet Helm Release: TimescaleDB
+# Deploys TimescaleDB from OCI registry
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: timescaledb
+  namespace: kube-system
+spec:
+  chart: timescaledb
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: databases
+  valuesContent: |-
+    # Default values - customize as needed
+    persistence:
+      enabled: true
+      size: 20Gi

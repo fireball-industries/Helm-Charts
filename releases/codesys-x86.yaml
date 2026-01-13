@@ -1,0 +1,15 @@
+# Fleet Helm Release: CODESYS x86
+# Deploys CODESYS x86 runtime from OCI registry
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: codesys-x86
+  namespace: kube-system
+spec:
+  chart: codesys-x86
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: iot
+  valuesContent: |-
+    # Default values - customize as needed
+    replicaCount: 1

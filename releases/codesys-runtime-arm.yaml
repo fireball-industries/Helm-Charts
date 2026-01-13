@@ -1,0 +1,15 @@
+# Fleet Helm Release: CODESYS Runtime ARM
+# Deploys CODESYS ARM runtime from OCI registry
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: codesys-runtime-arm
+  namespace: kube-system
+spec:
+  chart: codesys-runtime-arm
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: iot
+  valuesContent: |-
+    # Default values - customize as needed
+    replicaCount: 1

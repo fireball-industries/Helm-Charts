@@ -1,0 +1,22 @@
+# Fleet Helm Release: n8n
+# Deploys n8n workflow automation from OCI registry
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: automation
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: n8n-pod
+  namespace: kube-system
+spec:
+  chart: n8n-pod
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: automation
+  valuesContent: |-
+    # Default values - customize as needed
+    persistence:
+      enabled: true
+      size: 5Gi

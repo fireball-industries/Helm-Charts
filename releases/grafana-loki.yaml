@@ -1,0 +1,15 @@
+# Fleet Helm Release: Grafana Loki
+# Deploys Grafana + Loki from OCI registry
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: grafana-loki
+  namespace: kube-system
+spec:
+  chart: grafana-loki
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: monitoring
+  valuesContent: |-
+    # Default values - customize as needed
+    replicaCount: 1

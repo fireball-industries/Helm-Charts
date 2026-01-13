@@ -1,0 +1,15 @@
+# Fleet Helm Release: CODESYS Edge Gateway
+# Deploys CODESYS Edge Gateway from OCI registry
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: codesys-edge-gateway
+  namespace: kube-system
+spec:
+  chart: codesys-edge-gateway
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: iot
+  valuesContent: |-
+    # Default values - customize as needed
+    replicaCount: 1

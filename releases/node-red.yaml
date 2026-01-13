@@ -1,0 +1,17 @@
+# Fleet Helm Release: Node-RED
+# Deploys Node-RED from OCI registry
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: node-red
+  namespace: kube-system
+spec:
+  chart: node-red
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: iot
+  valuesContent: |-
+    # Default values - customize as needed
+    persistence:
+      enabled: true
+      size: 5Gi

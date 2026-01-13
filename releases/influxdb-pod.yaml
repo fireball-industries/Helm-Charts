@@ -1,0 +1,22 @@
+# Fleet Helm Release: InfluxDB
+# Deploys InfluxDB from OCI registry
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: databases
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: influxdb-pod
+  namespace: kube-system
+spec:
+  chart: influxdb-pod
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: databases
+  valuesContent: |-
+    # Default values - customize as needed
+    persistence:
+      enabled: true
+      size: 10Gi

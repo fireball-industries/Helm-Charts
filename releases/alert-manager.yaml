@@ -1,0 +1,20 @@
+# Fleet Helm Release: Alert Manager
+# Deploys Alert Manager from OCI registry
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: alert-manager
+  namespace: kube-system
+spec:
+  chart: alert-manager
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: monitoring
+  valuesContent: |-
+    # Default values - customize as needed
+    replicaCount: 1

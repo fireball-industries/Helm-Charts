@@ -1,0 +1,17 @@
+# Fleet Helm Release: Ignition Edge
+# Deploys Ignition Edge SCADA from OCI registry
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: ignition-edge
+  namespace: kube-system
+spec:
+  chart: ignition-edge
+  version: 1.0.0
+  repo: oci://ghcr.io/fireball-industries
+  targetNamespace: iot
+  valuesContent: |-
+    # Default values - customize as needed
+    persistence:
+      enabled: true
+      size: 10Gi
