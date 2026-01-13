@@ -1,0 +1,558 @@
+# ============================================================================
+# Fireball Industries InfluxDB Pod - Configuration Values
+# "Ignite Your Factory Efficiency"™
+# ============================================================================
+# Because your factory's time-series data deserves better than a CSV file.
+#
+# Quick Start:
+#   helm install influxdb . --set influxdb.organization=my-factory
+#
+# For production factories, use HA mode:
+#   helm install influxdb . --set deploymentMode=ha --set resourcePreset=large
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Deployment Configuration
+# ----------------------------------------------------------------------------
+# Choose your destiny: 'single' or 'ha'
+# single = Deployment with one replica (dev, test, edge locations)
+# ha = StatefulSet with clustering (production, because downtime is expensive)
+deploymentMode: single
+
+# Resource preset based on sensor count
+# edge   - 256Mi RAM / 0.5 CPU / 5Gi    (remote sites, <5 sensors)
+# small  - 512Mi RAM / 1 CPU / 10Gi     (<10 sensors, small factory)
+# medium - 2Gi RAM / 2 CPU / 50Gi       (<100 sensors, DEFAULT)
+# large  - 8Gi RAM / 4 CPU / 200Gi      (<1000 sensors, large factory)
+# xlarge - 16Gi RAM / 8 CPU / 500Gi     (>1000 sensors, enterprise plant)
+# custom - You think you know better (you probably do)
+resourcePreset: medium
+
+# ----------------------------------------------------------------------------
+# InfluxDB Configuration
+# ----------------------------------------------------------------------------
+influxdb:
+  # Image configuration
+  image:
+    repository: influxdata/influxdb
+    tag: "2.7-alpine"
+    pullPolicy: IfNotPresent
+  
+  # Initial setup - these create your organization and default bucket
+  organization: "factory"  # Your company/factory name
+  bucket: "sensors"        # Default bucket for sensor data
+  
+  # Admin token - CHANGE THIS IN PRODUCTION
+  # If empty, one will be generated (check pod logs or secret)
+  # Store this securely - you'll need it to access InfluxDB
+  adminToken: ""  # Auto-generated if empty
+  
+  # Admin user (for UI login, though tokens are preferred)
+  adminUser: "admin"
+  adminPassword: ""  # Auto-generated if empty
+  
+  # Retention duration for default bucket
+  # Format: 1h, 24h, 7d, 30d, 365d, inf (infinite)
+  retention: "90d"
+  
+  # HTTP/HTTPS configuration
+  http:
+    enabled: true
+    port: 8086
+    # Enable HTTPS (requires TLS secret)
+    httpsEnabled: false
+    tlsSecret: ""
+  
+  # RPC port for clustering (HA mode only)
+  rpc:
+    port: 8088
+  
+  # Enable flux queries (usually yes)
+  fluxEnabled: true
+  
+  # Logging level: debug, info, warn, error
+  logLevel: info
+  
+  # Storage engine settings
+  storage:
+    # Cache settings for in-memory data
+    cacheMaxMemorySize: "1g"
+    cacheSnapshotMemorySize: "25m"
+    
+    # WAL (Write-Ahead Log) settings
+    walMaxConcurrentWrites: 0  # 0 = GOMAXPROCS
+    walMaxWriteDelay: "10m"
+    
+    # TSM (Time-Structured Merge Tree) compaction
+    compactFullWriteColdDuration: "4h"
+    compactThroughputBurst: "50m"
+    maxConcurrentCompactions: 0  # 0 = 50% of cores
+  
+  # Query settings for industrial workloads
+  query:
+    # Concurrent query limit
+    concurrency: 10
+    # Initial memory allocation per query
+    initialMemoryBytes: 0  # 0 = unlimited
+    # Max memory per query
+    maxMemoryBytes: 0  # 0 = unlimited
+    # Query timeout
+    queueSize: 10
+
+# ----------------------------------------------------------------------------
+# Industrial Buckets - Pre-configured for factory use
+# ----------------------------------------------------------------------------
+# These buckets are created automatically on first startup
+# Format: name:retention (e.g., "production:365d")
+industrialBuckets:
+  enabled: true
+  buckets:
+    - name: "sensors"
+      retention: "90d"
+      description: "Raw sensor data (temperature, pressure, flow, vibration)"
+    - name: "scada"
+      retention: "365d"
+      description: "SCADA system metrics and alarms"
+    - name: "production"
+      retention: "730d"  # 2 years for compliance
+      description: "Production line metrics (OEE, cycle times, defects)"
+    - name: "energy"
+      retention: "2555d"  # 7 years for energy compliance
+      description: "Energy consumption and power monitoring"
+    - name: "quality"
+      retention: "2555d"  # 7 years for quality records (21 CFR Part 11)
+      description: "Quality control measurements and inspections"
+    - name: "_monitoring"
+      retention: "30d"
+      description: "InfluxDB system health metrics"
+
+# ----------------------------------------------------------------------------
+# Data Retention & Downsampling
+# ----------------------------------------------------------------------------
+# Automatically downsample data to save space
+# Hot = full precision, Warm = 1min avg, Cold = 1hr avg
+dataRetention:
+  enabled: true
+  # Hot storage: full precision recent data
+  hot:
+    duration: "7d"
+  # Warm storage: downsampled to 1-minute averages
+  warm:
+    duration: "90d"
+    interval: "1m"
+  # Cold storage: downsampled to 1-hour averages
+  cold:
+    duration: "730d"  # 2 years
+    interval: "1h"
+
+# ----------------------------------------------------------------------------
+# Resource Configuration
+# ----------------------------------------------------------------------------
+# These are overridden by resourcePreset unless you choose 'custom'
+resources:
+  limits:
+    cpu: "2"
+    memory: "2Gi"
+  requests:
+    cpu: "1"
+    memory: "1Gi"
+
+# Autoscaling (only for single deployment mode)
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# ----------------------------------------------------------------------------
+# High Availability Configuration
+# ----------------------------------------------------------------------------
+# Only used when deploymentMode=ha
+highAvailability:
+  # Number of InfluxDB instances (must be odd: 3, 5, 7)
+  replicas: 3
+  
+  # Anti-affinity to spread pods across nodes
+  # soft = prefer different nodes
+  # hard = require different nodes (fails if not enough nodes)
+  antiAffinity: soft
+  
+  # Pod disruption budget (minimum available during updates)
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+
+# ----------------------------------------------------------------------------
+# Persistent Storage
+# ----------------------------------------------------------------------------
+# InfluxDB REQUIRES persistent storage. Disabling this is... unwise.
+persistence:
+  enabled: true
+  
+  # Storage class (use fast SSDs for production)
+  # "" = cluster default
+  # "local-path" = k3s default
+  # "gp3" = AWS
+  # "standard-rwo" = GKE
+  storageClass: ""
+  
+  # Access mode
+  accessMode: ReadWriteOnce
+  
+  # Size (overridden by resourcePreset unless custom)
+  size: "50Gi"
+  
+  # Retain PVC when chart is deleted (true = keep data, false = delete data)
+  retainOnDelete: true
+  
+  # Mount path inside container
+  mountPath: /var/lib/influxdb2
+  
+  # Use existing PVC (leaves PVC management to you)
+  existingClaim: ""
+
+# ----------------------------------------------------------------------------
+# Backup Configuration
+# ----------------------------------------------------------------------------
+# Automated backups to S3, NFS, or local storage
+backup:
+  enabled: false
+  
+  # Backup schedule (cron format)
+  # Default: 2 AM daily
+  schedule: "0 2 * * *"
+  
+  # Retention: how many backups to keep
+  retention: 7
+  
+  # Backup destination
+  destination:
+    # Type: s3, nfs, pvc
+    type: pvc
+    
+    # For S3 backups
+    s3:
+      bucket: ""
+      region: "us-east-1"
+      endpoint: ""  # For S3-compatible storage (MinIO, etc.)
+      accessKeySecret: ""  # Secret name containing AWS_ACCESS_KEY_ID
+      secretKeySecret: ""  # Secret name containing AWS_SECRET_ACCESS_KEY
+    
+    # For NFS backups
+    nfs:
+      server: ""
+      path: "/backups/influxdb"
+    
+    # For PVC backups (simple, but limited to cluster)
+    pvc:
+      storageClass: ""
+      size: "100Gi"
+  
+  # Resource limits for backup job
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+
+# ----------------------------------------------------------------------------
+# Service Configuration
+# ----------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  port: 8086
+  annotations: {}
+  # For LoadBalancer or NodePort
+  # type: LoadBalancer
+  # loadBalancerIP: ""
+  # nodePort: 30086
+
+# Headless service for StatefulSet (HA mode)
+headlessService:
+  enabled: false  # Auto-enabled when deploymentMode=ha
+
+# ----------------------------------------------------------------------------
+# Ingress Configuration
+# ----------------------------------------------------------------------------
+# Expose InfluxDB via ingress (HTTPS strongly recommended for production)
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # For large writes from industrial systems
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+  hosts:
+    - host: influxdb.factory.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: influxdb-tls
+      hosts:
+        - influxdb.factory.local
+
+# ----------------------------------------------------------------------------
+# Security Configuration
+# ----------------------------------------------------------------------------
+# Pod security and RBAC
+security:
+  # Run as non-root user (Pod Security Standards)
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  
+  # Read-only root filesystem
+  readOnlyRootFilesystem: false  # InfluxDB needs writable /tmp
+  
+  # Drop all capabilities
+  capabilities:
+    drop:
+      - ALL
+  
+  # Pod Security Standards profile
+  # restricted = most secure (recommended)
+  # baseline = minimal restrictions
+  podSecurityStandard: restricted
+
+# Service Account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# RBAC
+rbac:
+  create: true
+
+# Network Policy (restrict traffic)
+networkPolicy:
+  enabled: false
+  # Allow ingress from these namespaces
+  ingress:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - namespaceSelector:
+        matchLabels:
+          name: grafana
+  # Allow egress to these destinations
+  egress:
+    - to:
+      - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 53  # DNS
+        - protocol: UDP
+          port: 53  # DNS
+
+# ----------------------------------------------------------------------------
+# Telegraf Integration
+# ----------------------------------------------------------------------------
+# Deploy Telegraf sidecar for collecting metrics
+telegraf:
+  enabled: false
+  image:
+    repository: telegraf
+    tag: "1.29-alpine"
+  
+  # Telegraf configuration
+  # Examples: OPC UA, Modbus, MQTT collectors
+  config: |
+    [agent]
+      interval = "10s"
+      round_interval = true
+      metric_batch_size = 1000
+      metric_buffer_limit = 10000
+      collection_jitter = "0s"
+      flush_interval = "10s"
+      flush_jitter = "0s"
+      precision = ""
+      hostname = ""
+      omit_hostname = false
+    
+    # Output to InfluxDB
+    [[outputs.influxdb_v2]]
+      urls = ["http://localhost:8086"]
+      token = "$INFLUX_TOKEN"
+      organization = "$INFLUX_ORG"
+      bucket = "sensors"
+    
+    # Example: MQTT input for sensor data
+    # [[inputs.mqtt_consumer]]
+    #   servers = ["tcp://mqtt-broker:1883"]
+    #   topics = ["factory/sensors/#"]
+    #   data_format = "json"
+    
+    # Example: Modbus input for PLCs
+    # [[inputs.modbus]]
+    #   name = "plc01"
+    #   slave_id = 1
+    #   timeout = "1s"
+    #   controller = "tcp://10.0.1.50:502"
+    #   holding_registers = [
+    #     { name = "temperature", byte_order = "AB", data_type = "FLOAT32", scale=1.0, address = [0,1]},
+    #   ]
+  
+  resources:
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+# ----------------------------------------------------------------------------
+# Monitoring & Observability
+# ----------------------------------------------------------------------------
+monitoring:
+  # Enable Prometheus metrics endpoint
+  prometheus:
+    enabled: true
+    port: 9122
+  
+  # ServiceMonitor for Prometheus Operator
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+
+# ----------------------------------------------------------------------------
+# Edge Deployment Configuration
+# ----------------------------------------------------------------------------
+# For remote factory locations with unreliable connectivity
+edge:
+  enabled: false
+  
+  # Remote write to central InfluxDB
+  remoteWrite:
+    enabled: false
+    url: "https://influxdb-central.factory.com"
+    organization: "factory"
+    bucket: "edge-data"
+    token: ""  # Use existing secret
+    tokenSecret: ""
+    tokenSecretKey: "token"
+    
+    # Batch settings for unreliable networks
+    batchSize: 1000
+    flushInterval: "10s"
+    
+    # Retry settings
+    maxRetries: 3
+    retryInterval: "5s"
+  
+  # Local buffering during network outages
+  localBuffer:
+    enabled: true
+    maxSize: "5Gi"
+
+# ----------------------------------------------------------------------------
+# Grafana Integration
+# ----------------------------------------------------------------------------
+grafana:
+  # Auto-create Grafana datasource
+  datasource:
+    enabled: false
+    # Grafana namespace
+    namespace: "monitoring"
+    # InfluxDB URL (auto-detected if empty)
+    url: ""
+    # Use existing token secret
+    tokenSecret: ""
+    tokenSecretKey: "admin-token"
+
+# ----------------------------------------------------------------------------
+# Init Containers
+# ----------------------------------------------------------------------------
+# Run before InfluxDB starts (e.g., set up volumes, restore backups)
+initContainers: []
+# - name: init-chmod
+#   image: busybox:1.36
+#   command: ['sh', '-c', 'chmod -R 777 /var/lib/influxdb2']
+#   volumeMounts:
+#     - name: data
+#       mountPath: /var/lib/influxdb2
+
+# ----------------------------------------------------------------------------
+# Additional Configuration
+# ----------------------------------------------------------------------------
+# Extra environment variables
+extraEnv: []
+# - name: INFLUXD_QUERY_CONCURRENCY
+#   value: "20"
+
+# Extra volumes
+extraVolumes: []
+# - name: config
+#   configMap:
+#     name: influxdb-config
+
+# Extra volume mounts
+extraVolumeMounts: []
+# - name: config
+#   mountPath: /etc/influxdb2
+
+# Node selector
+nodeSelector: {}
+# disktype: ssd
+
+# Tolerations
+tolerations: []
+# - key: "industrial"
+#   operator: "Equal"
+#   value: "true"
+#   effect: "NoSchedule"
+
+# Affinity
+affinity: {}
+
+# Pod annotations
+podAnnotations: {}
+# prometheus.io/scrape: "true"
+# prometheus.io/port: "9122"
+
+# Pod labels
+podLabels: {}
+
+# Lifecycle hooks
+lifecycle: {}
+# preStop:
+#   exec:
+#     command: ["/bin/sh", "-c", "sleep 15"]
+
+# Liveness probe
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8086
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+# Readiness probe
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8086
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 1
+  failureThreshold: 3
+
+# ----------------------------------------------------------------------------
+# Advanced: Custom InfluxDB Configuration
+# ----------------------------------------------------------------------------
+# Provide your own influxdb.conf (overrides all other settings)
+customConfig:
+  enabled: false
+  config: |
+    # Your custom InfluxDB configuration here
