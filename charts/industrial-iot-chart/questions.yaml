@@ -1,0 +1,396 @@
+# Rancher Questions for Home Assistant Pod Chart
+# This file provides a user-friendly UI in Rancher for chart configuration
+
+categories:
+  - IoT
+  - Smart Home
+  - Automation
+
+questions:
+# ============================================================================
+# BASIC CONFIGURATION
+# ============================================================================
+- variable: global.timezone
+  default: "America/New_York"
+  description: "Timezone for Home Assistant (TZ environment variable)"
+  type: string
+  label: Timezone
+  group: "Basic Configuration"
+
+- variable: homeassistant.image.tag
+  default: "2024.12.0"
+  description: "Home Assistant version to deploy"
+  type: string
+  label: Home Assistant Version
+  group: "Basic Configuration"
+
+- variable: homeassistant.resourcePreset
+  default: "standard"
+  description: "Resource allocation preset based on deployment size"
+  type: enum
+  label: Resource Preset
+  group: "Basic Configuration"
+  options:
+    - "minimal"
+    - "standard"
+    - "full"
+    - "custom"
+
+# ============================================================================
+# DATABASE CONFIGURATION
+# ============================================================================
+- variable: database.type
+  default: "sqlite"
+  description: "Database backend for Home Assistant"
+  type: enum
+  label: Database Type
+  group: "Database Configuration"
+  options:
+    - "sqlite"
+    - "postgresql"
+    - "external"
+
+- variable: database.postgresql.enabled
+  default: false
+  description: "Deploy PostgreSQL StatefulSet (only if database.type=postgresql)"
+  type: boolean
+  label: Enable PostgreSQL Deployment
+  group: "Database Configuration"
+  show_if: "database.type=postgresql"
+
+- variable: database.postgresql.auth.password
+  default: ""
+  description: "PostgreSQL password (REQUIRED if PostgreSQL enabled)"
+  type: password
+  label: PostgreSQL Password
+  group: "Database Configuration"
+  show_if: "database.postgresql.enabled=true"
+  required: true
+
+- variable: database.postgresql.persistence.size
+  default: "5Gi"
+  description: "PostgreSQL storage size"
+  type: string
+  label: PostgreSQL Storage Size
+  group: "Database Configuration"
+  show_if: "database.postgresql.enabled=true"
+
+- variable: database.external.host
+  default: ""
+  description: "External database hostname"
+  type: string
+  label: External Database Host
+  group: "Database Configuration"
+  show_if: "database.type=external"
+
+- variable: database.external.port
+  default: 5432
+  description: "External database port"
+  type: int
+  label: External Database Port
+  group: "Database Configuration"
+  show_if: "database.type=external"
+
+- variable: database.external.database
+  default: "homeassistant"
+  description: "External database name"
+  type: string
+  label: External Database Name
+  group: "Database Configuration"
+  show_if: "database.type=external"
+
+- variable: database.external.username
+  default: "homeassistant"
+  description: "External database username"
+  type: string
+  label: External Database Username
+  group: "Database Configuration"
+  show_if: "database.type=external"
+
+# ============================================================================
+# STORAGE CONFIGURATION
+# ============================================================================
+- variable: persistence.config.enabled
+  default: true
+  description: "Enable persistent storage for Home Assistant configuration"
+  type: boolean
+  label: Enable Config Storage
+  group: "Storage"
+
+- variable: persistence.config.size
+  default: "10Gi"
+  description: "Size of config persistent volume"
+  type: string
+  label: Config Storage Size
+  group: "Storage"
+  show_if: "persistence.config.enabled=true"
+
+- variable: persistence.config.storageClass
+  default: ""
+  description: "Storage class for config volume (empty = default)"
+  type: storageclass
+  label: Config Storage Class
+  group: "Storage"
+  show_if: "persistence.config.enabled=true"
+
+- variable: persistence.media.enabled
+  default: true
+  description: "Enable persistent storage for media files"
+  type: boolean
+  label: Enable Media Storage
+  group: "Storage"
+
+- variable: persistence.media.size
+  default: "20Gi"
+  description: "Size of media persistent volume"
+  type: string
+  label: Media Storage Size
+  group: "Storage"
+  show_if: "persistence.media.enabled=true"
+
+- variable: persistence.backups.enabled
+  default: true
+  description: "Enable persistent storage for backups"
+  type: boolean
+  label: Enable Backup Storage
+  group: "Storage"
+
+- variable: persistence.backups.size
+  default: "10Gi"
+  description: "Size of backup persistent volume"
+  type: string
+  label: Backup Storage Size
+  group: "Storage"
+  show_if: "persistence.backups.enabled=true"
+
+# ============================================================================
+# SERVICE & NETWORKING
+# ============================================================================
+- variable: service.main.type
+  default: "LoadBalancer"
+  description: "Service type for Home Assistant access"
+  type: enum
+  label: Service Type
+  group: "Networking"
+  options:
+    - "ClusterIP"
+    - "NodePort"
+    - "LoadBalancer"
+
+- variable: service.main.loadBalancerIP
+  default: ""
+  description: "Static IP for LoadBalancer (if supported)"
+  type: string
+  label: LoadBalancer IP
+  group: "Networking"
+  show_if: "service.main.type=LoadBalancer"
+
+- variable: service.main.port
+  default: 8123
+  description: "Service port for Home Assistant"
+  type: int
+  label: Service Port
+  group: "Networking"
+
+- variable: ingress.enabled
+  default: false
+  description: "Enable ingress for Home Assistant"
+  type: boolean
+  label: Enable Ingress
+  group: "Networking"
+
+- variable: ingress.className
+  default: "nginx"
+  description: "Ingress class name"
+  type: string
+  label: Ingress Class
+  group: "Networking"
+  show_if: "ingress.enabled=true"
+
+- variable: ingress.hosts[0].host
+  default: "homeassistant.local"
+  description: "Hostname for Home Assistant ingress"
+  type: hostname
+  label: Ingress Hostname
+  group: "Networking"
+  show_if: "ingress.enabled=true"
+
+- variable: ingress.tls.enabled
+  default: false
+  description: "Enable TLS for ingress"
+  type: boolean
+  label: Enable TLS
+  group: "Networking"
+  show_if: "ingress.enabled=true"
+
+- variable: ingress.tls.secretName
+  default: "home-assistant-tls"
+  description: "TLS secret name (cert-manager will create if using certManager)"
+  type: string
+  label: TLS Secret Name
+  group: "Networking"
+  show_if: "ingress.tls.enabled=true"
+
+- variable: ingress.tls.certManager.enabled
+  default: false
+  description: "Use cert-manager for automatic TLS certificates"
+  type: boolean
+  label: Use Cert-Manager
+  group: "Networking"
+  show_if: "ingress.tls.enabled=true"
+
+- variable: ingress.tls.certManager.issuer
+  default: "letsencrypt-prod"
+  description: "Cert-manager ClusterIssuer name"
+  type: string
+  label: Cert-Manager Issuer
+  group: "Networking"
+  show_if: "ingress.tls.certManager.enabled=true"
+
+- variable: networkPolicy.enabled
+  default: false
+  description: "Enable NetworkPolicy for security"
+  type: boolean
+  label: Enable Network Policy
+  group: "Networking"
+
+# ============================================================================
+# DEVICE ACCESS
+# ============================================================================
+- variable: devices.usb.enabled
+  default: false
+  description: "Enable USB device passthrough (Zigbee/Z-Wave dongles)"
+  type: boolean
+  label: Enable USB Devices
+  group: "Device Access"
+
+- variable: homeassistant.hostNetwork
+  default: false
+  description: "Use host network (required for mDNS discovery)"
+  type: boolean
+  label: Use Host Network
+  group: "Device Access"
+
+- variable: devices.bluetooth.enabled
+  default: false
+  description: "Enable Bluetooth device access"
+  type: boolean
+  label: Enable Bluetooth
+  group: "Device Access"
+
+# ============================================================================
+# CAMERAS
+# ============================================================================
+- variable: cameras.enabled
+  default: false
+  description: "Enable camera/video surveillance support"
+  type: boolean
+  label: Enable Cameras
+  group: "Camera Configuration"
+
+- variable: cameras.storage.size
+  default: "50Gi"
+  description: "Storage size for camera recordings"
+  type: string
+  label: Camera Storage Size
+  group: "Camera Configuration"
+  show_if: "cameras.enabled=true"
+
+- variable: cameras.retention.days
+  default: 7
+  description: "Days to retain camera recordings"
+  type: int
+  label: Recording Retention (days)
+  group: "Camera Configuration"
+  show_if: "cameras.enabled=true"
+
+# ============================================================================
+# MONITORING
+# ============================================================================
+- variable: monitoring.serviceMonitor.enabled
+  default: false
+  description: "Enable Prometheus ServiceMonitor"
+  type: boolean
+  label: Enable Prometheus Monitoring
+  group: "Monitoring"
+
+- variable: monitoring.serviceMonitor.namespace
+  default: "monitoring"
+  description: "Namespace where Prometheus is installed"
+  type: string
+  label: Prometheus Namespace
+  group: "Monitoring"
+  show_if: "monitoring.serviceMonitor.enabled=true"
+
+- variable: monitoring.serviceMonitor.interval
+  default: "30s"
+  description: "Scrape interval for metrics"
+  type: string
+  label: Scrape Interval
+  group: "Monitoring"
+  show_if: "monitoring.serviceMonitor.enabled=true"
+
+# ============================================================================
+# MQTT
+# ============================================================================
+- variable: mqtt.enabled
+  default: false
+  description: "Enable MQTT broker integration"
+  type: boolean
+  label: Enable MQTT
+  group: "MQTT Configuration"
+
+- variable: mqtt.broker.host
+  default: "mqtt.local"
+  description: "MQTT broker hostname"
+  type: string
+  label: MQTT Broker Host
+  group: "MQTT Configuration"
+  show_if: "mqtt.enabled=true"
+
+- variable: mqtt.broker.port
+  default: 1883
+  description: "MQTT broker port"
+  type: int
+  label: MQTT Broker Port
+  group: "MQTT Configuration"
+  show_if: "mqtt.enabled=true"
+
+- variable: mqtt.broker.username
+  default: ""
+  description: "MQTT username (optional)"
+  type: string
+  label: MQTT Username
+  group: "MQTT Configuration"
+  show_if: "mqtt.enabled=true"
+
+# ============================================================================
+# ADVANCED CONFIGURATION
+# ============================================================================
+- variable: homeassistant.securityContext.privileged
+  default: true
+  description: "Run container as privileged (required for USB/Bluetooth access)"
+  type: boolean
+  label: Privileged Container
+  group: "Advanced"
+
+- variable: rbac.create
+  default: true
+  description: "Create RBAC resources (ServiceAccount, Role, RoleBinding)"
+  type: boolean
+  label: Create RBAC Resources
+  group: "Advanced"
+
+- variable: podDisruptionBudget.enabled
+  default: false
+  description: "Enable PodDisruptionBudget for high availability"
+  type: boolean
+  label: Enable Pod Disruption Budget
+  group: "Advanced"
+
+- variable: autoscaling.enabled
+  default: false
+  description: "Enable Horizontal Pod Autoscaling (experimental)"
+  type: boolean
+  label: Enable Autoscaling
+  group: "Advanced"

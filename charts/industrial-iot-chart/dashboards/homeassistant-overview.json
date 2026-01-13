@@ -1,0 +1,186 @@
+{
+  "dashboard": {
+    "title": "Home Assistant Overview",
+    "tags": ["home-assistant", "fireball-industries"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "title": "Home Assistant Status",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "up{job=\"home-assistant\"}",
+            "legendFormat": "Status"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "value": "1", "text": "UP"},
+              {"type": "value", "value": "0", "text": "DOWN"}
+            ],
+            "thresholds": {
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "API Response Time",
+        "type": "graph",
+        "gridPos": {"x": 6, "y": 0, "w": 9, "h": 4},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(homeassistant_http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(homeassistant_http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p50"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Response Time"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "title": "CPU Usage",
+        "type": "graph",
+        "gridPos": {"x": 15, "y": 0, "w": 9, "h": 4},
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{pod=~\"home-assistant.*\",container=\"home-assistant\"}[5m]) * 100",
+            "legendFormat": "CPU %"
+          }
+        ],
+        "yaxes": [
+          {"format": "percent", "max": 100},
+          {"format": "short"}
+        ]
+      },
+      {
+        "title": "Memory Usage",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 4, "w": 12, "h": 4},
+        "targets": [
+          {
+            "expr": "container_memory_usage_bytes{pod=~\"home-assistant.*\",container=\"home-assistant\"} / 1024 / 1024",
+            "legendFormat": "Memory (MB)"
+          }
+        ],
+        "yaxes": [
+          {"format": "decmbytes"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "title": "Database Size",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 4, "w": 12, "h": 4},
+        "targets": [
+          {
+            "expr": "homeassistant_database_size_bytes / 1024 / 1024",
+            "legendFormat": "Database Size (MB)"
+          }
+        ],
+        "yaxes": [
+          {"format": "decmbytes"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "title": "Active Entities",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 8, "w": 4, "h": 3},
+        "targets": [
+          {
+            "expr": "homeassistant_entity_available",
+            "legendFormat": "Entities"
+          }
+        ]
+      },
+      {
+        "title": "Active Automations",
+        "type": "stat",
+        "gridPos": {"x": 4, "y": 8, "w": 4, "h": 3},
+        "targets": [
+          {
+            "expr": "count(homeassistant_automation_triggered_total)",
+            "legendFormat": "Automations"
+          }
+        ]
+      },
+      {
+        "title": "Integrations Loaded",
+        "type": "stat",
+        "gridPos": {"x": 8, "y": 8, "w": 4, "h": 3},
+        "targets": [
+          {
+            "expr": "homeassistant_integrations_loaded",
+            "legendFormat": "Integrations"
+          }
+        ]
+      },
+      {
+        "title": "MQTT Messages/sec",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 3},
+        "targets": [
+          {
+            "expr": "rate(mosquitto_messages_received_total[1m])",
+            "legendFormat": "Received"
+          },
+          {
+            "expr": "rate(mosquitto_messages_sent_total[1m])",
+            "legendFormat": "Sent"
+          }
+        ]
+      },
+      {
+        "title": "Pod Restarts (24h)",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 11, "w": 6, "h": 3},
+        "targets": [
+          {
+            "expr": "increase(kube_pod_container_status_restarts_total{pod=~\"home-assistant.*\"}[24h])",
+            "legendFormat": "{{container}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Disk Usage",
+        "type": "graph",
+        "gridPos": {"x": 6, "y": 11, "w": 18, "h": 3},
+        "targets": [
+          {
+            "expr": "kubelet_volume_stats_used_bytes{persistentvolumeclaim=~\".*home-assistant.*\"} / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~\".*home-assistant.*\"} * 100",
+            "legendFormat": "{{persistentvolumeclaim}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "percent", "max": 100},
+          {"format": "short"}
+        ]
+      }
+    ]
+  }
+}

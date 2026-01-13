@@ -1,0 +1,56 @@
+apiVersion: v2
+name: industrial-iot
+description: |
+  Production-ready Home Assistant Helm chart for industrial IoT and smart home management.
+  Because manually toggling lights like a caveman is so 2010.
+  Warning: Your smart home will eventually gain sentience and lock you out. We're not liable.
+
+type: application
+version: 1.0.0
+appVersion: "2024.12.0"
+
+keywords:
+  - home-assistant
+  - smart-home
+  - iot
+  - automation
+  - industrial-iot
+  - home-automation
+  - mqtt
+  - zigbee
+
+home: https://github.com/fireball-industries/industrial-iot
+sources:
+  - https://github.com/home-assistant/core
+  - https://github.com/fireball-industries/industrial-iot
+
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireballindustries.com
+    url: https://github.com/fireballindustries
+
+icon: https://www.home-assistant.io/images/home-assistant-logo.svg
+
+annotations:
+  catalog.cattle.io/certified: "partner"
+  catalog.cattle.io/display-name: "Industrial IoT - Home Assistant"
+  catalog.cattle.io/release-name: "industrial-iot"
+  catalog.cattle.io/namespace: "home-automation"
+  catalog.cattle.io/categories: "Forge Industrial,IoT,Automation"
+  catalog.cattle.io/os: "linux"
+  catalog.cattle.io/type: "automation"
+  
+  # Rancher-specific annotations
+  catalog.cattle.io/certified: partner
+  catalog.cattle.io/display-name: "Home Assistant Pod"
+  catalog.cattle.io/release-name: home-assistant-pod
+  catalog.cattle.io/type: cluster-tool
+  catalog.cattle.io/namespace: home-assistant
+  catalog.cattle.io/auto-install: "false"
+  catalog.cattle.io/provides-gvr: "homeassistant.io/v1/homeassistant"
+  catalog.cattle.io/requests-cpu: 500m
+  catalog.cattle.io/requests-memory: 1Gi
+  catalog.cattle.io/scope: namespace
+  catalog.cattle.io/os: linux
+  catalog.cattle.io/kube-version: ">=1.20.0-0"
+  catalog.cattle.io/rancher-version: ">=2.6.0-0"

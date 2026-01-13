@@ -1,0 +1,359 @@
+# ============================================================================
+# Automations Template
+# ============================================================================
+# Fireball Industries - Patrick Ryan
+# "Making your home smarter than you since 2024"
+# ============================================================================
+
+# ============================================================================
+# LIGHTING AUTOMATIONS
+# ============================================================================
+
+- id: lights_on_sunset
+  alias: "Lights: Turn on at sunset"
+  description: "Turn on main lights when sun sets"
+  trigger:
+    - platform: sun
+      event: sunset
+      offset: "-00:30:00"  # 30 minutes before sunset
+  condition:
+    - condition: state
+      entity_id: input_select.house_mode
+      state: Home
+  action:
+    - service: light.turn_on
+      target:
+        entity_id:
+          - light.living_room
+          - light.kitchen
+      data:
+        brightness_pct: 80
+        transition: 2
+
+- id: lights_off_sunrise
+  alias: "Lights: Turn off at sunrise"
+  description: "Turn off lights when sun rises"
+  trigger:
+    - platform: sun
+      event: sunrise
+  action:
+    - service: light.turn_off
+      target:
+        entity_id: all
+
+- id: lights_motion_hallway
+  alias: "Lights: Hallway motion"
+  description: "Turn on hallway light on motion, turn off after 5 minutes"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.hallway_motion
+      to: 'on'
+  action:
+    - service: light.turn_on
+      target:
+        entity_id: light.hallway
+    - wait_for_trigger:
+        - platform: state
+          entity_id: binary_sensor.hallway_motion
+          to: 'off'
+          for:
+            minutes: 5
+    - service: light.turn_off
+      target:
+        entity_id: light.hallway
+
+# ============================================================================
+# CLIMATE AUTOMATIONS
+# ============================================================================
+
+- id: climate_home_mode
+  alias: "Climate: Adjust for home mode"
+  description: "Set thermostat based on house mode"
+  trigger:
+    - platform: state
+      entity_id: input_select.house_mode
+  action:
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: input_select.house_mode
+              state: Home
+          sequence:
+            - service: climate.set_temperature
+              target:
+                entity_id: climate.thermostat
+              data:
+                temperature: 21
+        - conditions:
+            - condition: state
+              entity_id: input_select.house_mode
+              state: Away
+          sequence:
+            - service: climate.set_temperature
+              target:
+                entity_id: climate.thermostat
+              data:
+                temperature: 18
+        - conditions:
+            - condition: state
+              entity_id: input_select.house_mode
+              state: Sleep
+          sequence:
+            - service: climate.set_temperature
+              target:
+                entity_id: climate.thermostat
+              data:
+                temperature: 19
+
+# ============================================================================
+# SECURITY AUTOMATIONS
+# ============================================================================
+
+- id: security_door_notification
+  alias: "Security: Door opened when away"
+  description: "Notify when door opens while away"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.front_door
+      to: 'on'
+  condition:
+    - condition: state
+      entity_id: input_select.house_mode
+      state: Away
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "Security Alert"
+        message: "Front door opened while you're away!"
+        data:
+          push:
+            sound: alarm.caf
+          action_data:
+            entity_id: camera.front_door
+
+- id: security_alarm_triggered
+  alias: "Security: Alarm triggered"
+  description: "Actions when alarm is triggered"
+  trigger:
+    - platform: state
+      entity_id: alarm_control_panel.home
+      to: triggered
+  action:
+    - service: light.turn_on
+      target:
+        entity_id: all
+      data:
+        brightness_pct: 100
+        rgb_color: [255, 0, 0]
+    - service: notify.mobile_app
+      data:
+        title: "ALARM!"
+        message: "Home alarm has been triggered!"
+    - service: camera.snapshot
+      target:
+        entity_id:
+          - camera.front_door
+          - camera.back_door
+      data:
+        filename: "/config/www/alarm_{{ now().strftime('%Y%m%d_%H%M%S') }}.jpg"
+
+# ============================================================================
+# PRESENCE AUTOMATIONS
+# ============================================================================
+
+- id: presence_arrive_home
+  alias: "Presence: Arrive home"
+  description: "Actions when arriving home"
+  trigger:
+    - platform: state
+      entity_id: person.patrick
+      to: home
+  action:
+    - service: input_select.select_option
+      target:
+        entity_id: input_select.house_mode
+      data:
+        option: Home
+    - service: climate.set_temperature
+      target:
+        entity_id: climate.thermostat
+      data:
+        temperature: 21
+    - service: notify.mobile_app
+      data:
+        message: "Welcome home! Climate adjusting."
+
+- id: presence_leave_home
+  alias: "Presence: Leave home"
+  description: "Actions when leaving home"
+  trigger:
+    - platform: state
+      entity_id: person.patrick
+      from: home
+      for:
+        minutes: 10
+  action:
+    - service: input_select.select_option
+      target:
+        entity_id: input_select.house_mode
+      data:
+        option: Away
+    - service: light.turn_off
+      target:
+        entity_id: all
+    - service: climate.set_temperature
+      target:
+        entity_id: climate.thermostat
+      data:
+        temperature: 18
+
+# ============================================================================
+# ENERGY MONITORING AUTOMATIONS
+# ============================================================================
+
+- id: energy_high_usage_alert
+  alias: "Energy: High usage alert"
+  description: "Notify when power usage is abnormally high"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.total_power
+      above: 5000  # Watts
+      for:
+        minutes: 5
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "High Power Usage"
+        message: "Power usage is {{ states('sensor.total_power') }}W"
+
+# ============================================================================
+# DEVICE MAINTENANCE AUTOMATIONS
+# ============================================================================
+
+- id: maintenance_battery_low
+  alias: "Maintenance: Low battery alert"
+  description: "Notify when device battery is low"
+  trigger:
+    - platform: numeric_state
+      entity_id:
+        - sensor.smoke_detector_battery
+        - sensor.door_sensor_battery
+      below: 20
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "Low Battery"
+        message: "{{ trigger.to_state.attributes.friendly_name }} battery is at {{ trigger.to_state.state }}%"
+
+- id: maintenance_device_offline
+  alias: "Maintenance: Device offline"
+  description: "Notify when critical device goes offline"
+  trigger:
+    - platform: state
+      entity_id:
+        - binary_sensor.critical_sensor_1
+        - binary_sensor.critical_sensor_2
+      to: unavailable
+      for:
+        minutes: 30
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "Device Offline"
+        message: "{{ trigger.to_state.attributes.friendly_name }} has been offline for 30 minutes"
+
+# ============================================================================
+# SCHEDULED AUTOMATIONS
+# ============================================================================
+
+- id: scheduled_good_morning
+  alias: "Scheduled: Good morning routine"
+  description: "Morning routine at 7 AM"
+  trigger:
+    - platform: time
+      at: "07:00:00"
+  condition:
+    - condition: state
+      entity_id: binary_sensor.workday
+      state: 'on'
+  action:
+    - service: light.turn_on
+      target:
+        entity_id: light.bedroom
+      data:
+        brightness_pct: 30
+        transition: 300  # 5 minutes
+    - service: climate.set_temperature
+      target:
+        entity_id: climate.thermostat
+      data:
+        temperature: 22
+    - delay: '00:05:00'
+    - service: media_player.play_media
+      target:
+        entity_id: media_player.bedroom_speaker
+      data:
+        media_content_id: "http://stream.url/morning_news"
+        media_content_type: music
+
+- id: scheduled_good_night
+  alias: "Scheduled: Good night routine"
+  description: "Night routine at 11 PM"
+  trigger:
+    - platform: time
+      at: "23:00:00"
+  action:
+    - service: input_select.select_option
+      target:
+        entity_id: input_select.house_mode
+      data:
+        option: Sleep
+    - service: light.turn_off
+      target:
+        entity_id: all
+    - service: climate.set_temperature
+      target:
+        entity_id: climate.thermostat
+      data:
+        temperature: 19
+    - service: alarm_control_panel.arm_night
+      target:
+        entity_id: alarm_control_panel.home
+
+# ============================================================================
+# INDUSTRIAL / IoT AUTOMATIONS
+# ============================================================================
+
+- id: industrial_temperature_alert
+  alias: "Industrial: High temperature alert"
+  description: "Alert when industrial sensor exceeds threshold"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.factory_temperature
+      above: 80  # Celsius
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "TEMPERATURE ALERT"
+        message: "Factory temperature is {{ states('sensor.factory_temperature') }}°C"
+        data:
+          push:
+            sound: alarm.caf
+    - service: switch.turn_on
+      target:
+        entity_id: switch.emergency_cooling
+
+- id: industrial_plc_offline
+  alias: "Industrial: PLC offline"
+  description: "Alert when PLC goes offline"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.plc_main_status
+      to: 'off'
+      for:
+        minutes: 2
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "PLC OFFLINE"
+        message: "Main PLC has been offline for 2 minutes"

@@ -1,0 +1,30 @@
+apiVersion: v2
+name: sorba-sde
+description: A Helm chart for SORBA Smart Data Engine - Industrial data collection/gateway device with Advanced Edge Analytics & Machine Learning
+type: application
+version: 1.0.0
+appVersion: "latest"
+keywords:
+  - industrial
+  - iot
+  - data-collection
+  - edge-analytics
+  - machine-learning
+  - gateway
+  - plc
+  - scada
+home: https://github.com/sorbotics/sorbotics-pod
+sources:
+  - https://github.com/sorbotics/sorbotics-pod
+maintainers:
+  - name: Sorbotics Team
+    email: support@sorbotics.com
+icon: https://www.sorbotics.com/favicon.ico
+annotations:
+  catalog.cattle.io/certified: "partner"
+  catalog.cattle.io/display-name: "Sorba AI SDE - Smart Data Engine"
+  catalog.cattle.io/release-name: "sorba-sde"
+  catalog.cattle.io/namespace: "sorbotics"
+  catalog.cattle.io/categories: "Forge Industrial,Data Collection,Edge Analytics"
+  catalog.cattle.io/os: "linux"
+  catalog.cattle.io/type: "data-platform"

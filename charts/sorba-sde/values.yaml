@@ -1,0 +1,195 @@
+# Default values for sorba-sde.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Number of replicas (recommended: 1 for stateful applications)
+replicaCount: 1
+
+image:
+  repository: sorbotics/sorba-sde
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 0
+
+securityContext:
+  capabilities:
+    add:
+      - NET_ADMIN
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# Service configuration
+service:
+  type: ClusterIP
+  # HTTPS Web UI
+  httpsPort: 443
+  # Modbus TCP Server
+  modbusPort: 502
+  # MQTT Broker
+  mqttPort: 1883
+  # OPC UA Server
+  opcuaPort: 49321
+  # Annotations for the service
+  annotations: {}
+  # Service labels
+  labels: {}
+
+# Ingress configuration for HTTPS access
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    # nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+  hosts:
+    - host: sorba-sde.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: sorba-sde-tls
+  #    hosts:
+  #      - sorba-sde.local
+
+# Resource limits and requests
+# SORBA SDE requires minimum 6 CPU cores and 16GB RAM
+resources:
+  limits:
+    cpu: 8000m
+    memory: 20Gi
+  requests:
+    cpu: 6000m
+    memory: 16Gi
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /
+    port: https
+    scheme: HTTPS
+  initialDelaySeconds: 120
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: https
+    scheme: HTTPS
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Persistent storage configuration
+persistence:
+  enabled: true
+  # existingClaim: ""
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 20Gi
+  # Annotations for PVC
+  annotations: {}
+  # Mount path for the persistent volume
+  mountPath: /opt
+
+# Custom SSL certificates
+# If you want to use your own SSL certificates instead of self-signed
+customCerts:
+  enabled: false
+  # Create a secret with your certificates named:
+  #   - sorbaai-ss-cert.crt
+  #   - sorbaai-ss-key.key
+  # Then reference the secret name here
+  secretName: ""
+  # Optional: Provide certificates directly in values
+  # cert: |
+  #   -----BEGIN CERTIFICATE-----
+  #   ...
+  #   -----END CERTIFICATE-----
+  # key: |
+  #   -----BEGIN PRIVATE KEY-----
+  #   ...
+  #   -----END PRIVATE KEY-----
+
+# Static MAC address (Required for licensed environments)
+# The licensing mechanism is tied to both a persistent MAC address and serial number
+staticMacAddress:
+  enabled: false
+  # Must be a valid, unique MAC address in your network
+  # Format: XX:XX:XX:XX:XX:XX
+  address: ""
+
+# Network configuration
+network:
+  # Enable IP forwarding (equivalent to sysctl net.ipv4.ip_forward=1)
+  ipForward: true
+
+# Node selector for pod assignment
+nodeSelector: {}
+
+# Tolerations for pod assignment
+tolerations: []
+
+# Affinity for pod assignment
+affinity: {}
+
+# Priority class name for the pod
+priorityClassName: ""
+
+# Additional volumes
+extraVolumes: []
+# - name: custom-config
+#   configMap:
+#     name: my-config
+
+# Additional volume mounts
+extraVolumeMounts: []
+# - name: custom-config
+#   mountPath: /etc/config
+
+# Additional environment variables
+extraEnv: []
+# - name: MY_VAR
+#   value: "my-value"
+
+# Additional init containers
+initContainers: []
+
+# Additional sidecar containers
+sidecars: []
+
+# Pod restart policy
+restartPolicy: Always
+
+# Update strategy
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 0

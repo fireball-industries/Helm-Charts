@@ -1,0 +1,86 @@
+# ============================================================================
+# .helmignore
+# ============================================================================
+# Fireball Industries - Patrick Ryan
+# 
+# Patterns to ignore when building Helm packages.
+# This supports shell glob matching, relative path matching, and
+# negation (prefixed with !). Only one pattern per line.
+# ============================================================================
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Development files
+*.sw?
+*.swp
+*~
+.DS_Store
+.vscode/
+.idea/
+
+# Documentation (included in chart)
+# Uncomment if you don't want to include README in the chart package
+# README.md
+# CHANGELOG.md
+
+# Exclude development/project management docs from chart package
+ARCHITECTURE.md
+CHECKLIST.md
+PHASE2-COMPLETE.md
+PROJECT-COMPLETE.md
+PROJECT-SUMMARY.md
+
+# Testing
+test/
+tests/
+*.test
+*.test.yaml
+
+# Build artifacts
+*.tar.gz
+*.tgz
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# IDE specific files
+.project
+.classpath
+.settings/
+*.iml
+
+# Backup files
+*.bak
+*.backup
+*-backup
+*-old
+
+# OS specific files
+Thumbs.db
+desktop.ini
+
+# Chart specific
+values-*.yaml  # Custom values files for different environments
+secrets.yaml
+*.secret.yaml
+
+# Dependencies
+charts/*.tgz
+
+# Personal notes (because we all have them)
+TODO.md
+NOTES-*.md
+scratch.txt

@@ -1,0 +1,366 @@
+# ============================================================================
+# Home Assistant Configuration Template
+# ============================================================================
+# Fireball Industries - Patrick Ryan
+# "Configure once, automate forever"
+# ============================================================================
+
+homeassistant:
+  name: Home
+  latitude: !secret latitude
+  longitude: !secret longitude
+  elevation: 0
+  unit_system: metric
+  time_zone: America/New_York
+  
+  # Customize entities
+  customize: !include customize.yaml
+  
+  # External URLs
+  external_url: "https://home.example.com"
+  internal_url: "http://homeassistant.local:8123"
+  
+  # Authentication providers
+  auth_providers:
+    - type: homeassistant
+    - type: trusted_networks
+      trusted_networks:
+        - 192.168.1.0/24
+        - fd00::/8
+      allow_bypass_login: true
+
+# ============================================================================
+# FRONTEND & UI
+# ============================================================================
+
+frontend:
+  themes: !include_dir_merge_named themes/
+
+lovelace:
+  mode: yaml
+  resources: !include lovelace/resources.yaml
+  dashboards:
+    lovelace-automation:
+      mode: yaml
+      title: Automation
+      icon: mdi:robot
+      show_in_sidebar: true
+      filename: lovelace/automation.yaml
+
+# ============================================================================
+# LOGGING & DEBUGGING
+# ============================================================================
+
+logger:
+  default: info
+  logs:
+    homeassistant.core: warning
+    homeassistant.components.mqtt: info
+    homeassistant.components.automation: info
+    homeassistant.components.script: info
+
+recorder:
+  # Database configuration (set via Helm chart)
+  # db_url: postgresql://user:pass@postgres/homeassistant
+  purge_keep_days: 7
+  commit_interval: 1
+  exclude:
+    domains:
+      - automation
+      - updater
+    entity_globs:
+      - sensor.weather_*
+    entities:
+      - sun.sun
+      - sensor.last_boot
+      - sensor.date
+  include:
+    domains:
+      - sensor
+      - light
+      - switch
+      - binary_sensor
+      - climate
+
+history:
+  exclude:
+    domains:
+      - automation
+      - updater
+    entity_globs:
+      - sensor.weather_*
+
+logbook:
+  exclude:
+    domains:
+      - automation
+      - updater
+
+# ============================================================================
+# HTTP & NETWORKING
+# ============================================================================
+
+http:
+  # Reverse proxy configuration
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  
+  # CORS for frontend development
+  cors_allowed_origins:
+    - https://home.example.com
+  
+  # IP ban
+  ip_ban_enabled: true
+  login_attempts_threshold: 5
+
+# ============================================================================
+# INTEGRATIONS - CORE
+# ============================================================================
+
+# System health monitoring
+system_health:
+
+# Mobile app support
+mobile_app:
+
+# iOS/Android companion app
+ios:
+
+# Shopping list
+shopping_list:
+
+# Text-to-speech
+tts:
+  - platform: google_translate
+    language: 'en'
+
+# Media player discovery
+media_player:
+
+# ============================================================================
+# INTEGRATIONS - DISCOVERY
+# ============================================================================
+
+# Network discovery
+discovery:
+  ignore:
+    - igd
+
+# Zero-configuration networking
+zeroconf:
+
+# Simple Service Discovery Protocol
+ssdp:
+
+# Bluetooth
+bluetooth:
+
+# ============================================================================
+# INTEGRATIONS - SMART HOME
+# ============================================================================
+
+# MQTT (configured via Helm chart)
+mqtt:
+  broker: !secret mqtt_broker
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  discovery: true
+  discovery_prefix: homeassistant
+  birth_message:
+    topic: 'homeassistant/status'
+    payload: 'online'
+  will_message:
+    topic: 'homeassistant/status'
+    payload: 'offline'
+
+# Zigbee2MQTT integration
+mqtt:
+  sensor:
+    - name: "Zigbee2MQTT Bridge State"
+      state_topic: "zigbee2mqtt/bridge/state"
+      icon: mdi:zigbee
+
+# Z-Wave (if using Z-Wave JS)
+# zwave_js:
+#   url: "ws://localhost:3000"
+
+# ============================================================================
+# INTEGRATIONS - WEATHER & LOCATION
+# ============================================================================
+
+sun:
+
+weather:
+  - platform: openweathermap
+    api_key: !secret openweather_api_key
+    mode: onecall
+
+# ============================================================================
+# INTEGRATIONS - ENERGY & UTILITIES
+# ============================================================================
+
+# Energy dashboard
+energy:
+
+# Utility meter
+utility_meter:
+  monthly_energy:
+    source: sensor.total_energy
+    cycle: monthly
+
+# ============================================================================
+# INTEGRATIONS - NOTIFICATIONS
+# ============================================================================
+
+notify:
+  - name: mobile_app
+    platform: group
+    services:
+      - service: mobile_app_iphone
+      - service: mobile_app_ipad
+
+# ============================================================================
+# INTEGRATIONS - AUTOMATION
+# ============================================================================
+
+# Automations
+automation: !include automations.yaml
+
+# Scripts
+script: !include scripts.yaml
+
+# Scenes
+scene: !include scenes.yaml
+
+# ============================================================================
+# INTEGRATIONS - MONITORING
+# ============================================================================
+
+# Prometheus metrics export
+prometheus:
+  namespace: homeassistant
+
+# System monitor
+sensor:
+  - platform: systemmonitor
+    resources:
+      - type: disk_use_percent
+        arg: /config
+      - type: disk_use
+        arg: /config
+      - type: disk_free
+        arg: /config
+      - type: memory_use_percent
+      - type: memory_use
+      - type: memory_free
+      - type: processor_use
+      - type: last_boot
+
+# ============================================================================
+# INTEGRATIONS - CALENDAR & TIME
+# ============================================================================
+
+# Calendar
+calendar:
+  - platform: local
+    name: "Home Calendar"
+
+# Time & Date
+sensor:
+  - platform: time_date
+    display_options:
+      - 'time'
+      - 'date'
+      - 'date_time'
+      - 'time_date'
+
+# ============================================================================
+# GROUPS & ZONES
+# ============================================================================
+
+group: !include groups.yaml
+
+zone:
+  - name: Home
+    latitude: !secret latitude
+    longitude: !secret longitude
+    radius: 100
+    icon: mdi:home
+  
+  - name: Work
+    latitude: !secret work_latitude
+    longitude: !secret work_longitude
+    radius: 200
+    icon: mdi:briefcase
+
+# ============================================================================
+# PERSON TRACKING
+# ============================================================================
+
+person:
+  - name: Patrick
+    id: patrick_ryan
+    user_id: !secret patrick_user_id
+    device_trackers:
+      - device_tracker.iphone_patrick
+
+# ============================================================================
+# INPUT HELPERS
+# ============================================================================
+
+input_boolean:
+  guest_mode:
+    name: Guest Mode
+    icon: mdi:account-multiple
+
+input_number:
+  heating_setpoint:
+    name: Heating Setpoint
+    initial: 20
+    min: 15
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    mode: slider
+    icon: mdi:thermometer
+
+input_select:
+  house_mode:
+    name: House Mode
+    options:
+      - Home
+      - Away
+      - Sleep
+      - Vacation
+    initial: Home
+    icon: mdi:home-variant
+
+input_text:
+  notification_message:
+    name: Notification Message
+    initial: ""
+    max: 255
+
+# ============================================================================
+# TIMERS
+# ============================================================================
+
+timer:
+  laundry:
+    name: Laundry Timer
+    duration: '01:00:00'
+    icon: mdi:washing-machine
+
+# ============================================================================
+# COUNTERS
+# ============================================================================
+
+counter:
+  coffee_count:
+    name: Coffee Counter
+    initial: 0
+    step: 1
+    icon: mdi:coffee

@@ -1,0 +1,194 @@
+{{- if .Values.networkPolicy.enabled }}
+{{/*
+============================================================================
+Network Policy
+============================================================================
+Fireball Industries - Patrick Ryan
+
+Kubernetes Network Policies for Home Assistant pod isolation.
+Controls ingress and egress traffic to/from Home Assistant pods.
+
+Security Level: "I actually read the documentation"
+Paranoia Level: Moderate to High
+
+Note: This might break some integrations. Test before deploying to prod.
+Or don't, and enjoy the 3 AM debugging session.
+============================================================================
+*/}}
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "home-assistant.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "home-assistant.selectorLabels" . | nindent 6 }}
+  
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  # ===========================================================================
+  # INGRESS RULES
+  # ===========================================================================
+  # Who can talk TO Home Assistant
+  # ===========================================================================
+  ingress:
+    # Allow ingress from Ingress controller
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8123
+    
+    # Allow ingress from same namespace (for add-ons)
+    - from:
+      - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8123
+        - protocol: TCP
+          port: 1883  # MQTT
+        - protocol: TCP
+          port: 1880  # Node-RED
+        - protocol: TCP
+          port: 6052  # ESPHome
+        - protocol: TCP
+          port: 8080  # Zigbee2MQTT
+    
+    # Allow Prometheus scraping
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8123
+    
+    {{- with .Values.networkPolicy.ingress }}
+    # Custom ingress rules
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  
+  # ===========================================================================
+  # EGRESS RULES
+  # ===========================================================================
+  # Where Home Assistant can reach OUT to
+  # ===========================================================================
+  egress:
+    # Allow DNS resolution
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    
+    # Allow database access (PostgreSQL)
+    {{- if eq .Values.database.type "postgresql" }}
+    - to:
+      - podSelector:
+          matchLabels:
+            {{- include "home-assistant.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: database
+      ports:
+        - protocol: TCP
+          port: 5432
+    {{- end }}
+    
+    # Allow MQTT broker access (if separate)
+    {{- if and .Values.mqtt.enabled (eq .Values.mqtt.deployment "separate") }}
+    - to:
+      - podSelector:
+          matchLabels:
+            {{- include "home-assistant.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: mqtt
+      ports:
+        - protocol: TCP
+          port: 1883
+    {{- end }}
+    
+    # Allow HTTPS to external services (weather, APIs, etc.)
+    - to:
+      - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+    
+    # Allow access to local network devices (IoT devices, cameras)
+    # Note: This is a broad rule. Tighten in production if possible.
+    - to:
+      - ipBlock:
+          cidr: 10.0.0.0/8
+      - ipBlock:
+          cidr: 172.16.0.0/12
+      - ipBlock:
+          cidr: 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 1883   # MQTT devices
+        - protocol: TCP
+          port: 554    # RTSP cameras
+        - protocol: TCP
+          port: 80     # HTTP devices
+        - protocol: TCP
+          port: 443    # HTTPS devices
+        - protocol: TCP
+          port: 502    # Modbus
+        - protocol: TCP
+          port: 4840   # OPC-UA
+        - protocol: UDP
+          port: 1900   # UPnP/SSDP discovery
+        - protocol: UDP
+          port: 5353   # mDNS/Bonjour
+    
+    {{- with .Values.networkPolicy.egress }}
+    # Custom egress rules
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+---
+{{- if eq .Values.database.type "postgresql" }}
+# ===========================================================================
+# Network Policy for PostgreSQL
+# ===========================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "home-assistant.fullname" . }}-postgresql
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "home-assistant.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: database
+  
+  policyTypes:
+    - Ingress
+  
+  ingress:
+    # Allow from Home Assistant pod only
+    - from:
+      - podSelector:
+          matchLabels:
+            {{- include "home-assistant.selectorLabels" . | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: 5432
+{{- end }}
+
+{{- end }}

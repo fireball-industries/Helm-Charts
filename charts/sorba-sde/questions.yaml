@@ -1,0 +1,200 @@
+categories:
+- Industrial IoT
+- Edge Computing
+- Data Collection
+rancher_min_version: 2.6.0
+questions:
+# Image Configuration
+- variable: image.tag
+  default: "latest"
+  description: "SORBA SDE image tag/version"
+  type: string
+  label: Image Tag
+  group: "Container Images"
+- variable: image.pullPolicy
+  default: "IfNotPresent"
+  description: "Image pull policy"
+  type: enum
+  label: Image Pull Policy
+  group: "Container Images"
+  options:
+    - "IfNotPresent"
+    - "Always"
+    - "Never"
+
+# Service Configuration
+- variable: service.type
+  default: "ClusterIP"
+  description: "Service type for exposing SORBA SDE"
+  type: enum
+  label: Service Type
+  group: "Services and Load Balancing"
+  options:
+    - "ClusterIP"
+    - "NodePort"
+    - "LoadBalancer"
+  show_subquestion_if: "NodePort"
+  subquestions:
+  - variable: service.httpsNodePort
+    default: 30443
+    description: "NodePort for HTTPS (30000-32767)"
+    type: int
+    min: 30000
+    max: 32767
+    label: HTTPS NodePort
+  - variable: service.modbusNodePort
+    default: 30502
+    description: "NodePort for Modbus TCP (30000-32767)"
+    type: int
+    min: 30000
+    max: 32767
+    label: Modbus NodePort
+  - variable: service.mqttNodePort
+    default: 31883
+    description: "NodePort for MQTT (30000-32767)"
+    type: int
+    min: 30000
+    max: 32767
+    label: MQTT NodePort
+  - variable: service.opcuaNodePort
+    default: 32321
+    description: "NodePort for OPC UA (30000-32767)"
+    type: int
+    min: 30000
+    max: 32767
+    label: OPC UA NodePort
+
+# Ingress Configuration
+- variable: ingress.enabled
+  default: false
+  description: "Expose app using Layer 7 Load Balancer - Ingress"
+  type: boolean
+  label: Expose using Ingress
+  group: "Services and Load Balancing"
+  show_subquestion_if: "true"
+  subquestions:
+  - variable: ingress.hosts[0].host
+    default: "sorba-sde.local"
+    description: "Hostname for SORBA SDE"
+    type: hostname
+    required: true
+    label: Hostname
+  - variable: ingress.className
+    default: "nginx"
+    description: "Ingress class name"
+    type: string
+    label: Ingress Class
+  - variable: ingress.tls[0].secretName
+    default: ""
+    description: "TLS secret name (leave empty for no TLS)"
+    type: string
+    label: TLS Secret Name
+
+# Persistence Configuration
+- variable: persistence.enabled
+  default: true
+  description: "Enable persistent storage for SORBA SDE data"
+  type: boolean
+  label: Enable Persistent Storage
+  group: "Storage"
+  show_subquestion_if: true
+  subquestions:
+  - variable: persistence.size
+    default: "20Gi"
+    description: "Persistent volume size"
+    type: string
+    required: true
+    label: Volume Size
+  - variable: persistence.storageClass
+    default: ""
+    description: "Storage class (leave empty for default)"
+    type: storageclass
+    label: Storage Class
+  - variable: persistence.existingClaim
+    default: ""
+    description: "Use existing PVC (leave empty to create new)"
+    type: pvc
+    label: Existing PVC
+
+# Resource Configuration
+- variable: resources.requests.cpu
+  default: "6000m"
+  description: "Minimum CPU cores (6 cores minimum required)"
+  type: string
+  label: CPU Request
+  group: "Resources"
+  required: true
+- variable: resources.requests.memory
+  default: "16Gi"
+  description: "Minimum memory (16GB minimum required)"
+  type: string
+  label: Memory Request
+  group: "Resources"
+  required: true
+- variable: resources.limits.cpu
+  default: "8000m"
+  description: "Maximum CPU cores"
+  type: string
+  label: CPU Limit
+  group: "Resources"
+- variable: resources.limits.memory
+  default: "20Gi"
+  description: "Maximum memory"
+  type: string
+  label: Memory Limit
+  group: "Resources"
+
+# Licensing Configuration
+- variable: staticMacAddress.enabled
+  default: false
+  description: "Enable static MAC address (required for licensed environments)"
+  type: boolean
+  label: Use Licensed Mode (Static MAC)
+  group: "Licensing"
+  show_subquestion_if: true
+  subquestions:
+  - variable: staticMacAddress.address
+    default: ""
+    description: "Static MAC address (format: XX:XX:XX:XX:XX:XX)"
+    type: string
+    required: true
+    label: MAC Address
+    valid_chars: "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$"
+
+# SSL Certificates
+- variable: customCerts.enabled
+  default: false
+  description: "Use custom SSL certificates instead of self-signed"
+  type: boolean
+  label: Use Custom SSL Certificates
+  group: "Security"
+  show_subquestion_if: true
+  subquestions:
+  - variable: customCerts.secretName
+    default: ""
+    description: "Secret name containing tls.crt and tls.key"
+    type: secret
+    required: true
+    label: Certificate Secret Name
+
+# Advanced Configuration
+- variable: replicaCount
+  default: 1
+  description: "Number of replicas (recommended: 1 for stateful app)"
+  type: int
+  min: 1
+  max: 1
+  label: Replica Count
+  group: "Advanced"
+- variable: nodeSelector
+  default: {}
+  description: "Node selector for pod assignment (YAML)"
+  type: string
+  label: Node Selector
+  group: "Advanced"
+- variable: tolerations
+  default: []
+  description: "Tolerations for pod assignment (YAML)"
+  type: string
+  label: Tolerations
+  group: "Advanced"

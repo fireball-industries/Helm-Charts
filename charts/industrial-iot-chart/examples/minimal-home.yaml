@@ -1,0 +1,107 @@
+# ============================================================================
+# Example: Minimal Home Configuration
+# ============================================================================
+# Fireball Industries - Patrick Ryan
+# For small homes with <50 devices
+# SQLite database, basic add-ons, minimal resources
+# Perfect for: Home labs, testing, Raspberry Pi
+# ============================================================================
+
+global:
+  timezone: "America/New_York"
+
+homeassistant:
+  image:
+    tag: "2024.12.0"
+  
+  # Minimal resource preset
+  resourcePreset: minimal
+  
+  # Use host network for mDNS discovery (Chromecast, etc.)
+  hostNetwork: false
+
+# Service configuration
+service:
+  main:
+    type: NodePort
+    nodePort: 30123
+
+# No ingress (access via NodePort)
+ingress:
+  enabled: false
+
+# SQLite database (simple, no external DB)
+database:
+  type: sqlite
+
+# Storage (local-path for K3s)
+persistence:
+  config:
+    size: 5Gi
+    storageClass: "local-path"
+  media:
+    size: 10Gi
+    storageClass: "local-path"
+  share:
+    size: 2Gi
+    storageClass: "local-path"
+  backups:
+    size: 5Gi
+    storageClass: "local-path"
+
+# MQTT Broker (sidecar)
+mqtt:
+  enabled: true
+  deployment: sidecar
+  config:
+    allowAnonymous: false
+    username: "mqtt"
+    password: "changeme-mqtt"
+  persistence:
+    size: 500Mi
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Node-RED (lightweight)
+nodered:
+  enabled: true
+  deployment: sidecar
+  persistence:
+    size: 500Mi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# ESPHome (for DIY sensors)
+esphome:
+  enabled: false  # Enable if you have ESP devices
+
+# Zigbee2MQTT (if you have USB coordinator)
+zigbee2mqtt:
+  enabled: false
+
+# No cameras
+cameras:
+  enabled: false
+
+# No monitoring (save resources)
+monitoring:
+  serviceMonitor:
+    enabled: false
+
+# No network policies (simpler setup)
+networkPolicy:
+  enabled: false
+
+# RBAC for device access
+rbac:
+  create: true

@@ -1,0 +1,57 @@
+1. Get the application URL by running these commands:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  https://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "sorba-sde.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo https://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "sorba-sde.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "sorba-sde.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo https://$SERVICE_IP:{{ .Values.service.httpsPort }}
+{{- else if contains "ClusterIP" .Values.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "sorba-sde.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit https://127.0.0.1:8443 to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8443:$CONTAINER_PORT
+{{- end }}
+
+2. Login credentials:
+   Username: admin
+   Password: adminpwd
+   
+   ⚠️  IMPORTANT: Change the default password immediately after first login!
+
+3. Available Ports:
+   - HTTPS (Web UI): {{ .Values.service.httpsPort }}
+   - Modbus TCP Server: {{ .Values.service.modbusPort }}
+   - MQTT Broker: {{ .Values.service.mqttPort }}
+   - OPC UA Server: {{ .Values.service.opcuaPort }}
+
+4. Persistent Data:
+{{- if .Values.persistence.enabled }}
+   Data is persisted to PVC: {{ .Values.persistence.existingClaim | default (include "sorba-sde.fullname" .) }}
+   Mount path: {{ .Values.persistence.mountPath }}
+{{- else }}
+   ⚠️  WARNING: Persistence is disabled. Data will be lost when the pod is terminated!
+{{- end }}
+
+{{- if .Values.staticMacAddress.enabled }}
+
+5. Static MAC Address:
+   Configured MAC: {{ .Values.staticMacAddress.address }}
+   ⚠️  This MAC address is required for licensing. Do not change it!
+{{- end }}
+
+{{- if .Values.customCerts.enabled }}
+
+6. Custom SSL Certificates:
+   Using custom certificates from secret: {{ .Values.customCerts.secretName | default (printf "%s-certs" (include "sorba-sde.fullname" .)) }}
+{{- end }}
+
+For more information, visit: https://github.com/sorbotics/sorbotics-pod

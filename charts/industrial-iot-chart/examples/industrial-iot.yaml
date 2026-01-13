@@ -1,0 +1,219 @@
+# ============================================================================
+# Example: Industrial IoT Configuration
+# ============================================================================
+# Fireball Industries - Patrick Ryan
+# For industrial automation and monitoring
+# PostgreSQL, OPC-UA, Modbus, InfluxDB, full monitoring
+# Perfect for: Factories, warehouses, industrial facilities
+# "Because monitoring your PLC is more important than your lightbulbs"
+# ============================================================================
+
+global:
+  timezone: "America/New_York"
+
+homeassistant:
+  image:
+    tag: "2024.12.0"
+  
+  # Full resource preset for industrial workloads
+  resourcePreset: full
+  
+  # Host network for industrial protocols
+  hostNetwork: false
+
+# Service configuration
+service:
+  main:
+    type: LoadBalancer
+    port: 8123
+    loadBalancerIP: "192.168.1.100"  # CHANGE THIS
+
+# Ingress with TLS
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  hosts:
+    - host: scada.factory.example.com  # CHANGE THIS
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: scada-tls
+      hosts:
+        - scada.factory.example.com
+
+# PostgreSQL database (production-grade)
+database:
+  type: postgresql
+  postgresql:
+    enabled: true
+    auth:
+      password: "CHANGE-ME-INDUSTRIAL-DB"
+    persistence:
+      size: 20Gi
+      storageClass: "longhorn"
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+
+# Storage (production-grade)
+persistence:
+  config:
+    size: 20Gi
+    storageClass: "longhorn"
+  media:
+    size: 10Gi  # Minimal (no cameras in industrial setting)
+    storageClass: "longhorn"
+  share:
+    size: 10Gi
+    storageClass: "longhorn"
+  backups:
+    size: 50Gi  # Large backup storage
+    storageClass: "longhorn"
+
+# MQTT Broker for IIoT devices
+mqtt:
+  enabled: true
+  deployment: sidecar
+  config:
+    allowAnonymous: false
+    username: "iiot-mqtt"
+    password: "CHANGE-ME-MQTT-INDUSTRIAL"
+  persistence:
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# Node-RED for industrial automation flows
+nodered:
+  enabled: true
+  deployment: sidecar
+  persistence:
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  security:
+    enabled: true
+    username: "admin"
+    passwordHash: ""  # ADD BCRYPT HASH
+
+# No ESPHome (industrial-grade devices only)
+esphome:
+  enabled: false
+
+# No Zigbee (use industrial protocols)
+zigbee2mqtt:
+  enabled: false
+
+# No consumer cameras
+cameras:
+  enabled: false
+
+# Industrial IoT Integrations
+industrial:
+  # OPC-UA for PLCs
+  opcua:
+    enabled: true
+    servers:
+      - name: plc-main
+        url: "opc.tcp://192.168.10.10:4840"
+        username: "opcuser"
+        password: "CHANGE-ME-OPC"
+      - name: plc-packaging
+        url: "opc.tcp://192.168.10.20:4840"
+  
+  # Modbus for legacy equipment
+  modbus:
+    enabled: true
+    devices:
+      - name: energy_meter_main
+        type: tcp
+        host: 192.168.10.30
+        port: 502
+      - name: temp_controller
+        type: tcp
+        host: 192.168.10.31
+        port: 502
+  
+  # InfluxDB for time-series data
+  influxdb:
+    enabled: true
+    url: "http://influxdb.monitoring.svc.cluster.local:8086"
+    token: "CHANGE-ME-INFLUX-TOKEN"
+    org: "factory"
+    bucket: "industrial-data"
+  
+  # SNMP for network equipment
+  snmp:
+    enabled: true
+    devices:
+      - name: core_switch
+        host: 192.168.1.1
+        community: "CHANGE-ME-SNMP"
+        version: "2c"
+
+# USB Devices (for serial Modbus)
+devices:
+  usb:
+    enabled: true
+    devices:
+      - name: modbus-rtu
+        hostPath: /dev/ttyUSB0
+
+# Full monitoring stack
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+  grafanaDashboard:
+    enabled: true
+
+# Network policies for security
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: monitoring
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-nginx
+
+# RBAC
+rbac:
+  create: true
+
+# Automated backups
+backups:
+  enabled: true
+  schedule: "0 1 * * *"  # Daily at 1 AM
+  retention: 30  # Keep 30 days
+
+# Security
+security:
+  podSecurityPolicy:
+    enabled: true
+
+# Node selector for specific hardware
+homeassistant:
+  nodeSelector:
+    workload: industrial

@@ -1,0 +1,177 @@
+{{/*
+============================================================================
+ConfigMaps
+============================================================================
+Fireball Industries - Patrick Ryan
+
+Configuration files for Home Assistant and add-ons.
+These are mounted as volumes into the containers.
+
+Warning: Don't store secrets here. ConfigMaps are not encrypted.
+Use Secrets for passwords, API keys, and embarrassing automation names.
+============================================================================
+*/}}
+
+{{- if and .Values.mqtt.enabled (eq .Values.mqtt.deployment "sidecar") }}
+---
+# ===========================================================================
+# MQTT Broker (Mosquitto) ConfigMap
+# ===========================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "home-assistant.fullname" . }}-mqtt
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mqtt
+data:
+  mosquitto.conf: |
+    # =======================================================================
+    # Mosquitto MQTT Broker Configuration
+    # =======================================================================
+    # Fireball Industries - Patrick Ryan
+    # "The nervous system of your smart home"
+    # =======================================================================
+    
+    # Persistence
+    persistence true
+    persistence_location /mosquitto/data/
+    
+    # Logging
+    log_dest stdout
+    log_type all
+    
+    # Default listener
+    listener {{ .Values.mqtt.ports.mqtt }}
+    protocol mqtt
+    
+    # WebSocket listener (for web-based MQTT clients)
+    listener {{ .Values.mqtt.ports.websocket }}
+    protocol websockets
+    
+    # Authentication
+    {{- if .Values.mqtt.config.allowAnonymous }}
+    allow_anonymous true
+    {{- else }}
+    allow_anonymous false
+    password_file /mosquitto/config/passwd
+    {{- end }}
+    
+    # Security
+    # Note: For production, enable TLS and use certificates
+    # listener 8883
+    # cafile /mosquitto/config/ca.crt
+    # certfile /mosquitto/config/server.crt
+    # keyfile /mosquitto/config/server.key
+    
+    # Performance tuning
+    max_connections -1
+    max_queued_messages 1000
+    message_size_limit 268435456
+    
+    # Persistence optimization
+    autosave_interval 1800
+    autosave_on_changes false
+    
+    # Connection management
+    connection_messages true
+    log_timestamp true
+    
+    # ACL (Access Control List)
+    # Uncomment to enable fine-grained access control
+    # acl_file /mosquitto/config/acl.conf
+  
+  {{- if not .Values.mqtt.config.allowAnonymous }}
+  # Password file (if authentication is enabled)
+  # Generated using: mosquitto_passwd -c passwd username
+  # Note: This is a placeholder. In production, use a Secret.
+  passwd: |
+    # Username:PasswordHash pairs
+    # Generate with: mosquitto_passwd -c passwd {{ .Values.mqtt.config.username }}
+  {{- end }}
+{{- end }}
+
+{{- if and .Values.zigbee2mqtt.enabled (eq .Values.zigbee2mqtt.deployment "sidecar") }}
+---
+# ===========================================================================
+# Zigbee2MQTT ConfigMap
+# ===========================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "home-assistant.fullname" . }}-zigbee2mqtt
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: zigbee2mqtt
+data:
+  configuration.yaml: |
+    # =======================================================================
+    # Zigbee2MQTT Configuration
+    # =======================================================================
+    # Fireball Industries - Patrick Ryan
+    # "Because WiFi is too mainstream for lightbulbs"
+    # =======================================================================
+    
+    # Home Assistant integration
+    homeassistant: true
+    
+    # MQTT settings
+    mqtt:
+      base_topic: zigbee2mqtt
+      server: {{ .Values.zigbee2mqtt.mqtt.server | default (printf "mqtt://%s:%d" (include "home-assistant.mqtt.serviceName" .) (.Values.mqtt.ports.mqtt | int)) }}
+      {{- if .Values.zigbee2mqtt.mqtt.username }}
+      user: {{ .Values.zigbee2mqtt.mqtt.username }}
+      {{- else if .Values.mqtt.config.username }}
+      user: {{ .Values.mqtt.config.username }}
+      {{- end }}
+      {{- if .Values.zigbee2mqtt.mqtt.password }}
+      password: {{ .Values.zigbee2mqtt.mqtt.password }}
+      {{- else if .Values.mqtt.config.password }}
+      password: {{ .Values.mqtt.config.password }}
+      {{- end }}
+    
+    # Serial settings
+    serial:
+      port: {{ .Values.zigbee2mqtt.usbDevice }}
+      # Adapter type: auto-detect (or specify: zstack, deconz, zigate, ezsp)
+      adapter: auto
+    
+    # Web interface
+    frontend:
+      port: {{ .Values.zigbee2mqtt.port }}
+      host: 0.0.0.0
+    
+    # Advanced settings
+    advanced:
+      log_level: info
+      log_output:
+        - console
+      pan_id: GENERATE
+      network_key: GENERATE
+      channel: 11
+      
+      # Disable automatic updates (managed by Kubernetes)
+      availability_timeout: 0
+      last_seen: ISO_8601
+      
+      # Performance
+      transmit_power: 20
+    
+    # Device options
+    device_options:
+      # Legacy API (for older integrations)
+      legacy: false
+    
+    # Permit join (set to false in production for security)
+    permit_join: false
+    
+    # Experimental features
+    experimental:
+      new_api: true
+    
+    # OTA updates for Zigbee devices
+    ota:
+      disable_automatic_update_check: false
+{{- end }}
