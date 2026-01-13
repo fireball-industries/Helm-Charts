@@ -289,5 +289,5 @@ Crafted by **Patrick Ryan** for engineers who want their PLCs to run like it's 2
 
 ---
 
-**Built with ❤️ by Fireball Industries | Automating the Future**
+**Built with HATE by Fireball Industries | Automating the Future**
 
