@@ -40,28 +40,10 @@ icon: https://fireballindustries.com/assets/emberburn-icon.svg
 
 # Rancher Questions Annotation
 annotations:
-  catalog.cattle.io/certified: "fireball"
-  catalog.cattle.io/release-name: "emberburn"
+  catalog.cattle.io/certified: "partner"
   catalog.cattle.io/display-name: "EmberBurn - Multi-Protocol IoT Gateway"
-  catalog.cattle.io/provides-gvr: "apps/v1/Deployment"
+  catalog.cattle.io/release-name: "emberburn"
   catalog.cattle.io/namespace: "emberburn"
+  catalog.cattle.io/categories: "Forge Industrial,IoT Gateway,SCADA"
   catalog.cattle.io/os: "linux"
-  catalog.cattle.io/kube-version: ">=1.25.0"
-  catalog.cattle.io/rancher-version: ">=2.6.0"
-  
-  # Auto-install behavior
-  catalog.cattle.io/auto-install: "emberburn=match"
-  
-  # UI Categories
-  catalog.cattle.io/categories: "Forge Industrial,IoT Gateway,SCADA,OPC UA,Monitoring"
-  
-  # Feature highlights
-  catalog.cattle.io/featured: "true"
-  catalog.cattle.io/hidden: "false"
-  
-  # Documentation links
-  catalog.cattle.io/upstream-version: "1.0.0"
-  fireball.industries/project-type: "industrial-iot-gateway"
-  fireball.industries/protocols: "15"
-  fireball.industries/web-ui: "true"
-  fireball.industries/branding: "emberburn"
+  catalog.cattle.io/type: "iot-gateway"
