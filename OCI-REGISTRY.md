@@ -1,21 +1,31 @@
 # OCI Registry Setup - Modern Rancher Standard
 
+## GitHub Container Registry - The Only Sensible Choice
+
+Your charts are already on GitHub. Use GitHub Container Registry (GHCR). It's free, fast, and already integrated. Why would you pay for or self-host anything else?
+
 ## Quick Start
 
-### 1. Push Charts to OCI Registry
+### 1. Create GitHub Personal Access Token
+
+GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+
+**Scopes needed:**
+- `write:packages` (push charts)
+- `read:packages` (pull charts)
+- `delete:packages` (optional - manage chart versions)
+
+Save the token - you'll need it.
+
+### 2. Push All Charts to GHCR
 
 ```powershell
-# GitHub Container Registry (GHCR)
 .\push-to-oci.ps1 -Registry "ghcr.io/YOUR-USERNAME" -Username "YOUR-USERNAME" -Password "YOUR-PAT"
-
-# Harbor Registry
-.\push-to-oci.ps1 -Registry "harbor.example.com/helm-charts" -Username "admin" -Password "YOUR-PASSWORD"
-
-# Docker Hub
-.\push-to-oci.ps1 -Registry "registry-1.docker.io/YOUR-USERNAME" -Username "YOUR-USERNAME" -Password "YOUR-PASSWORD"
 ```
 
-### 2. Add OCI Repository in Rancher
+Done. All 20 charts are now on GHCR at `oci://ghcr.io/YOUR-USERNAME/CHART-NAME`.
+
+### 3. Add OCI Repository in Rancher
 
 **Apps → Repositories → Create**
 
@@ -24,9 +34,9 @@
 - **OCI Registry URL**: `oci://ghcr.io/YOUR-USERNAME`
 - **Authentication**: 
   - Username: `YOUR-USERNAME`
-  - Password: `YOUR-PAT` (GitHub Personal Access Token)
+  - Password: `YOUR-PAT`
 
-### 3. Install Charts
+### 4. Install Charts
 
 ```bash
 # Via Helm CLI
@@ -35,26 +45,22 @@ helm install my-prometheus oci://ghcr.io/YOUR-USERNAME/prometheus-pod --version 
 # Or use Rancher UI → Apps & Marketplace
 ```
 
-## Registry Options
+## Why GitHub Container Registry?
 
-### GitHub Container Registry (RECOMMENDED)
+✅ **Free** - Unlimited public packages, 500MB free private storage  
+✅ **Integrated** - Your code is already on GitHub  
+✅ **Fast** - CDN-backed, globally distributed  
+✅ **No Rate Limits** - Unlike Docker Hub's 100 pulls/6hrs for free tier  
+✅ **Package Insights** - Download stats, vulnerability scanning  
+✅ **Simple Auth** - Same PAT you already use for Git  
+✅ **OCI Native** - Built for modern container/chart distribution  
 
-**Pros**: Free, integrated with GitHub, good performance
-**URL Pattern**: `oci://ghcr.io/YOUR-USERNAME`
+**Alternatives (and why not to use them):**
+- **Docker Hub**: Rate limits, costs money for private repos, slower
+- **Harbor**: Self-hosted = your problem to maintain/backup/secure
+- **Cloud registries (ACR/GCR/ECR)**: Costs money, cloud lock-in
 
-Create PAT: GitHub → Settings → Developer settings → Personal access tokens
-- Scope: `write:packages`, `read:packages`
-
-### Harbor (Self-Hosted)
-
-**Pros**: Full control, Helm Chart Museum compatibility
-**URL Pattern**: `oci://harbor.example.com/PROJECT-NAME`
-
-### Docker Hub
-
-**Pros**: Widely used, familiar
-**URL Pattern**: `oci://registry-1.docker.io/YOUR-USERNAME`
-**Cons**: Rate limiting on free tier
+Unless you have a specific compliance requirement, use GHCR.
 
 ## Rancher Configuration
 
