@@ -1,0 +1,11 @@
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: fireball-helm-charts
+  namespace: fleet-default
+spec:
+  repo: https://github.com/fireball-industries/Helm-Charts
+  branch: main
+  paths:
+  - releases
+  helmSecretName: ghcr-auth
