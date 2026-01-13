@@ -25,9 +25,9 @@ Save the token - you'll need it.
 
 Done. All 20 charts are now on GHCR at `oci://ghcr.io/YOUR-USERNAME/CHART-NAME`.
 
-### 3. Add OCI Repository in Rancher
+### 3. Add OCI Repository in Rancher (Cluster-Wide)
 
-**Apps → Repositories → Create**
+**Cluster → Apps → Repositories → Create**
 
 - **Type**: OCI
 - **Name**: `fireball-podstore`
@@ -35,6 +35,8 @@ Done. All 20 charts are now on GHCR at `oci://ghcr.io/YOUR-USERNAME/CHART-NAME`.
 - **Authentication**: 
   - Username: `YOUR-USERNAME`
   - Password: `YOUR-PAT`
+
+This makes charts available to **all namespaces** in the cluster.
 
 ### 4. Install Charts
 
@@ -61,21 +63,6 @@ helm install my-prometheus oci://ghcr.io/YOUR-USERNAME/prometheus-pod --version 
 - **Cloud registries (ACR/GCR/ECR)**: Costs money, cloud lock-in
 
 Unless you have a specific compliance requirement, use GHCR.
-
-## Rancher Configuration
-
-### Global Repository (Cluster-Wide)
-
-1. Cluster → Apps → Repositories
-2. Create → OCI
-3. Configure authentication
-4. All namespaces can now install from this repo
-
-### Namespace-Scoped Repository
-
-1. Project/Namespace → Apps → Repositories  
-2. Create → OCI
-3. Only accessible within that namespace
 
 ## Install Commands
 
