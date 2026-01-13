@@ -36,26 +36,14 @@ maintainers:
 
 icon: https://nodered.org/about/resources/media/node-red-icon.svg
 
-# Rancher Questions Annotation
 annotations:
-  catalog.cattle.io/certified: "fireball"
-  catalog.cattle.io/release-name: "node-red"
+  catalog.cattle.io/certified: "partner"
   catalog.cattle.io/display-name: "Node-RED - Flow-Based Programming"
-  catalog.cattle.io/provides-gvr: "apps/v1/Deployment"
+  catalog.cattle.io/release-name: "node-red"
   catalog.cattle.io/namespace: "node-red"
+  catalog.cattle.io/categories: "Forge Industrial,Automation,IoT"
   catalog.cattle.io/os: "linux"
-  catalog.cattle.io/kube-version: ">=1.25.0"
-  catalog.cattle.io/rancher-version: ">=2.6.0"
-  
-  # Auto-install behavior
-  catalog.cattle.io/auto-install: "node-red=match"
-  
-  # UI Categories
-  catalog.cattle.io/categories: "Forge Industrial,Automation,IoT,Integration"
-  
-  # Feature highlights
-  catalog.cattle.io/featured: "true"
-  catalog.cattle.io/hidden: "false"
+  catalog.cattle.io/type: "automation"
   
   # Documentation links
   catalog.cattle.io/upstream-version: "3.1.0"

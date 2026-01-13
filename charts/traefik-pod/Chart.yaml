@@ -39,28 +39,14 @@ maintainers:
 
 icon: https://raw.githubusercontent.com/traefik/traefik/master/docs/content/assets/img/traefik.logo.png
 
-# Rancher Questions Annotation
 annotations:
-  catalog.cattle.io/certified: "fireball"
-  catalog.cattle.io/release-name: "traefik"
+  catalog.cattle.io/certified: "partner"
   catalog.cattle.io/display-name: "Traefik - Ingress Controller & Reverse Proxy"
-  catalog.cattle.io/provides-gvr: "apps/v1/Deployment"
+  catalog.cattle.io/release-name: "traefik"
   catalog.cattle.io/namespace: "traefik"
+  catalog.cattle.io/categories: "Forge Industrial,Networking,Ingress"
   catalog.cattle.io/os: "linux"
-  catalog.cattle.io/kube-version: ">=1.22.0"
-  catalog.cattle.io/rancher-version: ">=2.6.0"
-  
-  # Category
-  catalog.cattle.io/categories: "Forge Industrial,Networking,Ingress,Industrial"
-  
-  # Feature annotations
-  catalog.cattle.io/auto-install: "traefik-pod=match"
-  catalog.cattle.io/hidden: "false"
-  
-  # Branding
-  catalog.cattle.io/vendor: "Fireball Industries"
-  catalog.cattle.io/vendor-url: "https://fireballindustries.com"
-  catalog.cattle.io/tagline: "Ignite Your Factory Efficiency™"
+  catalog.cattle.io/type: "networking"
   
   # Description for marketplace
   catalog.cattle.io/description: |

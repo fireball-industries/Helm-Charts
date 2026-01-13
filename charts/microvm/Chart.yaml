@@ -39,26 +39,14 @@ maintainers:
 
 icon: https://kubevirt.io/assets/images/logos/kubevirt-icon-color.svg
 
-# Rancher Questions Annotation
 annotations:
-  catalog.cattle.io/certified: "fireball"
-  catalog.cattle.io/release-name: "microvm"
+  catalog.cattle.io/certified: "partner"
   catalog.cattle.io/display-name: "MicroVM - KubeVirt Virtual Machine"
-  catalog.cattle.io/provides-gvr: "kubevirt.io/v1/VirtualMachine"
+  catalog.cattle.io/release-name: "microvm"
   catalog.cattle.io/namespace: "default"
+  catalog.cattle.io/categories: "Forge Industrial,Virtualization,Edge"
   catalog.cattle.io/os: "linux"
-  catalog.cattle.io/kube-version: ">=1.24.0"
-  catalog.cattle.io/rancher-version: ">=2.6.0"
-  
-  # Category
-  catalog.cattle.io/categories: "Forge Industrial,Virtualization,Edge,Infrastructure"
-  
-  # Feature annotations
-  catalog.cattle.io/auto-install: "microvm=match"
-  catalog.cattle.io/hidden: "false"
-  
-  # Prerequisites
-  catalog.cattle.io/requires: "KubeVirt operator must be installed (kubevirt-system namespace)"
+  catalog.cattle.io/type: "virtualization"
   
   # Description for marketplace
   catalog.cattle.io/description: |

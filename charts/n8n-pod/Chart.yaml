@@ -41,28 +41,14 @@ maintainers:
 
 icon: https://raw.githubusercontent.com/n8n-io/n8n/master/assets/n8n-logo.png
 
-# Rancher Questions Annotation
 annotations:
-  catalog.cattle.io/certified: "fireball"
-  catalog.cattle.io/release-name: "n8n"
+  catalog.cattle.io/certified: "partner"
   catalog.cattle.io/display-name: "n8n - Workflow Automation Platform"
-  catalog.cattle.io/provides-gvr: "apps/v1/Deployment"
+  catalog.cattle.io/release-name: "n8n"
   catalog.cattle.io/namespace: "n8n"
+  catalog.cattle.io/categories: "Forge Industrial,Automation,Integration"
   catalog.cattle.io/os: "linux"
-  catalog.cattle.io/kube-version: ">=1.22.0"
-  catalog.cattle.io/rancher-version: ">=2.6.0"
-  
-  # Category
-  catalog.cattle.io/categories: "Forge Industrial,Automation,Integration,Workflow"
-  
-  # Feature annotations
-  catalog.cattle.io/auto-install: "n8n-pod=match"
-  catalog.cattle.io/hidden: "false"
-  
-  # Branding
-  catalog.cattle.io/vendor: "Fireball Industries"
-  catalog.cattle.io/vendor-url: "https://fireballindustries.com"
-  catalog.cattle.io/tagline: "Ignite Your Factory Efficiency™"
+  catalog.cattle.io/type: "automation"
   
   # Description for marketplace
   catalog.cattle.io/description: |
