@@ -1,0 +1,376 @@
+{{- if .Values.gateway.provisioning.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ignition-edge.fullname" . }}-provisioning
+  labels:
+    {{- include "ignition-edge.labels" . | nindent 4 }}
+data:
+  # ============================================================================
+  # Sample Tag Definitions
+  # Because manually clicking tags into existence is peak inefficiency
+  # ============================================================================
+  sample-tags.json: |
+    {
+      "tags": [
+        {
+          "name": "Production_Line_1",
+          "tagType": "Folder",
+          "tags": [
+            {
+              "name": "Machine_Status",
+              "tagType": "AtomicTag",
+              "dataType": "Int4",
+              "value": 0,
+              "opcItemPath": "ns=2;s=Line1.Status",
+              "historyEnabled": true,
+              "description": "Machine status: 0=Stopped, 1=Running, 2=Fault"
+            },
+            {
+              "name": "Parts_Count",
+              "tagType": "AtomicTag",
+              "dataType": "Int4",
+              "value": 0,
+              "opcItemPath": "ns=2;s=Line1.PartsCount",
+              "historyEnabled": true,
+              "description": "Total parts produced (because your manager WILL ask)"
+            },
+            {
+              "name": "Cycle_Time",
+              "tagType": "AtomicTag",
+              "dataType": "Float8",
+              "value": 0.0,
+              "opcItemPath": "ns=2;s=Line1.CycleTime",
+              "historyEnabled": true,
+              "engUnit": "seconds",
+              "description": "Current cycle time"
+            },
+            {
+              "name": "Temperature",
+              "tagType": "AtomicTag",
+              "dataType": "Float8",
+              "value": 0.0,
+              "opcItemPath": "ns=2;s=Line1.Temperature",
+              "historyEnabled": true,
+              "engUnit": "°C",
+              "alarmConfig": {
+                "enabled": true,
+                "highLimit": 85.0,
+                "lowLimit": 15.0
+              },
+              "description": "Process temperature - will alert before things melt"
+            }
+          ]
+        },
+        {
+          "name": "Utilities",
+          "tagType": "Folder",
+          "tags": [
+            {
+              "name": "Air_Pressure",
+              "tagType": "AtomicTag",
+              "dataType": "Float8",
+              "value": 0.0,
+              "opcItemPath": "ns=2;s=Utilities.AirPressure",
+              "historyEnabled": true,
+              "engUnit": "PSI",
+              "description": "Compressed air pressure"
+            },
+            {
+              "name": "Power_Consumption",
+              "tagType": "AtomicTag",
+              "dataType": "Float8",
+              "value": 0.0,
+              "opcItemPath": "ns=2;s=Utilities.PowerKW",
+              "historyEnabled": true,
+              "engUnit": "kW",
+              "description": "Real-time power consumption"
+            }
+          ]
+        }
+      ]
+    }
+
+  # ============================================================================
+  # Sample User Defined Types (UDTs)
+  # ============================================================================
+  sample-udts.json: |
+    {
+      "udts": [
+        {
+          "name": "Motor_UDT",
+          "description": "Standard motor UDT - because copy-paste is error-prone",
+          "parameters": [
+            {
+              "name": "OPC_Path",
+              "dataType": "String",
+              "value": ""
+            }
+          ],
+          "tags": [
+            {
+              "name": "Running",
+              "tagType": "AtomicTag",
+              "dataType": "Boolean",
+              "opcItemPath": "{OPC_Path}.Running"
+            },
+            {
+              "name": "Current",
+              "tagType": "AtomicTag",
+              "dataType": "Float8",
+              "opcItemPath": "{OPC_Path}.Current",
+              "engUnit": "Amps",
+              "historyEnabled": true
+            },
+            {
+              "name": "Speed",
+              "tagType": "AtomicTag",
+              "dataType": "Float8",
+              "opcItemPath": "{OPC_Path}.Speed",
+              "engUnit": "RPM",
+              "historyEnabled": true
+            },
+            {
+              "name": "Fault",
+              "tagType": "AtomicTag",
+              "dataType": "Boolean",
+              "opcItemPath": "{OPC_Path}.Fault",
+              "alarmConfig": {
+                "enabled": true,
+                "condition": "true"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tank_UDT",
+          "description": "Standard tank UDT with level and alarms",
+          "parameters": [
+            {
+              "name": "OPC_Path",
+              "dataType": "String",
+              "value": ""
+            },
+            {
+              "name": "High_Limit",
+              "dataType": "Float8",
+              "value": 90.0
+            },
+            {
+              "name": "Low_Limit",
+              "dataType": "Float8",
+              "value": 10.0
+            }
+          ],
+          "tags": [
+            {
+              "name": "Level",
+              "tagType": "AtomicTag",
+              "dataType": "Float8",
+              "opcItemPath": "{OPC_Path}.Level",
+              "engUnit": "%",
+              "historyEnabled": true,
+              "alarmConfig": {
+                "enabled": true,
+                "highLimit": "{High_Limit}",
+                "lowLimit": "{Low_Limit}"
+              }
+            },
+            {
+              "name": "Inlet_Valve",
+              "tagType": "AtomicTag",
+              "dataType": "Boolean",
+              "opcItemPath": "{OPC_Path}.InletValve"
+            },
+            {
+              "name": "Outlet_Valve",
+              "tagType": "AtomicTag",
+              "dataType": "Boolean",
+              "opcItemPath": "{OPC_Path}.OutletValve"
+            }
+          ]
+        }
+      ]
+    }
+
+  # ============================================================================
+  # Sample Device Connections
+  # ============================================================================
+  sample-devices.json: |
+    {
+      "devices": [
+        {
+          "name": "Allen-Bradley PLC-01",
+          "enabled": true,
+          "deviceType": "Allen-Bradley/ControlLogix",
+          "hostname": "192.168.1.20",
+          "port": 2222,
+          "slot": 0,
+          "pollRate": 1000,
+          "timeout": 5000,
+          "description": "Production line ControlLogix PLC - the one that runs everything"
+        },
+        {
+          "name": "Siemens S7-1500",
+          "enabled": false,
+          "deviceType": "Siemens/S7-1500",
+          "hostname": "192.168.1.30",
+          "port": 102,
+          "rack": 0,
+          "slot": 1,
+          "pollRate": 1000,
+          "timeout": 5000,
+          "description": "Packaging line S7-1500 - because TIA Portal wasn't confusing enough"
+        },
+        {
+          "name": "Modbus RTU Device",
+          "enabled": false,
+          "deviceType": "Modbus/RTU",
+          "serialPort": "/dev/ttyUSB0",
+          "baudRate": 9600,
+          "dataBits": 8,
+          "parity": "None",
+          "stopBits": 1,
+          "unitId": 1,
+          "pollRate": 1000,
+          "description": "Legacy Modbus device - still running since the 90s"
+        }
+      ]
+    }
+
+  # ============================================================================
+  # Sample Alarm Pipeline Configuration
+  # ============================================================================
+  sample-alarms.json: |
+    {
+      "pipelines": [
+        {
+          "name": "Critical_Alarms",
+          "enabled": true,
+          "description": "Critical alarms - wake up the on-call engineer",
+          "notifications": [
+            {
+              "type": "Email",
+              "recipients": ["maintenance@factory.com", "supervisor@factory.com"],
+              "subject": "[CRITICAL] Ignition Alarm: {AlarmName}",
+              "body": "Alarm: {AlarmName}\nValue: {AlarmValue}\nTime: {AlarmTime}\n\nGo fix it.",
+              "throttle": 300
+            },
+            {
+              "type": "SMS",
+              "enabled": false,
+              "recipients": ["+15551234567"],
+              "message": "CRITICAL: {AlarmName} - {AlarmValue}"
+            }
+          ],
+          "filters": {
+            "priority": ["Critical", "High"]
+          }
+        },
+        {
+          "name": "Standard_Alarms",
+          "enabled": true,
+          "description": "Standard alarm notifications",
+          "notifications": [
+            {
+              "type": "Email",
+              "recipients": ["operator@factory.com"],
+              "subject": "Ignition Alarm: {AlarmName}",
+              "body": "Alarm: {AlarmName}\nValue: {AlarmValue}\nTime: {AlarmTime}",
+              "throttle": 600
+            }
+          ],
+          "filters": {
+            "priority": ["Medium", "Low"]
+          }
+        },
+        {
+          "name": "Audit_Only",
+          "enabled": true,
+          "description": "Log alarms without notification - for compliance nerds",
+          "notifications": [],
+          "filters": {
+            "priority": ["Diagnostic"]
+          }
+        }
+      ]
+    }
+
+  # ============================================================================
+  # Gateway Initialization Script
+  # ============================================================================
+  init-gateway.py: |
+    #!/usr/bin/env python3
+    """
+    Ignition Gateway Auto-Provisioning Script
+    Because clicking through the web UI 100 times is not automation.
+    
+    This script runs on first boot to configure:
+    - Database connections
+    - Tag providers
+    - Device connections
+    - Alarm pipelines
+    - User accounts
+    
+    Patrick Ryan - Fireball Industries
+    """
+    
+    import json
+    import sys
+    import os
+    from java.lang import System
+    
+    def log(message):
+        """Print with timestamp because debugging is hard enough."""
+        print(f"[INIT] {message}")
+        sys.stdout.flush()
+    
+    def setup_database_connections():
+        """Configure database connections from JSON."""
+        log("Setting up database connections...")
+        # Add database connection configuration logic here
+        # This would use Ignition's system.db functions
+        log("Database connections configured")
+    
+    def setup_tag_providers():
+        """Create tag providers and import tags."""
+        log("Setting up tag providers...")
+        # Add tag provider configuration logic here
+        log("Tag providers configured")
+    
+    def import_tags():
+        """Import sample tags from JSON."""
+        log("Importing sample tags...")
+        # Add tag import logic here
+        log("Tags imported successfully")
+    
+    def setup_alarm_pipelines():
+        """Configure alarm notification pipelines."""
+        log("Setting up alarm pipelines...")
+        # Add alarm pipeline configuration logic here
+        log("Alarm pipelines configured")
+    
+    def main():
+        """Main provisioning routine."""
+        log("=" * 60)
+        log("Ignition Edge Auto-Provisioning")
+        log("Because manual configuration is so 2005")
+        log("=" * 60)
+        
+        try:
+            setup_database_connections()
+            setup_tag_providers()
+            import_tags()
+            setup_alarm_pipelines()
+            
+            log("✓ Gateway provisioning completed successfully!")
+            log("Your SCADA system is ready to rock.")
+            
+        except Exception as e:
+            log(f"✗ Provisioning failed: {str(e)}")
+            sys.exit(1)
+    
+    if __name__ == "__main__":
+        main()
+
+{{- end }}

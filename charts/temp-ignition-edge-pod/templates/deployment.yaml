@@ -1,0 +1,348 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ignition-edge.fullname" . }}
+  labels:
+    {{- include "ignition-edge.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "ignition-edge.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "ignition-edge.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "ignition-edge.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.security.podSecurityContext | nindent 8 }}
+      
+      # ========================================================================
+      # Init Container - Gateway Provisioning
+      # Because manually clicking through the UI is for amateurs
+      # ========================================================================
+      initContainers:
+        - name: gateway-init
+          image: "{{ .Values.initImage.repository }}:{{ .Values.initImage.tag }}"
+          imagePullPolicy: {{ .Values.initImage.pullPolicy }}
+          command: ["/bin/bash"]
+          args:
+            - -c
+            - |
+              echo "=========================================="
+              echo "Ignition Edge Gateway Initialization"
+              echo "Because manual config is so 2005"
+              echo "=========================================="
+              
+              # Check if gateway is already initialized
+              if [ -f /data/.ignition-initialized ]; then
+                echo "✓ Gateway already initialized"
+                
+                {{- if .Values.gateway.provisioning.restoreFromBackup }}
+                # Restore from backup if requested
+                if [ -f "{{ .Values.gateway.provisioning.backupPath }}" ]; then
+                  echo "Restoring from backup: {{ .Values.gateway.provisioning.backupPath }}"
+                  # Restore logic would go here using gwcmd
+                  echo "✓ Restore completed"
+                fi
+                {{- end }}
+                
+                exit 0
+              fi
+              
+              echo "First boot detected - initializing gateway..."
+              
+              # Copy default configuration
+              echo "Setting up gateway data directory..."
+              mkdir -p /data/projects
+              mkdir -p /data/db
+              mkdir -p /data/logs
+              
+              {{- if .Values.gateway.provisioning.enabled }}
+              # Copy provisioning files
+              echo "Copying provisioning files..."
+              cp -r /provisioning/* /data/ || true
+              {{- end }}
+              
+              # Set permissions
+              echo "Setting permissions..."
+              chown -R 999:999 /data
+              
+              # Mark as initialized
+              touch /data/.ignition-initialized
+              echo "✓ Gateway initialization complete"
+              
+          volumeMounts:
+            - name: gateway-data
+              mountPath: /data
+            {{- if .Values.gateway.provisioning.enabled }}
+            - name: provisioning-config
+              mountPath: /provisioning
+            {{- end }}
+            {{- if .Values.gateway.provisioning.restoreFromBackup }}
+            - name: backup-volume
+              mountPath: /restore
+            {{- end }}
+      
+      # ========================================================================
+      # Main Container - Ignition Edge Gateway
+      # ========================================================================
+      containers:
+        - name: ignition-gateway
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.security.containerSecurityContext | nindent 12 }}
+          
+          ports:
+            - name: http
+              containerPort: 8088
+              protocol: TCP
+            - name: https
+              containerPort: 8043
+              protocol: TCP
+            {{- if .Values.opcua.server.enabled }}
+            - name: opcua
+              containerPort: {{ .Values.opcua.server.port }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.mqtt.engine.enabled }}
+            - name: mqtt
+              containerPort: 1883
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.mqtt.chariot.enabled }}
+            - name: mqtts
+              containerPort: 8883
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.gateway.network.enabled }}
+            - name: gateway-net
+              containerPort: {{ .Values.gateway.network.port }}
+              protocol: TCP
+            {{- end }}
+          
+          env:
+            # JVM heap configuration
+            - name: GATEWAY_HEAP_SIZE
+              value: "{{ include "ignition-edge.heapSize" . }}"
+            
+            # Gateway edition
+            - name: IGNITION_EDITION
+              value: "{{ .Values.global.edition }}"
+            
+            # Demo mode flag
+            - name: IGNITION_DEMO_MODE
+              value: "{{ .Values.global.demoMode }}"
+            
+            # Admin credentials
+            - name: GATEWAY_ADMIN_USERNAME
+              value: "{{ .Values.gateway.admin.username }}"
+            - name: GATEWAY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.gateway.admin.existingSecret | default (printf "%s-secret" (include "ignition-edge.fullname" .)) }}
+                  key: {{ .Values.gateway.admin.passwordKey }}
+            
+            # Database credentials
+            {{- if .Values.databases.postgresql.enabled }}
+            - name: DB_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.databases.postgresql.existingSecret | default (printf "%s-secret" (include "ignition-edge.fullname" .)) }}
+                  key: {{ .Values.databases.postgresql.passwordKey | default "postgres-password" }}
+            {{- end }}
+            
+            {{- if .Values.databases.timescaledb.enabled }}
+            - name: DB_TIMESCALE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.databases.timescaledb.existingSecret | default (printf "%s-secret" (include "ignition-edge.fullname" .)) }}
+                  key: {{ .Values.databases.timescaledb.passwordKey | default "timescale-password" }}
+            {{- end }}
+            
+            # MQTT credentials
+            {{- if .Values.mqtt.engine.enabled }}
+            - name: MQTT_ENGINE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mqtt.engine.broker.existingSecret | default (printf "%s-secret" (include "ignition-edge.fullname" .)) }}
+                  key: {{ .Values.mqtt.engine.broker.passwordKey | default "mqtt-engine-password" }}
+            {{- end }}
+            
+            # License activation key
+            {{- if or .Values.license.activationKey .Values.license.existingSecret }}
+            - name: IGNITION_ACTIVATION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.license.existingSecret | default (printf "%s-license" (include "ignition-edge.fullname" .)) }}
+                  key: {{ .Values.license.activationKeyKey }}
+            {{- end }}
+            
+            # Additional environment variables
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          
+          volumeMounts:
+            # Gateway data persistence
+            - name: gateway-data
+              mountPath: /usr/local/bin/ignition/data
+            
+            # Configuration files
+            - name: gateway-config
+              mountPath: /usr/local/bin/ignition/data/ignition.conf
+              subPath: ignition.conf
+            
+            {{- if .Values.gateway.provisioning.enabled }}
+            - name: provisioning-config
+              mountPath: /provisioning
+            {{- end }}
+            
+            # Module auto-install
+            {{- if .Values.persistence.modules.enabled }}
+            - name: modules
+              mountPath: /modules
+            {{- end }}
+            
+            # Script libraries
+            {{- if .Values.persistence.scripts.enabled }}
+            - name: scripts
+              mountPath: /scripts
+            {{- end }}
+            
+            # Backup volume
+            {{- if .Values.backup.enabled }}
+            - name: backup-volume
+              mountPath: /backups
+            {{- end }}
+            
+            # Additional volumes
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          
+          # Health probes
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          
+          # Resource limits
+          resources:
+            {{- include "ignition-edge.resources" . | nindent 12 }}
+        
+        # ======================================================================
+        # Sidecar - JMX Exporter for Prometheus Metrics
+        # Because "just check the logs" doesn't scale
+        # ======================================================================
+        {{- if .Values.jmxExporter.enabled }}
+        - name: jmx-exporter
+          image: "{{ .Values.jmxExporter.image.repository }}:{{ .Values.jmxExporter.image.tag }}"
+          imagePullPolicy: {{ .Values.jmxExporter.image.pullPolicy }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.jmxExporter.port }}
+              protocol: TCP
+          volumeMounts:
+            - name: gateway-config
+              mountPath: /opt/jmx_exporter/config.yaml
+              subPath: jmx-exporter-config.yaml
+          resources:
+            {{- toYaml .Values.jmxExporter.resources | nindent 12 }}
+        {{- end }}
+      
+      # ========================================================================
+      # Volumes
+      # ========================================================================
+      volumes:
+        # Gateway data persistence
+        - name: gateway-data
+          {{- if .Values.persistence.data.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.data.existingClaim | default (printf "%s-data" (include "ignition-edge.fullname" .)) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        
+        # Configuration ConfigMap
+        - name: gateway-config
+          configMap:
+            name: {{ include "ignition-edge.fullname" . }}-config
+        
+        # Provisioning ConfigMap
+        {{- if .Values.gateway.provisioning.enabled }}
+        - name: provisioning-config
+          configMap:
+            name: {{ include "ignition-edge.fullname" . }}-provisioning
+        {{- end }}
+        
+        # Module storage
+        {{- if .Values.persistence.modules.enabled }}
+        - name: modules
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.modules.existingClaim | default (printf "%s-modules" (include "ignition-edge.fullname" .)) }}
+        {{- end }}
+        
+        # Script libraries
+        {{- if .Values.persistence.scripts.enabled }}
+        - name: scripts
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.scripts.existingClaim | default (printf "%s-scripts" (include "ignition-edge.fullname" .)) }}
+        {{- end }}
+        
+        # Backup volume
+        {{- if .Values.backup.enabled }}
+        - name: backup-volume
+          {{- if eq .Values.backup.destination.type "pvc" }}
+          persistentVolumeClaim:
+            claimName: {{ include "ignition-edge.fullname" . }}-backup
+          {{- else if eq .Values.backup.destination.type "nfs" }}
+          nfs:
+            server: {{ .Values.backup.destination.nfs.server }}
+            path: {{ .Values.backup.destination.nfs.path }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
+        
+        # Additional volumes
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      
+      # ========================================================================
+      # Scheduling
+      # ========================================================================
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,72 @@
+{{- if and .Values.timescaledb.enabled .Values.timescaledb.retention.enabled -}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "timescaledb.fullname" . }}-retention
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "timescaledb.labels" . | nindent 4 }}
+    component: retention
+spec:
+  # Run daily at 3 AM (after backups complete)
+  schedule: "0 3 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    metadata:
+      labels:
+        {{- include "timescaledb.selectorLabels" . | nindent 8 }}
+        component: retention
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "timescaledb.selectorLabels" . | nindent 12 }}
+            component: retention
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: {{ include "timescaledb.serviceAccountName" . }}
+          containers:
+            - name: retention
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -e
+                  echo "🔥 TimescaleDB Retention Policy Execution"
+                  echo "Because nobody wants to explain to management why the database is full"
+                  echo "Starting retention policy execution at $(date)"
+                  
+                  # Execute retention policies
+                  psql -h {{ include "timescaledb.serviceName" . }} \
+                    -U {{ .Values.postgresql.username }} \
+                    -d {{ .Values.postgresql.database }} \
+                    -c "CALL run_job((SELECT job_id FROM timescaledb_information.jobs WHERE application_name LIKE '%retention%'));"
+                  
+                  echo "✅ Retention policies executed successfully"
+                  
+                  # Vacuum to reclaim space
+                  echo "Running VACUUM to reclaim disk space..."
+                  psql -h {{ include "timescaledb.serviceName" . }} \
+                    -U {{ .Values.postgresql.username }} \
+                    -d {{ .Values.postgresql.database }} \
+                    -c "VACUUM (VERBOSE, ANALYZE);"
+                  
+                  echo "🎉 Retention job completed at $(date)"
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "timescaledb.secretName" . }}
+                      key: password
+              resources:
+                requests:
+                  cpu: "500m"
+                  memory: "512Mi"
+                limits:
+                  cpu: "2"
+                  memory: "2Gi"
+{{- end }}

@@ -1,0 +1,40 @@
+# .helmignore file for Alert Manager chart
+# Fireball Industries Podstore
+
+# Development files
+.git/
+.gitignore
+.DS_Store
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+.circleci/
+
+# Documentation (keep only essential docs in the chart)
+docs/
+*.md
+!README.md
+!app-readme.md
+
+# Example files
+examples/
+
+# Test files
+tests/
+test/
+*.test.yaml
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+
+# Chart development files

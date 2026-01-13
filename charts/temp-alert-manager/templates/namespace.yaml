@@ -1,0 +1,12 @@
+{{- if .Values.namespace.create }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace.name }}
+  labels:
+    {{- include "alert-manager.labels" . | nindent 4 }}
+    fireball.io/managed-by: podstore
+    fireball.io/owner: patrick-ryan
+  annotations:
+    field.cattle.io/description: "Alert Manager namespace for Fireball Industries Podstore"
+{{- end }}

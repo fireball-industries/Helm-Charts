@@ -1,0 +1,299 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ignition-edge.fullname" . }}-config
+  labels:
+    {{- include "ignition-edge.labels" . | nindent 4 }}
+data:
+  # ============================================================================
+  # Ignition Gateway Configuration
+  # Because manually editing ignition.conf via RDP is so 2010
+  # ============================================================================
+  ignition.conf: |
+    #
+    # Ignition Edge Gateway Configuration
+    # Deployed via Kubernetes because your operators deserve better
+    #
+    
+    # Gateway Information
+    gateway.name={{ .Values.gateway.name }}
+    gateway.description={{ .Values.gateway.description }}
+    
+    # JVM Configuration
+    wrapper.java.additional.1=-server
+    wrapper.java.additional.2={{ include "ignition-edge.heapSize" . }}
+    wrapper.java.additional.3=-XX:+UseG1GC
+    wrapper.java.additional.4=-XX:MaxGCPauseMillis=200
+    wrapper.java.additional.5=-Dfile.encoding=UTF-8
+    wrapper.java.additional.6=-Djava.net.preferIPv4Stack=true
+    {{- if .Values.jmxExporter.enabled }}
+    wrapper.java.additional.7=-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent.jar=5556:/opt/jmx_exporter/config.yaml
+    {{- end }}
+    
+    # Thread Pool Configuration
+    wrapper.java.additional.10=-Dignition.http.threads={{ .Values.gateway.threads.http }}
+    wrapper.java.additional.11=-Dignition.db.threads={{ .Values.gateway.threads.database }}
+    wrapper.java.additional.12=-Dignition.tag.threads={{ .Values.gateway.threads.tags }}
+    
+    # Connection Limits
+    gateway.maxDesignerConnections={{ include "ignition-edge.maxDesigners" . }}
+    gateway.maxVisionClients={{ include "ignition-edge.maxVisionClients" . }}
+    gateway.maxPerspectiveSessions={{ .Values.gateway.connections.maxPerspectiveSessions }}
+    
+    # Network Configuration
+    gateway.network.enabled={{ .Values.gateway.network.enabled }}
+    gateway.network.port={{ .Values.gateway.network.port }}
+    gateway.network.ssl={{ .Values.gateway.network.ssl }}
+    
+    # Logging Configuration
+    wrapper.logfile=/var/log/ignition/wrapper.log
+    wrapper.logfile.loglevel={{ .Values.logging.level }}
+    wrapper.logfile.maxsize=10m
+    wrapper.logfile.maxfiles=10
+    
+    # Demo Mode Configuration
+    {{- if .Values.global.demoMode }}
+    gateway.licenseMode=demo
+    gateway.demoModeRestart={{ .Values.license.demoModeRestart.enabled }}
+    {{- else }}
+    gateway.licenseMode=production
+    {{- end }}
+    
+    # Edition Configuration
+    gateway.edition={{ .Values.global.edition }}
+    
+    # Persistence Paths
+    gateway.data=/usr/local/bin/ignition/data
+    gateway.logs=/var/log/ignition
+    gateway.backups=/backups
+    
+    # Auto-provisioning
+    gateway.provisioning.enabled={{ .Values.gateway.provisioning.enabled }}
+    {{- if .Values.gateway.provisioning.importProject }}
+    gateway.provisioning.project={{ .Values.gateway.provisioning.projectPath }}
+    {{- end }}
+
+  # ============================================================================
+  # Database Connection Configuration
+  # ============================================================================
+  {{- if .Values.databases.postgresql.enabled }}
+  database-postgresql.json: |
+    {
+      "name": "{{ .Values.databases.postgresql.name }}",
+      "description": "PostgreSQL production database - where your MES data lives",
+      "enabled": true,
+      "driver": "org.postgresql.Driver",
+      "url": "{{ include "ignition-edge.postgresqlUrl" . }}",
+      "username": "{{ .Values.databases.postgresql.username }}",
+      "maxConnections": {{ .Values.databases.postgresql.maxConnections }},
+      "validationQuery": "{{ .Values.databases.postgresql.validationQuery }}",
+      "maxIdleTime": {{ .Values.databases.postgresql.maxIdleTime }}
+    }
+  {{- end }}
+  
+  {{- if .Values.databases.timescaledb.enabled }}
+  database-timescaledb.json: |
+    {
+      "name": "{{ .Values.databases.timescaledb.name }}",
+      "description": "TimescaleDB tag historian - because Excel is NOT a database",
+      "enabled": true,
+      "driver": "org.postgresql.Driver",
+      "url": "{{ include "ignition-edge.timescaledbUrl" . }}",
+      "username": "{{ .Values.databases.timescaledb.username }}",
+      "maxConnections": {{ .Values.databases.timescaledb.maxConnections }},
+      "validationQuery": "SELECT 1"
+    }
+  {{- end }}
+
+  # ============================================================================
+  # OPC UA Server Configuration
+  # ============================================================================
+  {{- if .Values.opcua.server.enabled }}
+  opcua-server.json: |
+    {
+      "enabled": true,
+      "port": {{ .Values.opcua.server.port }},
+      "endpointUrl": "{{ include "ignition-edge.opcuaEndpoint" . }}",
+      "securityPolicies": {{ .Values.opcua.server.securityPolicies | toJson }},
+      "allowAnonymous": {{ .Values.opcua.server.allowAnonymous }},
+      "description": "OPC UA server - now your PLCs can talk without screaming over Ethernet/IP"
+    }
+  {{- end }}
+
+  # ============================================================================
+  # MQTT Engine Configuration (Sparkplug B)
+  # ============================================================================
+  {{- if .Values.mqtt.engine.enabled }}
+  mqtt-engine.json: |
+    {
+      "enabled": true,
+      "serverName": "MQTT Engine",
+      "serverUrl": "{{ include "ignition-edge.mqttEngineUrl" . }}",
+      "username": "{{ .Values.mqtt.engine.broker.username }}",
+      "clientId": "{{ include "ignition-edge.fullname" . }}-engine",
+      "sparkplugNamespace": "{{ .Values.mqtt.engine.namespace }}",
+      "primaryHostId": "{{ .Values.mqtt.engine.primaryHostId }}",
+      "groupId": "{{ .Values.mqtt.engine.groupId }}",
+      "description": "MQTT Engine - Sparkplug B because MQTT v3.1.1 wasn't confusing enough"
+    }
+  {{- end }}
+
+  # ============================================================================
+  # MQTT Transmission Configuration
+  # ============================================================================
+  {{- if .Values.mqtt.transmission.enabled }}
+  mqtt-transmission.json: |
+    {
+      "enabled": true,
+      "serverName": "MQTT Transmission",
+      "serverUrl": "{{ include "ignition-edge.mqttTransmissionUrl" . }}",
+      "username": "{{ .Values.mqtt.transmission.broker.username }}",
+      "clientId": "{{ include "ignition-edge.fullname" . }}-transmission",
+      "groupId": "{{ .Values.mqtt.transmission.groupId }}",
+      "edgeNodeId": "{{ .Values.mqtt.transmission.edgeNodeId }}",
+      "storeAndForward": {
+        "enabled": {{ .Values.mqtt.transmission.storeAndForward.enabled }},
+        "maxCacheSize": {{ .Values.mqtt.transmission.storeAndForward.maxCacheSize }},
+        "forwardInterval": {{ .Values.mqtt.transmission.storeAndForward.forwardInterval }}
+      },
+      "description": "MQTT Transmission - store-and-forward because network outages are a thing"
+    }
+  {{- end }}
+
+  # ============================================================================
+  # Tag Historian Configuration
+  # ============================================================================
+  {{- if .Values.historian.enabled }}
+  tag-historian.json: |
+    {
+      "enabled": true,
+      "providerName": "{{ .Values.historian.provider.name }}",
+      "databaseConnection": "{{ .Values.historian.database }}",
+      "partitionEnabled": {{ .Values.historian.provider.partitionEnabled }},
+      "partitionDuration": "{{ .Values.historian.provider.partitionDuration }}",
+      "deadband": {
+        "enabled": {{ .Values.historian.provider.deadband.enabled }},
+        "mode": "{{ .Values.historian.provider.deadband.mode }}",
+        "value": {{ .Values.historian.provider.deadband.value }}
+      },
+      "sampleRate": {
+        "enabled": {{ .Values.historian.provider.sampleRate.enabled }},
+        "mode": "{{ .Values.historian.provider.sampleRate.mode }}",
+        "maxRate": {{ .Values.historian.provider.sampleRate.maxRate }}
+      },
+      "retention": {
+        "enabled": {{ .Values.historian.retention.enabled }},
+        "period": "{{ .Values.historian.retention.period }}",
+        "compressionAge": "{{ .Values.historian.retention.compressionAge }}"
+      },
+      "description": "Tag Historian - infinite storage for when your manager asks 'what happened 3 months ago?'"
+    }
+  {{- end }}
+
+  # ============================================================================
+  # Scan Class Configuration
+  # ============================================================================
+  scan-classes.json: |
+    {
+      "scanClasses": [
+        {{- range $i, $sc := .Values.opcua.tagProvider.scanClasses }}
+        {{- if $i }},{{- end }}
+        {
+          "name": "{{ $sc.name }}",
+          "rate": {{ $sc.rate }},
+          "description": "{{ $sc.name }} scan class - {{ $sc.rate }}ms"
+        }
+        {{- end }}
+      ]
+    }
+
+  # ============================================================================
+  # Logging Configuration
+  # ============================================================================
+  logging.properties: |
+    # Ignition Gateway Logging Configuration
+    # Because printf debugging is so 1995
+    
+    .level={{ .Values.logging.level }}
+    
+    # Console handler (stdout for Kubernetes)
+    handlers=java.util.logging.ConsoleHandler
+    java.util.logging.ConsoleHandler.level={{ .Values.logging.level }}
+    java.util.logging.ConsoleHandler.formatter=java.util.logging.SimpleFormatter
+    
+    # Gateway loggers
+    com.inductiveautomation.level={{ .Values.logging.level }}
+    
+    {{- if .Values.logging.tagHistory.enabled }}
+    # Tag historian logging
+    com.inductiveautomation.ignition.gateway.sqltags.history.level={{ .Values.logging.tagHistory.level }}
+    {{- end }}
+    
+    {{- if .Values.logging.audit.enabled }}
+    # Audit logging (21 CFR Part 11 compliance)
+    com.inductiveautomation.ignition.gateway.audit.level=INFO
+    {{- end }}
+
+  # ============================================================================
+  # JMX Exporter Configuration (Prometheus Metrics)
+  # ============================================================================
+  {{- if .Values.jmxExporter.enabled }}
+  jmx-exporter-config.yaml: |
+    ---
+    # JMX Exporter for Prometheus
+    # Because "just SSH in and check" doesn't scale
+    
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true
+    
+    rules:
+      # JVM Memory metrics
+      - pattern: 'java.lang<type=Memory><HeapMemoryUsage>(\w+)'
+        name: jvm_memory_heap_$1
+        type: GAUGE
+      
+      # JVM GC metrics
+      - pattern: 'java.lang<type=GarbageCollector, name=(\w+)><>CollectionCount'
+        name: jvm_gc_collection_count
+        labels:
+          collector: $1
+        type: COUNTER
+      
+      - pattern: 'java.lang<type=GarbageCollector, name=(\w+)><>CollectionTime'
+        name: jvm_gc_collection_time_ms
+        labels:
+          collector: $1
+        type: COUNTER
+      
+      # Thread pool metrics
+      - pattern: 'java.lang<type=Threading><>ThreadCount'
+        name: jvm_threads_current
+        type: GAUGE
+      
+      # Database connection pool (if exposed via JMX)
+      - pattern: 'com.inductiveautomation<type=DatabaseConnection, name=(.+)><>ActiveConnections'
+        name: ignition_db_active_connections
+        labels:
+          database: $1
+        type: GAUGE
+      
+      # Tag provider metrics
+      - pattern: 'com.inductiveautomation<type=TagProvider, name=(.+)><>TagCount'
+        name: ignition_tag_count
+        labels:
+          provider: $1
+        type: GAUGE
+      
+      # Gateway metrics
+      - pattern: 'com.inductiveautomation<type=Gateway><>DesignerConnections'
+        name: ignition_designer_connections
+        type: GAUGE
+      
+      - pattern: 'com.inductiveautomation<type=Gateway><>VisionClients'
+        name: ignition_vision_clients
+        type: GAUGE
+      
+      - pattern: 'com.inductiveautomation<type=Gateway><>PerspectiveSessions'
+        name: ignition_perspective_sessions
+        type: GAUGE
+  {{- end }}

@@ -1,0 +1,305 @@
+{{/*
+============================================================================
+INSTALLATION NOTES
+============================================================================
+Fireball Industries - Patrick Ryan
+"Congratulations! Your smart home is now smarter than you."
+
+These notes are displayed after successful Helm deployment.
+They provide quick-start instructions and access information.
+============================================================================
+*/}}
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  🏠 HOME ASSISTANT - SUCCESSFULLY DEPLOYED                              │
+│                                                                         │
+│  Fireball Industries - Patrick Ryan                                    │
+│  "Your smart home is now more intelligent than your ex"                │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+📦 DEPLOYMENT INFORMATION
+─────────────────────────────────────────────────────────────────────────
+
+Release Name:       {{ .Release.Name }}
+Namespace:          {{ .Release.Namespace }}
+Chart Version:      {{ .Chart.Version }}
+App Version:        {{ .Chart.AppVersion }}
+
+─────────────────────────────────────────────────────────────────────────
+
+🌐 ACCESS YOUR HOME ASSISTANT INSTANCE
+─────────────────────────────────────────────────────────────────────────
+
+{{- if eq .Values.service.main.type "LoadBalancer" }}
+
+Your Home Assistant is accessible via LoadBalancer:
+
+1. Wait for external IP to be assigned:
+   
+   kubectl get svc {{ include "home-assistant.fullname" . }} -n {{ .Release.Namespace }} -w
+
+2. Once EXTERNAL-IP is assigned, access Home Assistant at:
+   
+   http://<EXTERNAL-IP>:{{ .Values.service.main.port }}
+
+{{- else if eq .Values.service.main.type "NodePort" }}
+
+Your Home Assistant is accessible via NodePort:
+
+1. Get the node IP:
+   
+   kubectl get nodes -o wide
+
+2. Access Home Assistant at:
+   
+   http://<NODE-IP>:{{ .Values.service.main.nodePort | default "30123" }}
+
+{{- else if eq .Values.service.main.type "ClusterIP" }}
+
+Your Home Assistant is only accessible from within the cluster.
+
+To access from your local machine, use port-forward:
+
+   kubectl port-forward -n {{ .Release.Namespace }} \
+     svc/{{ include "home-assistant.fullname" . }} 8123:{{ .Values.service.main.port }}
+
+Then open: http://localhost:8123
+
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+
+📡 INGRESS CONFIGURED
+─────────────────────────────────────────────────────────────────────────
+
+Your Home Assistant is also available via Ingress:
+
+{{- range .Values.ingress.hosts }}
+  https://{{ .host }}
+{{- end }}
+
+Note: Ensure your Ingress controller is properly configured and DNS records point to your cluster.
+
+{{- end }}
+
+🔧 INITIAL SETUP
+─────────────────────────────────────────────────────────────────────────
+
+1. Open Home Assistant in your browser
+2. Create your admin account (first user is always admin)
+3. Configure your location and time zone
+4. Start adding integrations!
+
+⚠️  IMPORTANT: The first user you create will be the OWNER account.
+    Choose a strong password or your smart toaster will judge you.
+
+─────────────────────────────────────────────────────────────────────────
+
+🗄️  DATABASE CONFIGURATION
+─────────────────────────────────────────────────────────────────────────
+
+Database Type: {{ .Values.database.type }}
+
+{{- if eq .Values.database.type "sqlite" }}
+
+Using SQLite (single file database)
+Location: /config/home-assistant_v2.db
+
+✅ Good for: Home labs, <100 devices
+❌ Not ideal for: Production, >200 devices, high write volume
+
+Consider upgrading to PostgreSQL for better performance.
+
+{{- else if eq .Values.database.type "postgresql" }}
+
+Using PostgreSQL (production database)
+Service: {{ include "home-assistant.postgresql.serviceName" . }}
+Database: {{ .Values.database.postgresql.auth.database }}
+Username: {{ .Values.database.postgresql.auth.username }}
+
+✅ Excellent for: Production, 200+ devices, high performance
+
+Database connection is automatically configured in Home Assistant.
+
+{{- else if eq .Values.database.type "external" }}
+
+Using External Database
+Host: {{ .Values.database.external.host }}
+Port: {{ .Values.database.external.port }}
+Database: {{ .Values.database.external.database }}
+
+Ensure the external database is accessible from the cluster.
+
+{{- end }}
+
+─────────────────────────────────────────────────────────────────────────
+
+🔌 ADD-ON COMPONENTS
+─────────────────────────────────────────────────────────────────────────
+
+{{- if .Values.mqtt.enabled }}
+
+✅ MQTT Broker (Mosquitto)
+   Port: {{ .Values.mqtt.ports.mqtt }} (MQTT)
+   Port: {{ .Values.mqtt.ports.websocket }} (WebSocket)
+   {{- if eq .Values.mqtt.deployment "sidecar" }}
+   Deployed as: Sidecar (same pod as Home Assistant)
+   Connection: mqtt://localhost:{{ .Values.mqtt.ports.mqtt }}
+   {{- else }}
+   Deployed as: Separate pod
+   Service: {{ include "home-assistant.fullname" . }}-mqtt
+   {{- end }}
+   
+   Configure in Home Assistant:
+   - Go to Settings > Devices & Services
+   - Add "MQTT" integration
+   - Broker: {{ include "home-assistant.mqtt.serviceName" . }}
+   - Port: {{ .Values.mqtt.ports.mqtt }}
+   {{- if not .Values.mqtt.config.allowAnonymous }}
+   - Username: {{ .Values.mqtt.config.username }}
+   - Password: (check your values.yaml)
+   {{- end }}
+
+{{- end }}
+
+{{- if .Values.nodered.enabled }}
+
+✅ Node-RED
+   Port: {{ .Values.nodered.port }}
+   {{- if eq .Values.nodered.deployment "sidecar" }}
+   Access: http://localhost:{{ .Values.nodered.port }} (via port-forward)
+   {{- else }}
+   Service: {{ include "home-assistant.fullname" . }}-nodered
+   {{- end }}
+   
+   Port-forward command:
+   kubectl port-forward -n {{ .Release.Namespace }} \
+     svc/{{ include "home-assistant.fullname" . }} {{ .Values.nodered.port }}:{{ .Values.nodered.port }}
+
+{{- end }}
+
+{{- if .Values.esphome.enabled }}
+
+✅ ESPHome
+   Port: {{ .Values.esphome.port }}
+   {{- if eq .Values.esphome.deployment "sidecar" }}
+   Access: http://localhost:{{ .Values.esphome.port }} (via port-forward)
+   {{- else }}
+   Service: {{ include "home-assistant.fullname" . }}-esphome
+   {{- end }}
+   
+   Port-forward command:
+   kubectl port-forward -n {{ .Release.Namespace }} \
+     svc/{{ include "home-assistant.fullname" . }} {{ .Values.esphome.port }}:{{ .Values.esphome.port }}
+
+{{- end }}
+
+{{- if .Values.zigbee2mqtt.enabled }}
+
+✅ Zigbee2MQTT
+   Port: {{ .Values.zigbee2mqtt.port }}
+   USB Device: {{ .Values.zigbee2mqtt.usbDevice }}
+   
+   ⚠️  IMPORTANT: Ensure USB Zigbee coordinator is connected to the node
+   Use nodeSelector to schedule pod on the correct node.
+   
+   Port-forward command:
+   kubectl port-forward -n {{ .Release.Namespace }} \
+     svc/{{ include "home-assistant.fullname" . }} {{ .Values.zigbee2mqtt.port }}:{{ .Values.zigbee2mqtt.port }}
+
+{{- end }}
+
+─────────────────────────────────────────────────────────────────────────
+
+💾 PERSISTENT STORAGE
+─────────────────────────────────────────────────────────────────────────
+
+{{- if .Values.persistence.config.enabled }}
+Config:   {{ .Values.persistence.config.size }} ({{ .Values.persistence.config.mountPath }})
+{{- end }}
+{{- if .Values.persistence.media.enabled }}
+Media:    {{ .Values.persistence.media.size }} ({{ .Values.persistence.media.mountPath }})
+{{- end }}
+{{- if .Values.persistence.share.enabled }}
+Share:    {{ .Values.persistence.share.size }} ({{ .Values.persistence.share.mountPath }})
+{{- end }}
+{{- if .Values.persistence.backups.enabled }}
+Backups:  {{ .Values.persistence.backups.size }} ({{ .Values.persistence.backups.mountPath }})
+{{- end }}
+
+View PVCs:
+  kubectl get pvc -n {{ .Release.Namespace }}
+
+─────────────────────────────────────────────────────────────────────────
+
+📊 MONITORING
+─────────────────────────────────────────────────────────────────────────
+
+Check pod status:
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+View logs:
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -f
+
+Describe pod:
+  kubectl describe pod -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+─────────────────────────────────────────────────────────────────────────
+
+🔒 SECURITY RECOMMENDATIONS
+─────────────────────────────────────────────────────────────────────────
+
+1. ⚠️  Change default passwords in values.yaml
+2. 🔐 Enable TLS/SSL for external access
+3. 🛡️  Configure network policies to restrict access
+4. 🔑 Use external secret management (Vault, Sealed Secrets, etc.)
+5. 📱 Enable two-factor authentication in Home Assistant
+6. 🔄 Set up automated backups (CronJob)
+7. 🚫 Never expose port 8123 directly to the internet without SSL
+
+─────────────────────────────────────────────────────────────────────────
+
+📚 USEFUL RESOURCES
+─────────────────────────────────────────────────────────────────────────
+
+Home Assistant Docs:    https://www.home-assistant.io/docs/
+Community Forum:         https://community.home-assistant.io/
+GitHub Repository:       https://github.com/home-assistant/core
+Integrations:            https://www.home-assistant.io/integrations/
+
+Helm Chart Repository:   https://github.com/fireballindustries/home-assistant-pod
+Report Issues:           https://github.com/fireballindustries/home-assistant-pod/issues
+
+─────────────────────────────────────────────────────────────────────────
+
+🎉 NEXT STEPS
+─────────────────────────────────────────────────────────────────────────
+
+1. Access your Home Assistant instance
+2. Complete the onboarding wizard
+3. Add your first integration
+4. Create your first automation
+5. Realize you've spent 6 hours automating a 2-second task
+6. Do it anyway because you're a professional
+
+─────────────────────────────────────────────────────────────────────────
+
+💬 SUPPORT
+─────────────────────────────────────────────────────────────────────────
+
+Need help? Have questions? Found a bug?
+
+- Documentation: https://github.com/fireballindustries/home-assistant-pod
+- Issues: https://github.com/fireballindustries/home-assistant-pod/issues
+- Email: patrick@fireballindustries.com
+
+Remember: RTFM before asking questions. We spent hours writing it.
+
+─────────────────────────────────────────────────────────────────────────
+
+Built with ☕ and questionable life choices by Fireball Industries
+Patrick Ryan - Because manually toggling lights is for cavemen
+
+─────────────────────────────────────────────────────────────────────────

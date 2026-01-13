@@ -1,0 +1,41 @@
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "ignition-edge.fullname" . }}
+  labels:
+    {{- include "ignition-edge.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "ignition-edge.selectorLabels" . | nindent 6 }}
+  
+  endpoints:
+    - port: metrics
+      interval: {{ .Values.monitoring.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.monitoring.serviceMonitor.scrapeTimeout }}
+      path: /metrics
+      
+      # Relabel configs for better metric organization
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        - sourceLabels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+          targetLabel: app
+        - sourceLabels: [__meta_kubernetes_pod_label_app_kubernetes_io_instance]
+          targetLabel: instance
+      
+      metricRelabelings:
+        # Drop unnecessary JVM metrics to reduce cardinality
+        - sourceLabels: [__name__]
+          regex: 'jvm_classes_.*'
+          action: drop
+        - sourceLabels: [__name__]
+          regex: 'jvm_buffer_.*'
+          action: drop
+{{- end }}

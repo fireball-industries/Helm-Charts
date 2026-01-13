@@ -1,0 +1,75 @@
+{{- if .Values.persistence.data.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ignition-edge.fullname" . }}-data
+  labels:
+    {{- include "ignition-edge.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage-data
+spec:
+  accessModes:
+    - {{ .Values.persistence.data.accessMode }}
+  {{- if .Values.persistence.data.storageClass }}
+  storageClassName: {{ .Values.persistence.data.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ include "ignition-edge.storageSize" . }}
+{{- end }}
+---
+{{- if and .Values.persistence.backup.enabled .Values.backup.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ignition-edge.fullname" . }}-backup
+  labels:
+    {{- include "ignition-edge.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage-backup
+spec:
+  accessModes:
+    - {{ .Values.persistence.backup.accessMode }}
+  {{- if .Values.persistence.backup.storageClass }}
+  storageClassName: {{ .Values.persistence.backup.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.backup.size }}
+{{- end }}
+---
+{{- if .Values.persistence.modules.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ignition-edge.fullname" . }}-modules
+  labels:
+    {{- include "ignition-edge.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage-modules
+spec:
+  accessModes:
+    - {{ .Values.persistence.modules.accessMode }}
+  {{- if .Values.persistence.modules.storageClass }}
+  storageClassName: {{ .Values.persistence.modules.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.modules.size }}
+{{- end }}
+---
+{{- if .Values.persistence.scripts.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ignition-edge.fullname" . }}-scripts
+  labels:
+    {{- include "ignition-edge.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage-scripts
+spec:
+  accessModes:
+    - {{ .Values.persistence.scripts.accessMode }}
+  {{- if .Values.persistence.scripts.storageClass }}
+  storageClassName: {{ .Values.persistence.scripts.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.scripts.size }}
+{{- end }}

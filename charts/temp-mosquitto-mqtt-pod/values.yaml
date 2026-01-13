@@ -1,0 +1,580 @@
+# ============================================================================
+# Fireball Industries - Mosquitto MQTT Broker
+# values.yaml - Comprehensive Configuration
+# 
+# "Because your factory floor deserves better than a sketchy WiFi network"
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Resource Preset Selection
+# ----------------------------------------------------------------------------
+# Choose your adventure:
+# - edge-broker: Small edge deployments (100 connections, 512MB RAM)
+# - standard-broker: Standard factory deployments (1000 connections, 1GB RAM)
+# - enterprise-broker: Large central hubs (10000 connections, 4GB RAM)
+# - ha-cluster: High availability cluster (3 replicas, shared storage)
+# - custom: DIY mode for control freaks
+# ----------------------------------------------------------------------------
+resourcePreset: "standard-broker"
+
+# ----------------------------------------------------------------------------
+# Global Settings
+# ----------------------------------------------------------------------------
+global:
+  # Namespace override (leave empty to use release namespace)
+  namespace: ""
+  
+  # Image pull secrets for private registries
+  imagePullSecrets: []
+  # - name: docker-registry-secret
+  
+  # Global labels applied to all resources
+  labels: {}
+  
+  # Global annotations
+  annotations: {}
+
+# ----------------------------------------------------------------------------
+# Eclipse Mosquitto Broker Configuration
+# ----------------------------------------------------------------------------
+image:
+  repository: eclipse-mosquitto
+  tag: "2.0.18"
+  pullPolicy: IfNotPresent
+
+# Replica count (overridden by ha-cluster preset)
+replicaCount: 1
+
+# Service account configuration
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Pod security context
+podSecurityContext:
+  runAsUser: 1883
+  runAsGroup: 1883
+  fsGroup: 1883
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1883
+  capabilities:
+    drop:
+      - ALL
+
+# ----------------------------------------------------------------------------
+# MQTT Broker Configuration
+# ----------------------------------------------------------------------------
+mqtt:
+  # Protocol versions
+  protocol:
+    # MQTT 3.1.1 support (always enabled)
+    mqtt311: true
+    # MQTT 5.0 support
+    mqtt5: true
+  
+  # Port configuration
+  ports:
+    # Plain MQTT (TCP)
+    mqtt:
+      enabled: true
+      port: 1883
+      protocol: TCP
+    
+    # MQTT over TLS/SSL
+    mqtts:
+      enabled: false
+      port: 8883
+      protocol: TCP
+    
+    # MQTT over WebSockets
+    websockets:
+      enabled: true
+      port: 9001
+      protocol: TCP
+  
+  # Connection limits
+  maxConnections: 1000
+  maxQueuedMessages: 1000
+  maxInflightMessages: 20
+  maxQoS: 2
+  
+  # Message size limits (bytes)
+  messageSize:
+    max: 268435456  # 256 MB (Mosquitto default)
+  
+  # Timeouts (seconds)
+  timeouts:
+    keepalive: 60
+    connection: 10
+  
+  # Persistence configuration
+  persistence:
+    enabled: true
+    # Autosave interval (seconds, 0 = disabled)
+    autosaveInterval: 60
+    # Autosave on subscription changes
+    autosaveOnChanges: false
+    # Location inside container
+    location: /mosquitto/data
+    # Storage size (overridden by preset)
+    size: 20Gi
+    # Storage class (leave empty for default)
+    storageClass: ""
+    # Access modes
+    accessModes:
+      - ReadWriteOnce
+    # Retained messages
+    retainedMessages: true
+  
+  # Logging configuration
+  logging:
+    # Log level: error, warning, notice, information, debug, all
+    level: notice
+    # Log types to enable
+    types:
+      - error
+      - warning
+      - notice
+      - information
+    # Connection logging
+    connectionLogs: true
+    # Timestamp format: true = epoch, false = ISO 8601
+    timestampFormat: false
+  
+  # Authentication
+  authentication:
+    # Enable password authentication
+    enabled: true
+    # Allow anonymous connections
+    allowAnonymous: false
+    # Password file configuration
+    passwordFile:
+      # Create password file from users list
+      enabled: true
+      # Users (passwords will be hashed)
+      users:
+        - username: admin
+          password: changeme-please-update
+      # - username: admin
+      #   password: changeme
+      # - username: sensor01
+      #   password: secret123
+  
+  # Access Control Lists (ACL)
+  acl:
+    # Enable ACL
+    enabled: false
+    # ACL file content (if not using preset templates)
+    content: |
+      # Default ACL - deny all, then allow specific patterns
+      # Syntax: [user <username>|pattern <pattern>] topic [read|write|readwrite] <topic>
+      
+      # Example: Allow user 'admin' full access
+      # user admin
+      # topic readwrite #
+      
+      # Example: Allow user 'sensor01' to publish to sensors/#
+      # user sensor01
+      # topic write sensors/#
+      
+      # Example: Pattern-based access
+      # pattern read sensors/%u/#
+  
+  # TLS/SSL Configuration
+  tls:
+    enabled: false
+    # TLS version (tlsv1.2, tlsv1.3)
+    version: tlsv1.3
+    # Require client certificates
+    requireCertificate: false
+    # Use existing secret for certificates
+    existingSecret: ""
+    # Auto-generate self-signed certificates
+    autoGenerate: true
+    # Certificate files (if using existing secret)
+    certFile: "tls.crt"
+    keyFile: "tls.key"
+    caFile: "ca.crt"
+    # Cipher suites (leave empty for defaults)
+    ciphers: ""
+  
+  # Bridge configuration (MQTT bridge to other brokers)
+  bridge:
+    enabled: false
+    connections: []
+    # - name: aws-iot
+    #   address: a1b2c3d4e5f6g7.iot.us-east-1.amazonaws.com:8883
+    #   topics:
+    #     - pattern: "factory/# out 1"
+    #     - pattern: "commands/# in 1"
+    #   tls: true
+    #   clientId: factory-edge-01
+    #   username: ""
+    #   password: ""
+    #   cleanSession: false
+    #   tryPrivate: true
+  
+  # Sparkplug B Configuration
+  sparkplug:
+    # Enable Sparkplug B support
+    enabled: false
+    # Sparkplug namespace
+    namespace: "spBv1.0"
+    # Pre-configure ACLs for Sparkplug
+    aclEnabled: false
+    # Group IDs for ACL configuration
+    groupIds: []
+    # - "Factory"
+    # - "Warehouse"
+  
+  # Custom mosquitto.conf snippets
+  extraConfig: |
+    # Add custom Mosquitto configuration here
+    # Example:
+    # max_keepalive 300
+    # upgrade_outgoing_qos true
+
+# ----------------------------------------------------------------------------
+# Prometheus Exporter Configuration
+# ----------------------------------------------------------------------------
+monitoring:
+  # Enable Prometheus exporter sidecar
+  enabled: true
+  
+  image:
+    repository: sapcc/mosquitto-exporter
+    tag: "0.8.0"
+    pullPolicy: IfNotPresent
+  
+  # Exporter port
+  port: 9234
+  
+  # Resource limits for exporter
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+  
+  # ServiceMonitor for Prometheus Operator
+  serviceMonitor:
+    enabled: false
+    # Scrape interval
+    interval: 30s
+    # Scrape timeout
+    scrapeTimeout: 10s
+    # Additional labels for ServiceMonitor
+    labels: {}
+    # Namespace for ServiceMonitor (defaults to release namespace)
+    namespace: ""
+    # Relabeling configs
+    relabelings: []
+    # Metric relabeling configs
+    metricRelabelings: []
+
+# ----------------------------------------------------------------------------
+# Resource Allocations (overridden by presets)
+# ----------------------------------------------------------------------------
+resources:
+  requests:
+    cpu: 1000m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+# ----------------------------------------------------------------------------
+# Networking Configuration
+# ----------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  # Session affinity for client stickiness in HA mode
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800  # 3 hours
+  annotations: {}
+  # Cloud provider load balancer annotations
+  # loadBalancerIP: ""
+  # loadBalancerSourceRanges: []
+
+# Ingress for WebSocket connections
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    # WebSocket support
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: mosquitto.local
+      paths:
+        - path: /
+          pathType: Prefix
+          # Port for WebSocket (9001)
+          port: 9001
+  tls: []
+  # - secretName: mosquitto-tls
+  #   hosts:
+  #     - mosquitto.local
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  # Ingress rules
+  ingress:
+    # Allow from specific namespaces
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              mqtt-client: "true"
+  # Egress rules (for bridge connections)
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow MQTT to external brokers
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 1883
+        - protocol: TCP
+          port: 8883
+
+# ----------------------------------------------------------------------------
+# Storage Configuration
+# ----------------------------------------------------------------------------
+persistence:
+  # Backup volume for automated backups
+  backup:
+    enabled: false
+    size: 10Gi
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+
+# ----------------------------------------------------------------------------
+# Backup Configuration
+# ----------------------------------------------------------------------------
+backup:
+  # Enable automated backups via CronJob
+  enabled: false
+  # Backup schedule (cron format)
+  schedule: "0 2 * * *"  # 2 AM daily
+  # Retention (number of backups to keep)
+  retention: 7
+  # Backup destination (pvc, s3)
+  destination: pvc
+  # S3 configuration (if destination is s3)
+  s3:
+    enabled: false
+    endpoint: ""
+    bucket: ""
+    region: ""
+    accessKey: ""
+    secretKey: ""
+  # Resources for backup job
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# ----------------------------------------------------------------------------
+# High Availability Configuration
+# ----------------------------------------------------------------------------
+highAvailability:
+  # Enable HA cluster mode (3 replicas with shared storage)
+  enabled: false
+  # Replica count for HA
+  replicas: 3
+  # Shared storage configuration
+  sharedStorage:
+    # Use NFS or cloud storage that supports ReadWriteMany
+    enabled: true
+    storageClass: "nfs-client"
+    size: 100Gi
+    accessModes:
+      - ReadWriteMany
+
+# ----------------------------------------------------------------------------
+# Pod Configuration
+# ----------------------------------------------------------------------------
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+# Anti-affinity for HA deployments
+# podAntiAffinity:
+#   preferredDuringSchedulingIgnoredDuringExecution:
+#     - weight: 100
+#       podAffinityTerm:
+#         labelSelector:
+#           matchExpressions:
+#             - key: app.kubernetes.io/name
+#               operator: In
+#               values:
+#                 - mosquitto-mqtt
+#         topologyKey: kubernetes.io/hostname
+
+# Priority class
+priorityClassName: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
+
+# Liveness probe
+livenessProbe:
+  enabled: true
+  tcpSocket:
+    port: mqtt
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+
+# Readiness probe
+readinessProbe:
+  enabled: true
+  tcpSocket:
+    port: mqtt
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  successThreshold: 1
+  failureThreshold: 3
+
+# Startup probe (for slow-starting brokers)
+startupProbe:
+  enabled: false
+  tcpSocket:
+    port: mqtt
+  initialDelaySeconds: 0
+  periodSeconds: 5
+  timeoutSeconds: 3
+  successThreshold: 1
+  failureThreshold: 30
+
+# Init containers
+initContainers: []
+
+# Extra containers (sidecars)
+extraContainers: []
+
+# Extra volumes
+extraVolumes: []
+
+# Extra volume mounts
+extraVolumeMounts: []
+
+# Environment variables
+env: []
+
+# Environment from secrets/configmaps
+envFrom: []
+
+# ----------------------------------------------------------------------------
+# Preset Configurations
+# These override the above settings when a preset is selected
+# ----------------------------------------------------------------------------
+presets:
+  edge-broker:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    mqtt:
+      maxConnections: 100
+      persistence:
+        size: 5Gi
+  
+  standard-broker:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+    mqtt:
+      maxConnections: 1000
+      persistence:
+        size: 20Gi
+  
+  enterprise-broker:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 2000m
+        memory: 4Gi
+      limits:
+        cpu: 4000m
+        memory: 8Gi
+    mqtt:
+      maxConnections: 10000
+      persistence:
+        size: 100Gi
+  
+  ha-cluster:
+    replicaCount: 3
+    highAvailability:
+      enabled: true
+      replicas: 3
+    resources:
+      requests:
+        cpu: 2000m
+        memory: 4Gi
+      limits:
+        cpu: 4000m
+        memory: 8Gi
+    mqtt:
+      maxConnections: 10000
+      persistence:
+        size: 100Gi
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values:
+                      - mosquitto-mqtt
+              topologyKey: kubernetes.io/hostname

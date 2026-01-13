@@ -1,0 +1,45 @@
+apiVersion: v2
+name: timescaledb
+description: |
+  Production-ready TimescaleDB Helm chart for industrial IoT/SCADA time-series data.
+  Because your sensor data deserves better than Excel spreadsheets and CSV files.
+type: application
+version: 1.0.0
+appVersion: "2.14.2"
+keywords:
+  - timescaledb
+  - postgresql
+  - database
+  - timeseries
+  - iot
+  - scada
+  - industrial
+  - historian
+  - metrics
+  - forge-industrial
+home: https://github.com/fireball-industries/timescaledb-helm
+sources:
+  - https://github.com/timescale/timescaledb
+  - https://github.com/fireball-industries/timescaledb-helm
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireballindustries.com
+    url: https://github.com/fireball-industries
+icon: https://raw.githubusercontent.com/timescale/timescaledb/main/assets/timescaledb-logo.png
+annotations:
+  # Rancher Apps & Marketplace annotations
+  catalog.cattle.io/certified: "partner"
+  catalog.cattle.io/display-name: "TimescaleDB - Industrial IoT Historian"
+  catalog.cattle.io/release-name: "timescaledb"
+  catalog.cattle.io/namespace: "databases"
+  catalog.cattle.io/categories: "Forge Industrial,Database,Time-Series"
+  catalog.cattle.io/type: "database"
+  catalog.cattle.io/os: "linux"
+  catalog.cattle.io/auto-install: "timescaledb=match"
+  catalog.cattle.io/provides-gvr: "timescaledb/v1"
+  # Because every industrial site needs a time-series database that doesn't
+  # crash when your PLC decides to send 10,000 tags at once
+  catalog.cattle.io/humor-level: "dark-millennial"
+  # Categories for Rancher Marketplace
+  category: Database
+  subcategory: Time-Series

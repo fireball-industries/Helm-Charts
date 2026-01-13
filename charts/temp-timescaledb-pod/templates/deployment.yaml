@@ -1,0 +1,237 @@
+{{- if eq .Values.mode "standalone" -}}
+{{- $_ := include "timescaledb.validateConfig" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "timescaledb.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "timescaledb.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "timescaledb.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- include "timescaledb.podAnnotations" . | nindent 8 }}
+      labels:
+        {{- include "timescaledb.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "timescaledb.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        # Main TimescaleDB container
+        - name: timescaledb
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: postgresql
+              containerPort: 5432
+              protocol: TCP
+          env:
+            {{- include "timescaledb.connectionEnv" . | nindent 12 }}
+            - name: POSTGRES_INITDB_ARGS
+              value: "--encoding=UTF8 --auth-host=scram-sha-256 --auth-local=scram-sha-256"
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - exec pg_isready -U {{ .Values.postgresql.username }} -d {{ .Values.postgresql.database }} -h 127.0.0.1 -p 5432
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+            successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - -e
+                - |
+                  exec pg_isready -U {{ .Values.postgresql.username }} -d {{ .Values.postgresql.database }} -h 127.0.0.1 -p 5432
+                  [ -f /tmp/.initialized ] || exit 1
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+            successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          {{- end }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - exec pg_isready -U {{ .Values.postgresql.username }} -d {{ .Values.postgresql.database }} -h 127.0.0.1 -p 5432
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+            successThreshold: {{ .Values.startupProbe.successThreshold }}
+          {{- end }}
+          resources:
+            {{- include "timescaledb.resources" . | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- if .Values.walVolume.enabled }}
+            - name: wal
+              mountPath: {{ .Values.walVolume.mountPath }}
+            {{- end }}
+            - name: config
+              mountPath: /etc/postgresql/postgresql.conf
+              subPath: postgresql.conf
+            - name: config
+              mountPath: /etc/postgresql/pg_hba.conf
+              subPath: pg_hba.conf
+            {{- if .Values.initScripts.enabled }}
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+            {{- end }}
+            {{- if .Values.tls.enabled }}
+            - name: tls
+              mountPath: /etc/ssl/certs/tls.crt
+              subPath: tls.crt
+              readOnly: true
+            - name: tls
+              mountPath: /etc/ssl/private/tls.key
+              subPath: tls.key
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        
+        {{- if .Values.sidecars.pgbouncer.enabled }}
+        # PgBouncer connection pooler sidecar
+        - name: pgbouncer
+          image: "{{ .Values.sidecars.pgbouncer.image.repository }}:{{ .Values.sidecars.pgbouncer.image.tag }}"
+          imagePullPolicy: {{ .Values.sidecars.pgbouncer.image.pullPolicy }}
+          ports:
+            - name: pgbouncer
+              containerPort: {{ .Values.sidecars.pgbouncer.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.sidecars.pgbouncer.resources | nindent 12 }}
+        {{- end }}
+        
+        {{- if .Values.sidecars.postgresExporter.enabled }}
+        # Prometheus postgres_exporter sidecar
+        - name: postgres-exporter
+          image: "{{ .Values.sidecars.postgresExporter.image.repository }}:{{ .Values.sidecars.postgresExporter.image.tag }}"
+          imagePullPolicy: {{ .Values.sidecars.postgresExporter.image.pullPolicy }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.sidecars.postgresExporter.port }}
+              protocol: TCP
+          env:
+            - name: DATA_SOURCE_NAME
+              value: "postgresql://{{ .Values.postgresql.username }}:$(POSTGRES_PASSWORD)@localhost:5432/{{ .Values.postgresql.database }}?sslmode=disable"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "timescaledb.secretName" . }}
+                  key: password
+            {{- if .Values.sidecars.postgresExporter.customQueries }}
+            - name: PG_EXPORTER_EXTEND_QUERY_PATH
+              value: "/etc/postgres-exporter/queries.yaml"
+            {{- end }}
+          {{- if .Values.sidecars.postgresExporter.customQueries }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/postgres-exporter/queries.yaml
+              subPath: postgres-exporter-queries.yaml
+          {{- end }}
+          resources:
+            {{- toYaml .Values.sidecars.postgresExporter.resources | nindent 12 }}
+        {{- end }}
+        
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "timescaledb.configMapName" . }}
+        {{- if .Values.initScripts.enabled }}
+        - name: init-scripts
+          configMap:
+            name: {{ include "timescaledb.initScriptsConfigMapName" . }}
+        {{- end }}
+        {{- if .Values.tls.enabled }}
+        - name: tls
+          secret:
+            secretName: {{ .Values.tls.secretName }}
+            defaultMode: 0600
+        {{- end }}
+        {{- if not .Values.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- else }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "timescaledb.fullname" . }}-data
+        {{- end }}
+        {{- if .Values.walVolume.enabled }}
+        - name: wal
+          persistentVolumeClaim:
+            claimName: {{ include "timescaledb.fullname" . }}-wal
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+{{- end }}

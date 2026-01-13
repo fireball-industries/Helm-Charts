@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "influxdb-pod.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "influxdb-pod.labels" . | nindent 4 }}
+data:
+  # Industrial buckets setup script
+  init-buckets.sh: |
+    #!/bin/sh
+    set -e
+    
+    echo "🔥 Fireball Industries InfluxDB Initialization"
+    echo "Waiting for InfluxDB to be ready..."
+    
+    # Wait for InfluxDB to be ready
+    until curl -s http://localhost:8086/health | grep -q '"status":"pass"'; do
+      echo "Waiting for InfluxDB..."
+      sleep 2
+    done
+    
+    echo "InfluxDB is ready! Creating industrial buckets..."
+    
+    {{- if .Values.industrialBuckets.enabled }}
+    {{- range .Values.industrialBuckets.buckets }}
+    # Create {{ .name }} bucket
+    if ! influx bucket list --org "${DOCKER_INFLUXDB_INIT_ORG}" --token "${DOCKER_INFLUXDB_INIT_ADMIN_TOKEN}" | grep -q "{{ .name }}"; then
+      echo "Creating bucket: {{ .name }} (retention: {{ .retention }})"
+      influx bucket create \
+        --name "{{ .name }}" \
+        --org "${DOCKER_INFLUXDB_INIT_ORG}" \
+        --retention "{{ .retention }}" \
+        --description "{{ .description }}" \
+        --token "${DOCKER_INFLUXDB_INIT_ADMIN_TOKEN}" || echo "Bucket {{ .name }} may already exist"
+    else
+      echo "Bucket {{ .name }} already exists, skipping..."
+    fi
+    {{- end }}
+    {{- end }}
+    
+    echo "✅ Industrial buckets created successfully!"
+    echo ""
+    echo "Your factory's data is ready to ignite! 🔥"
+    echo "Organization: ${DOCKER_INFLUXDB_INIT_ORG}"
+    echo "Admin Token: ${DOCKER_INFLUXDB_INIT_ADMIN_TOKEN}"
+    echo ""
+    echo "Access InfluxDB UI at: http://localhost:8086"
+    echo ""
+    echo "Pro tip: Store that token somewhere safe. Like, really safe."
+    echo "Not in a sticky note. Not in a CSV file. A proper secrets manager."
+    echo ""
+    echo "- Patrick Ryan, Fireball Industries"
+    echo "  'Ignite Your Factory Efficiency'™"
+  
+  {{- if .Values.dataRetention.enabled }}
+  # Downsampling tasks
+  downsampling-tasks.flux: |
+    // Fireball Industries - Automated Downsampling Tasks
+    // Because storing 1ms precision data forever is expensive
+    
+    {{- range .Values.industrialBuckets.buckets }}
+    {{- if ne .name "_monitoring" }}
+    
+    // Downsample {{ .name }} to warm storage ({{ $.Values.dataRetention.warm.interval }} averages)
+    option task = {
+      name: "downsample-{{ .name }}-warm",
+      every: {{ $.Values.dataRetention.warm.interval }},
+      offset: 0s,
+    }
+    
+    from(bucket: "{{ .name }}")
+      |> range(start: -{{ $.Values.dataRetention.warm.interval }})
+      |> filter(fn: (r) => r._measurement != "")
+      |> aggregateWindow(every: {{ $.Values.dataRetention.warm.interval }}, fn: mean, createEmpty: false)
+      |> to(bucket: "{{ .name }}_warm", org: "${DOCKER_INFLUXDB_INIT_ORG}")
+    
+    // Downsample {{ .name }} to cold storage ({{ $.Values.dataRetention.cold.interval }} averages)
+    option task = {
+      name: "downsample-{{ .name }}-cold",
+      every: {{ $.Values.dataRetention.cold.interval }},
+      offset: 0s,
+    }
+    
+    from(bucket: "{{ .name }}_warm")
+      |> range(start: -{{ $.Values.dataRetention.cold.interval }})
+      |> filter(fn: (r) => r._measurement != "")
+      |> aggregateWindow(every: {{ $.Values.dataRetention.cold.interval }}, fn: mean, createEmpty: false)
+      |> to(bucket: "{{ .name }}_cold", org: "${DOCKER_INFLUXDB_INIT_ORG}")
+    
+    {{- end }}
+    {{- end }}
+  {{- end }}
+  
+  {{- if .Values.telegraf.enabled }}
+  # Telegraf configuration
+  telegraf.conf: {{ .Values.telegraf.config | quote }}
+  {{- end }}

@@ -1,0 +1,46 @@
+{{- if .Values.rbac.create }}
+---
+apiVersion: {{ include "node-exporter.rbac.apiVersion" . }}
+kind: ClusterRole
+metadata:
+  name: {{ include "node-exporter.fullname" . }}
+  labels:
+    {{- include "node-exporter.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+      - nodes/metrics
+      - nodes/stats
+      - nodes/proxy
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get
+---
+apiVersion: {{ include "node-exporter.rbac.apiVersion" . }}
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "node-exporter.fullname" . }}
+  labels:
+    {{- include "node-exporter.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "node-exporter.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "node-exporter.serviceAccountName" . }}
+    namespace: {{ include "node-exporter.namespace" . }}
+{{- end }}

@@ -1,0 +1,228 @@
+{{- $replicas := include "mosquitto.replicaCount" . | int -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "mosquitto.fullname" . }}
+  namespace: {{ include "mosquitto.namespace" . }}
+  labels:
+    {{- include "mosquitto.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "mosquitto.fullname" . }}
+  replicas: {{ $replicas }}
+  selector:
+    matchLabels:
+      {{- include "mosquitto.selectorLabels" . | nindent 6 }}
+  {{- if .Values.mqtt.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "mosquitto.labels" . | nindent 10 }}
+      spec:
+        accessModes:
+          {{- if and .Values.highAvailability.enabled .Values.highAvailability.sharedStorage.enabled }}
+          {{- toYaml .Values.highAvailability.sharedStorage.accessModes | nindent 10 }}
+          {{- else }}
+          {{- toYaml .Values.mqtt.persistence.accessModes | nindent 10 }}
+          {{- end }}
+        {{- if and .Values.highAvailability.enabled .Values.highAvailability.sharedStorage.enabled }}
+        {{- if .Values.highAvailability.sharedStorage.storageClass }}
+        storageClassName: {{ .Values.highAvailability.sharedStorage.storageClass }}
+        {{- end }}
+        {{- else }}
+        {{- if .Values.mqtt.persistence.storageClass }}
+        storageClassName: {{ .Values.mqtt.persistence.storageClass }}
+        {{- end }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ include "mosquitto.persistenceSize" . }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "mosquitto.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "mosquitto.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        # Mosquitto MQTT Broker
+        - name: mosquitto
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            {{- if .Values.mqtt.ports.mqtt.enabled }}
+            - name: mqtt
+              containerPort: {{ .Values.mqtt.ports.mqtt.port }}
+              protocol: {{ .Values.mqtt.ports.mqtt.protocol }}
+            {{- end }}
+            {{- if .Values.mqtt.ports.mqtts.enabled }}
+            - name: mqtts
+              containerPort: {{ .Values.mqtt.ports.mqtts.port }}
+              protocol: {{ .Values.mqtt.ports.mqtts.protocol }}
+            {{- end }}
+            {{- if .Values.mqtt.ports.websockets.enabled }}
+            - name: websockets
+              containerPort: {{ .Values.mqtt.ports.websockets.port }}
+              protocol: {{ .Values.mqtt.ports.websockets.protocol }}
+            {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- include "mosquitto.resources" . | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /mosquitto/config/mosquitto.conf
+              subPath: mosquitto.conf
+            {{- if .Values.mqtt.acl.enabled }}
+            - name: config
+              mountPath: /mosquitto/config/acl.conf
+              subPath: acl.conf
+            {{- end }}
+            {{- if .Values.mqtt.authentication.passwordFile.enabled }}
+            - name: secrets
+              mountPath: /mosquitto/config/passwd
+              subPath: passwd
+            {{- end }}
+            {{- if .Values.mqtt.tls.enabled }}
+            {{- if .Values.mqtt.tls.existingSecret }}
+            - name: tls-certs
+              mountPath: /mosquitto/config/certs
+              readOnly: true
+            {{- else }}
+            - name: secrets
+              mountPath: /mosquitto/config/certs
+              readOnly: true
+            {{- end }}
+            {{- end }}
+            {{- if .Values.mqtt.persistence.enabled }}
+            - name: data
+              mountPath: {{ .Values.mqtt.persistence.location }}
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+        {{- if .Values.monitoring.enabled }}
+        # Mosquitto Exporter Sidecar
+        - name: exporter
+          image: "{{ .Values.monitoring.image.repository }}:{{ .Values.monitoring.image.tag }}"
+          imagePullPolicy: {{ .Values.monitoring.image.pullPolicy }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.monitoring.port }}
+              protocol: TCP
+          env:
+            - name: MQTT_ADDRESS
+              value: "tcp://localhost:{{ .Values.mqtt.ports.mqtt.port }}"
+            {{- if .Values.mqtt.authentication.enabled }}
+            - name: MQTT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mosquitto.fullname" . }}
+                  key: exporter-username
+                  optional: true
+            - name: MQTT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mosquitto.fullname" . }}
+                  key: exporter-password
+                  optional: true
+            {{- end }}
+          resources:
+            {{- toYaml .Values.monitoring.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 5
+        {{- end }}
+
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "mosquitto.fullname" . }}
+        {{- if or .Values.mqtt.authentication.passwordFile.enabled .Values.mqtt.tls.enabled }}
+        - name: secrets
+          secret:
+            secretName: {{ include "mosquitto.fullname" . }}
+            defaultMode: 0400
+        {{- end }}
+        {{- if and .Values.mqtt.tls.enabled .Values.mqtt.tls.existingSecret }}
+        - name: tls-certs
+          secret:
+            secretName: {{ .Values.mqtt.tls.existingSecret }}
+            defaultMode: 0400
+        {{- end }}
+        {{- if not .Values.mqtt.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}

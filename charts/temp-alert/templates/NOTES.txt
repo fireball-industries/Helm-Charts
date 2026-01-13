@@ -1,0 +1,121 @@
+🎉 Alert Manager has been successfully deployed!
+
+RELEASE NAME: {{ .Release.Name }}
+NAMESPACE: {{ include "alert-manager.namespace" . }}
+CHART VERSION: {{ .Chart.Version }}
+APP VERSION: {{ .Chart.AppVersion }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 DEPLOYMENT INFORMATION
+
+  - Replicas: {{ .Values.replicaCount }}
+  - Resource Preset: {{ .Values.resources.preset }}
+  - Persistent Storage: {{ if .Values.persistence.enabled }}Enabled ({{ .Values.persistence.size }}){{ else }}Disabled{{ end }}
+  - Service Type: {{ .Values.service.type }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 ACCESSING ALERT MANAGER
+
+{{- if eq .Values.service.type "LoadBalancer" }}
+
+  1. Get the LoadBalancer IP:
+
+     kubectl get service {{ include "alert-manager.fullname" . }} -n {{ include "alert-manager.namespace" . }}
+
+  2. Access the Alert Manager UI:
+
+     export SERVICE_IP=$(kubectl get svc {{ include "alert-manager.fullname" . }} -n {{ include "alert-manager.namespace" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+     echo "Alert Manager UI: http://$SERVICE_IP:{{ .Values.service.port }}"
+
+{{- else if eq .Values.service.type "NodePort" }}
+
+  1. Get the Node IP and Port:
+
+     export NODE_IP=$(kubectl get nodes -o jsonpath="{.items[0].status.addresses[0].address}")
+     export NODE_PORT=$(kubectl get svc {{ include "alert-manager.fullname" . }} -n {{ include "alert-manager.namespace" . }} -o jsonpath='{.spec.ports[0].nodePort}')
+     
+  2. Access the Alert Manager UI:
+
+     echo "Alert Manager UI: http://$NODE_IP:$NODE_PORT"
+
+{{- else }}
+
+  1. Port-forward to access locally:
+
+     kubectl port-forward -n {{ include "alert-manager.namespace" . }} svc/{{ include "alert-manager.fullname" . }} 9093:{{ .Values.service.port }}
+
+  2. Access the Alert Manager UI:
+
+     echo "Alert Manager UI: http://localhost:9093"
+
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+
+  3. Or access via Ingress:
+
+     {{- range .Values.ingress.hosts }}
+     http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+     {{- end }}
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚙️  CONFIGURATION
+
+View current configuration:
+
+  kubectl get configmap {{ include "alert-manager.configMapName" . }} -n {{ include "alert-manager.namespace" . }} -o yaml
+
+Edit configuration (requires pod restart):
+
+  kubectl edit configmap {{ include "alert-manager.configMapName" . }} -n {{ include "alert-manager.namespace" . }}
+  kubectl rollout restart deployment {{ include "alert-manager.fullname" . }} -n {{ include "alert-manager.namespace" . }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 MONITORING
+
+Check pod status:
+
+  kubectl get pods -n {{ include "alert-manager.namespace" . }} -l app.kubernetes.io/name={{ include "alert-manager.name" . }}
+
+View logs:
+
+  kubectl logs -n {{ include "alert-manager.namespace" . }} -l app.kubernetes.io/name={{ include "alert-manager.name" . }} -f
+
+Check deployment status:
+
+  kubectl get deployment {{ include "alert-manager.fullname" . }} -n {{ include "alert-manager.namespace" . }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 NEXT STEPS
+
+1. Configure alert receivers (Slack, Email, PagerDuty)
+   - Edit the values.yaml file or use Rancher UI to update receiver settings
+   - Upgrade the release: helm upgrade {{ .Release.Name }} fireball-podstore/alert-manager
+
+2. Integrate with Prometheus
+   - Configure Prometheus to send alerts to: http://{{ include "alert-manager.fullname" . }}.{{ include "alert-manager.namespace" . }}.svc.cluster.local:{{ .Values.service.port }}
+
+3. Test alert routing
+   - Send a test alert to verify receivers are working
+   - Use the Alert Manager UI to create silences and view active alerts
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 DOCUMENTATION
+
+- Chart Documentation: https://github.com/fireball-industries/fireball-podstore-charts/tree/main/charts/alert-manager
+- Alertmanager Docs: https://prometheus.io/docs/alerting/latest/alertmanager/
+- Support: https://github.com/fireball-industries/fireball-podstore-charts/issues
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏢 Fireball Industries Podstore - Crafted by Patrick Ryan
+   Enterprise-Grade Container Solutions for Modern Infrastructure
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

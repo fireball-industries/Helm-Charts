@@ -1,0 +1,103 @@
+{{/*
+============================================================================
+Persistent Volume Claims
+============================================================================
+Fireball Industries - Patrick Ryan
+
+Pre-created PVCs for Home Assistant storage.
+These are only created if existingClaim is not specified in values.yaml
+
+Note: StatefulSet volumeClaimTemplates are preferred for dynamic provisioning.
+Use these only if you need to pre-create PVCs with specific configurations.
+
+Storage hierarchy:
+- /config - Your precious YAML configs (backup these or cry later)
+- /media - Camera footage of that raccoon at 3 AM
+- /share - Shared data between add-ons
+- /backups - Your safety net for fat-fingered YAML edits
+============================================================================
+*/}}
+
+{{- if and .Values.persistence.config.enabled (not .Values.persistence.config.existingClaim) }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "home-assistant.pvc.config" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - {{ .Values.persistence.config.accessMode }}
+  {{- if .Values.persistence.config.storageClass }}
+  storageClassName: {{ .Values.persistence.config.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.config.size }}
+{{- end }}
+
+{{- if and .Values.persistence.media.enabled (not .Values.persistence.media.existingClaim) }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "home-assistant.pvc.media" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - {{ .Values.persistence.media.accessMode }}
+  {{- if .Values.persistence.media.storageClass }}
+  storageClassName: {{ .Values.persistence.media.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.media.size }}
+{{- end }}
+
+{{- if and .Values.persistence.share.enabled (not .Values.persistence.share.existingClaim) }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "home-assistant.pvc.share" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - {{ .Values.persistence.share.accessMode }}
+  {{- if .Values.persistence.share.storageClass }}
+  storageClassName: {{ .Values.persistence.share.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.share.size }}
+{{- end }}
+
+{{- if and .Values.persistence.backups.enabled (not .Values.persistence.backups.existingClaim) }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "home-assistant.pvc.backups" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "home-assistant.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - {{ .Values.persistence.backups.accessMode }}
+  {{- if .Values.persistence.backups.storageClass }}
+  storageClassName: {{ .Values.persistence.backups.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.backups.size }}
+{{- end }}

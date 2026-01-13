@@ -1,0 +1,323 @@
+# Rancher Questions for Alert Manager Deployment Wizard
+# This file defines the interactive UI form shown in Rancher when deploying this chart
+
+categories:
+  - Monitoring
+  - Alerting
+
+questions:
+  # ==================== Namespace Configuration ====================
+  - variable: namespace.name
+    default: "alertmanager"
+    description: "Namespace where Alert Manager will be deployed"
+    type: string
+    label: "Namespace"
+    group: "Namespace Configuration"
+    required: true
+
+  - variable: namespace.create
+    default: true
+    description: "Create the namespace if it doesn't exist"
+    type: boolean
+    label: "Create Namespace"
+    group: "Namespace Configuration"
+
+  # ==================== Deployment Configuration ====================
+  - variable: replicaCount
+    default: 1
+    description: "Number of Alert Manager replicas (use 3+ for high availability)"
+    type: int
+    label: "Replica Count"
+    group: "Deployment Configuration"
+    min: 1
+    max: 5
+    required: true
+
+  - variable: image.tag
+    default: "v0.26.0"
+    description: "Alert Manager image version"
+    type: string
+    label: "Image Version"
+    group: "Deployment Configuration"
+    required: true
+
+  # ==================== Resource Configuration ====================
+  - variable: resources.preset
+    default: "medium"
+    description: "Resource allocation preset for Alert Manager"
+    type: enum
+    label: "Resource Preset"
+    group: "Resource Configuration"
+    required: true
+    options:
+      - "small"
+      - "medium"
+      - "large"
+      - "custom"
+
+  - variable: resources.custom.requests.cpu
+    default: "100m"
+    description: "CPU request (only used when preset is 'custom')"
+    type: string
+    label: "CPU Request"
+    group: "Resource Configuration"
+    show_if: "resources.preset=custom"
+
+  - variable: resources.custom.requests.memory
+    default: "128Mi"
+    description: "Memory request (only used when preset is 'custom')"
+    type: string
+    label: "Memory Request"
+    group: "Resource Configuration"
+    show_if: "resources.preset=custom"
+
+  - variable: resources.custom.limits.cpu
+    default: "500m"
+    description: "CPU limit (only used when preset is 'custom')"
+    type: string
+    label: "CPU Limit"
+    group: "Resource Configuration"
+    show_if: "resources.preset=custom"
+
+  - variable: resources.custom.limits.memory
+    default: "512Mi"
+    description: "Memory limit (only used when preset is 'custom')"
+    type: string
+    label: "Memory Limit"
+    group: "Resource Configuration"
+    show_if: "resources.preset=custom"
+
+  # ==================== Storage Configuration ====================
+  - variable: persistence.enabled
+    default: true
+    description: "Enable persistent storage for alert state and silences"
+    type: boolean
+    label: "Enable Persistent Storage"
+    group: "Storage Configuration"
+    required: true
+
+  - variable: persistence.size
+    default: "2Gi"
+    description: "Storage size for Alert Manager data"
+    type: string
+    label: "Storage Size"
+    group: "Storage Configuration"
+    show_if: "persistence.enabled=true"
+    required: true
+
+  - variable: persistence.storageClassName
+    default: ""
+    description: "Storage class name (leave empty for default storage class)"
+    type: storageclass
+    label: "Storage Class"
+    group: "Storage Configuration"
+    show_if: "persistence.enabled=true"
+
+  # ==================== Service Configuration ====================
+  - variable: service.type
+    default: "LoadBalancer"
+    description: "Service type for accessing Alert Manager UI"
+    type: enum
+    label: "Service Type"
+    group: "Service Configuration"
+    required: true
+    options:
+      - "ClusterIP"
+      - "NodePort"
+      - "LoadBalancer"
+
+  - variable: service.port
+    default: 9093
+    description: "Service port for Alert Manager UI"
+    type: int
+    label: "Service Port"
+    group: "Service Configuration"
+    required: true
+    min: 1
+    max: 65535
+
+  - variable: service.nodePort
+    default: null
+    description: "Node port (required if Service Type is NodePort)"
+    type: int
+    label: "Node Port"
+    group: "Service Configuration"
+    show_if: "service.type=NodePort"
+    min: 30000
+    max: 32767
+
+  - variable: service.loadBalancerIP
+    default: ""
+    description: "Static IP for LoadBalancer (optional)"
+    type: string
+    label: "LoadBalancer IP"
+    group: "Service Configuration"
+    show_if: "service.type=LoadBalancer"
+
+  # ==================== Ingress Configuration ====================
+  - variable: ingress.enabled
+    default: false
+    description: "Enable ingress for Alert Manager UI"
+    type: boolean
+    label: "Enable Ingress"
+    group: "Ingress Configuration"
+
+  - variable: ingress.className
+    default: ""
+    description: "Ingress class name (e.g., nginx, traefik)"
+    type: string
+    label: "Ingress Class"
+    group: "Ingress Configuration"
+    show_if: "ingress.enabled=true"
+
+  - variable: ingress.hosts[0].host
+    default: "alertmanager.local"
+    description: "Hostname for Alert Manager UI"
+    type: hostname
+    label: "Hostname"
+    group: "Ingress Configuration"
+    show_if: "ingress.enabled=true"
+    required: true
+
+  # ==================== Alert Routing Configuration ====================
+  - variable: config.global.resolve_timeout
+    default: "5m"
+    description: "Time to wait before marking alerts as resolved"
+    type: string
+    label: "Resolve Timeout"
+    group: "Alert Configuration"
+    required: true
+
+  - variable: config.route.group_wait
+    default: "10s"
+    description: "Time to wait before sending group notification"
+    type: string
+    label: "Group Wait"
+    group: "Alert Configuration"
+
+  - variable: config.route.group_interval
+    default: "10s"
+    description: "Time to wait before sending new alerts for existing group"
+    type: string
+    label: "Group Interval"
+    group: "Alert Configuration"
+
+  - variable: config.route.repeat_interval
+    default: "12h"
+    description: "Time to wait before re-sending alert notifications"
+    type: string
+    label: "Repeat Interval"
+    group: "Alert Configuration"
+
+  # ==================== Slack Integration ====================
+  - variable: config.global.slack_api_url
+    default: ""
+    description: "Slack webhook URL for alert notifications (optional)"
+    type: string
+    label: "Slack Webhook URL"
+    group: "Slack Integration"
+
+  # ==================== Email Integration ====================
+  - variable: config.global.smtp_smarthost
+    default: "smtp.example.com:587"
+    description: "SMTP server and port for email notifications"
+    type: string
+    label: "SMTP Server"
+    group: "Email Integration"
+
+  - variable: config.global.smtp_from
+    default: "alertmanager@fireball-industries.com"
+    description: "From address for email notifications"
+    type: string
+    label: "SMTP From Address"
+    group: "Email Integration"
+
+  - variable: config.global.smtp_auth_username
+    default: ""
+    description: "SMTP authentication username (optional)"
+    type: string
+    label: "SMTP Username"
+    group: "Email Integration"
+
+  - variable: config.global.smtp_auth_password
+    default: ""
+    description: "SMTP authentication password (optional)"
+    type: password
+    label: "SMTP Password"
+    group: "Email Integration"
+
+  - variable: config.global.smtp_require_tls
+    default: true
+    description: "Require TLS for SMTP connections"
+    type: boolean
+    label: "Require TLS"
+    group: "Email Integration"
+
+  # ==================== PagerDuty Integration ====================
+  - variable: config.receivers[2].pagerduty_configs[0].service_key
+    default: ""
+    description: "PagerDuty service integration key (optional)"
+    type: string
+    label: "PagerDuty Service Key"
+    group: "PagerDuty Integration"
+
+  # ==================== Advanced Configuration ====================
+  - variable: retention
+    default: "120h"
+    description: "How long to keep alert data (e.g., 120h, 5d)"
+    type: string
+    label: "Data Retention"
+    group: "Advanced Configuration"
+
+  - variable: podSecurityContext.runAsUser
+    default: 65534
+    description: "User ID to run Alert Manager as (security)"
+    type: int
+    label: "Run As User ID"
+    group: "Advanced Configuration"
+    show_subquestion_if: true
+    subquestions:
+      - variable: podSecurityContext.runAsGroup
+        default: 65534
+        description: "Group ID to run Alert Manager as"
+        type: int
+        label: "Run As Group ID"
+
+  - variable: livenessProbe.enabled
+    default: true
+    description: "Enable liveness health check probe"
+    type: boolean
+    label: "Enable Liveness Probe"
+    group: "Advanced Configuration"
+
+  - variable: readinessProbe.enabled
+    default: true
+    description: "Enable readiness health check probe"
+    type: boolean
+    label: "Enable Readiness Probe"
+    group: "Advanced Configuration"
+
+  - variable: startupProbe.enabled
+    default: true
+    description: "Enable startup health check probe"
+    type: boolean
+    label: "Enable Startup Probe"
+    group: "Advanced Configuration"
+
+  # ==================== High Availability ====================
+  - variable: podDisruptionBudget.enabled
+    default: false
+    description: "Enable Pod Disruption Budget for high availability"
+    type: boolean
+    label: "Enable Pod Disruption Budget"
+    group: "High Availability"
+    show_if: "replicaCount>1"
+
+  - variable: podDisruptionBudget.minAvailable
+    default: 1
+    description: "Minimum number of pods that must remain available"
+    type: int
+    label: "Minimum Available Pods"
+    group: "High Availability"
+    show_if: "podDisruptionBudget.enabled=true"
+    min: 1

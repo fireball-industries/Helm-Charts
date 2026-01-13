@@ -1,0 +1,117 @@
+apiVersion: v2
+name: influxdb-pod
+description: Industrial-grade InfluxDB time-series database for factory automation and IIoT data collection. Because your factory's data deserves better than an Excel spreadsheet.
+type: application
+version: 1.0.0
+appVersion: "2.7"
+keywords:
+  - influxdb
+  - time-series
+  - industrial
+  - iiot
+  - scada
+  - monitoring
+  - factory
+  - sensor-data
+  - forge-industrial
+home: https://github.com/fireball-industries/influxdb-pod
+sources:
+  - https://github.com/influxdata/influxdb
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireballindustries.com
+    url: https://fireballindustries.com
+icon: https://influxdata.github.io/branding/img/downloads/influxdata-logo--symbol--pool-alpha.svg
+annotations:
+  # Rancher-specific annotations for Apps & Marketplace
+  catalog.cattle.io/certified: partner
+  catalog.cattle.io/namespace: cattle-system
+  catalog.cattle.io/release-name: influxdb
+  catalog.cattle.io/display-name: "InfluxDB Pod - Industrial Time-Series Database"
+  catalog.cattle.io/categories: "Forge Industrial,Database,Time-Series"
+  catalog.cattle.io/kube-version: ">=1.24.0-0"
+  catalog.cattle.io/os: linux
+  catalog.cattle.io/provides-gvr: apps/v1/StatefulSet
+  catalog.cattle.io/rancher-version: ">=2.7.0-0"
+  
+  # Branding
+  catalog.cattle.io/vendor: "Fireball Industries"
+  catalog.cattle.io/vendor-url: "https://fireballindustries.com"
+  catalog.cattle.io/tagline: "Ignite Your Factory Efficiency™"
+  
+  # Feature annotations
+  catalog.cattle.io/auto-install: "influxdb-pod=match"
+  catalog.cattle.io/hidden: "false"
+  
+  # Categories
+  catalog.cattle.io/category: "Database,Monitoring,Industrial"
+  
+  # Long description for the marketplace
+  catalog.cattle.io/description: |
+    Industrial-grade InfluxDB deployment for manufacturing and IIoT environments.
+    
+    Perfect for:
+    - Factory floor sensor data collection
+    - SCADA system integration
+    - Production line monitoring
+    - Energy consumption tracking
+    - Quality control metrics
+    - Predictive maintenance analytics
+    
+    Features:
+    - Single-instance and HA clustering modes
+    - Pre-configured industrial buckets (sensors, SCADA, production, energy, quality)
+    - Automatic data retention and downsampling
+    - Edge deployment support with remote write
+    - Industrial security standards (token-based auth, TLS, audit logging)
+    - Telegraf integration for OPC UA, Modbus, MQTT
+    - Resource presets optimized for sensor count (edge to xlarge)
+    - Grafana-ready with datasource auto-configuration
+    
+    Because Excel spreadsheets weren't meant for 10,000 data points per second.
+    
+    Brought to you by Fireball Industries - where industrial efficiency meets dark millennial humor.
+  
+  # UI hints
+  catalog.cattle.io/questions: |
+    - variable: deploymentMode
+      label: Deployment Mode
+      description: "Choose your deployment strategy. 'single' for dev/edge, 'ha' for production factories."
+      type: enum
+      default: single
+      options:
+        - single
+        - ha
+      group: "Deployment"
+    - variable: resourcePreset
+      label: Resource Preset
+      description: "Pre-configured resource profiles based on sensor count. Or choose 'custom' because you know better."
+      type: enum
+      default: medium
+      options:
+        - edge
+        - small
+        - medium
+        - large
+        - xlarge
+        - custom
+      group: "Resources"
+    - variable: persistence.enabled
+      label: Enable Persistent Storage
+      description: "InfluxDB requires persistence. Disabling this is a terrible idea, but we won't stop you."
+      type: boolean
+      default: true
+      required: true
+      group: "Storage"
+    - variable: influxdb.organization
+      label: Organization Name
+      description: "Your factory/company name for InfluxDB organization"
+      type: string
+      default: "factory"
+      required: true
+      group: "InfluxDB Configuration"
+    - variable: influxdb.adminToken
+      label: Admin Token
+      description: "Initial admin token. Auto-generated if empty. Store this somewhere secure."
+      type: password
+      group: "InfluxDB Configuration"

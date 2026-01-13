@@ -1,0 +1,60 @@
+apiVersion: v2
+name: industrial-iot
+description: |
+  Production-ready Industrial IoT platform powered by Home Assistant for smart manufacturing, building automation, and edge computing.
+  Because manually monitoring factory equipment like it's 1950 is so last century.
+  Warning: Your factory will eventually optimize itself and make you obsolete. We're not liable.
+
+type: application
+version: 1.0.0
+appVersion: "2024.12.0"
+
+keywords:
+  - industrial-iot
+  - manufacturing
+  - automation
+  - edge-computing
+  - scada
+  - opcua
+  - modbus
+  - mqtt
+  - home-assistant
+  - building-automation
+  - forge-industrial
+
+home: https://github.com/fireballindustries/home-assistant-pod
+sources:
+  - https://github.com/home-assistant/core
+  - https://github.com/fireballindustries/home-assistant-pod
+
+maintainers:
+  - name: Patrick Ryan
+    email: patrick@fireballindustries.com
+    url: https://github.com/fireballindustries
+
+icon: https://www.home-assistant.io/images/home-assistant-logo.svg
+
+# Dependencies (if we were to use subchart dependencies, but we'll manage them in templates)
+# dependencies: []
+
+annotations:
+  # Artifact Hub annotations
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/operator: "false"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/recommendations: |
+    - url: https://www.home-assistant.io/
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial release of production-ready Industrial IoT platform
+      links:
+        - name: GitHub Repository
+          url: https://github.com/fireballindustries/industrial-iot
+  # Rancher-specific annotations for Pod Store
+  catalog.cattle.io/certified: "fireball"
+  catalog.cattle.io/display-name: "Industrial IOT"
+  catalog.cattle.io/release-name: "industrial-iot"
+  catalog.cattle.io/type: "industrial-automation"
+  catalog.cattle.io/scope: "namespace"
+  catalog.cattle.io/categories: "Forge Industrial,IoT,Manufacturing"

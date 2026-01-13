@@ -1,0 +1,89 @@
+{{- $serviceName := include "timescaledb.serviceName" . -}}
+---
+# Primary Service (ClusterIP)
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $serviceName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "timescaledb.labels" . | nindent 4 }}
+    service-type: primary
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if and (eq .Values.service.type "LoadBalancer") .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.service.loadBalancerIP }}
+  {{- end }}
+  {{- if and (eq .Values.service.type "LoadBalancer") .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.service.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: postgresql
+      protocol: TCP
+      name: postgresql
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}
+    {{- if .Values.sidecars.postgresExporter.enabled }}
+    - port: {{ .Values.sidecars.postgresExporter.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    {{- end }}
+    {{- if .Values.sidecars.pgbouncer.enabled }}
+    - port: {{ .Values.sidecars.pgbouncer.port }}
+      targetPort: pgbouncer
+      protocol: TCP
+      name: pgbouncer
+    {{- end }}
+  selector:
+    {{- include "timescaledb.selectorLabels" . | nindent 4 }}
+    {{- if eq .Values.mode "ha" }}
+    # In HA mode, route to primary pod only
+    role: primary
+    {{- end }}
+---
+{{- if eq .Values.mode "ha" }}
+# Headless Service (for StatefulSet discovery and read replicas)
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "timescaledb.headlessServiceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "timescaledb.labels" . | nindent 4 }}
+    service-type: headless
+  {{- with .Values.headlessService.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: postgresql
+      protocol: TCP
+      name: postgresql
+    {{- if .Values.sidecars.postgresExporter.enabled }}
+    - port: {{ .Values.sidecars.postgresExporter.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    {{- end }}
+    {{- if .Values.sidecars.pgbouncer.enabled }}
+    - port: {{ .Values.sidecars.pgbouncer.port }}
+      targetPort: pgbouncer
+      protocol: TCP
+      name: pgbouncer
+    {{- end }}
+  selector:
+    {{- include "timescaledb.selectorLabels" . | nindent 4 }}
+{{- end }}

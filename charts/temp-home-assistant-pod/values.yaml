@@ -1,0 +1,722 @@
+# ============================================================================
+# Home Assistant Helm Chart - Default Values
+# ============================================================================
+# Fireball Industries - Patrick Ryan
+# "Your smart home: Now with 99.9% uptime and 100% judgment of your life choices"
+#
+# This values file contains all configurable parameters for deploying
+# Home Assistant in a production Kubernetes/K3s environment.
+# Modify these values to suit your infrastructure needs.
+# ============================================================================
+
+# Global settings
+global:
+  # Timezone for all containers (TZ environment variable)
+  # Important: Your automations care about time zones. Set this correctly.
+  timezone: "America/New_York"
+
+# ============================================================================
+# HOME ASSISTANT CORE CONFIGURATION
+# ============================================================================
+homeassistant:
+  # Container image settings
+  image:
+    repository: ghcr.io/home-assistant/home-assistant
+    tag: "2024.12.0"
+    pullPolicy: IfNotPresent
+
+  # Resource limits and requests
+  # Note: Home Assistant can be a resource hog if you have 500+ devices
+  # Like your smart toothbrush that absolutely needed to be IoT-enabled
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+  # Environment variables
+  env:
+    # Add custom environment variables here
+    # Example:
+    # - name: CUSTOM_VAR
+    #   value: "custom_value"
+
+  # Security context for the Home Assistant container
+  securityContext:
+    # Run as privileged to access USB devices (Zigbee/Z-Wave sticks)
+    privileged: true
+    capabilities:
+      add:
+        - NET_ADMIN
+        - NET_RAW
+        - SYS_ADMIN
+
+  # Host network mode (required for mDNS discovery and local device access)
+  # WARNING: This bypasses network policies. Your network admin will hate this.
+  # But also, your Chromecasts won't work without it, so... tough choices.
+  hostNetwork: false
+  
+  # DNS Policy (when using hostNetwork)
+  dnsPolicy: ClusterFirstWithHostNet
+
+  # Resource preset profiles (overrides resources above)
+  # Options: minimal, standard, full, custom
+  # minimal:  200m-500m CPU, 256Mi-512Mi RAM  - <50 devices, SQLite
+  # standard: 500m-1000m CPU, 512Mi-1Gi RAM   - 50-200 devices, PostgreSQL (default)
+  # full:     1000m-2000m CPU, 1Gi-2Gi RAM    - >200 devices, cameras, PostgreSQL
+  # custom:   Use resources section above
+  resourcePreset: standard
+
+  # NodeSelector for USB device access (if you have Zigbee/Z-Wave dongles)
+  # Example: Select nodes with label "usb-devices: zigbee"
+  nodeSelector: {}
+    # usb-devices: "zigbee"
+
+  # Tolerations for node taints
+  tolerations: []
+
+  # Affinity rules
+  affinity: {}
+
+# ============================================================================
+# DEVICE ACCESS CONFIGURATION
+# ============================================================================
+# For physical device integration (USB, Bluetooth, GPIO)
+# Your smart home needs to talk to actual hardware sometimes
+# ============================================================================
+devices:
+  # USB Devices (Z-Wave, Zigbee dongles, serial devices)
+  usb:
+    enabled: false
+    devices: []
+      # - name: zwave
+      #   hostPath: /dev/ttyUSB0
+      # - name: zigbee
+      #   hostPath: /dev/ttyUSB1
+      # - name: zigbee-coord
+      #   hostPath: /dev/ttyACM0
+  
+  # Bluetooth Access
+  bluetooth:
+    enabled: false
+    # Mount host Bluetooth device
+    hostBluetooth: true
+    # Bluetooth device path
+    devicePath: /var/run/dbus
+  
+  # GPIO Access (Raspberry Pi)
+  gpio:
+    enabled: false
+    # Requires privileged mode
+    privileged: true
+    # GPIO paths
+    paths:
+      - /sys/class/gpio
+      - /dev/gpiomem
+
+# ============================================================================
+# STORAGE CONFIGURATION
+# ============================================================================
+persistence:
+  # Main configuration storage for Home Assistant
+  config:
+    enabled: true
+    storageClass: ""  # Leave empty to use default StorageClass
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    # Existing claim name (if you want to use pre-created PVC)
+    existingClaim: ""
+    # Volume mount path
+    mountPath: /config
+
+  # Media storage (camera recordings, snapshots, etc.)
+  # Because your outdoor camera will definitely catch that one raccoon at 3 AM
+  media:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 20Gi
+    existingClaim: ""
+    mountPath: /media
+
+  # Shared data between add-ons
+  share:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 5Gi
+    existingClaim: ""
+    mountPath: /share
+
+  # Backup storage
+  # You WILL need this when you fat-finger a YAML config at 2 AM
+  backups:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    existingClaim: ""
+    mountPath: /backups
+
+# ============================================================================
+# CAMERA CONFIGURATION
+# ============================================================================
+# For security cameras and video surveillance
+# Because watching that raccoon at 3 AM never gets old
+# ============================================================================
+cameras:
+  # Enable camera support
+  enabled: false
+  
+  # Camera recordings storage (separate PVC)
+  storage:
+    enabled: true
+    size: 50Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    mountPath: /camera-recordings
+  
+  # Retention policy
+  retention:
+    # Days to keep recordings (7d, 14d, 30d)
+    days: 7
+    # Enable automatic cleanup
+    autoCleanup: true
+  
+  # Pre-configured camera streams
+  # These will be added to Home Assistant configuration
+  streams: []
+    # - name: front_door
+    #   url: rtsp://camera1.local:554/stream
+    #   username: admin
+    #   password: changeme
+    # - name: garage
+    #   url: rtsp://camera2.local:554/stream
+    #   username: admin
+    #   password: changeme
+    # - name: backyard
+    #   url: rtsp://camera3.local:554/stream
+
+# ============================================================================
+# DATABASE CONFIGURATION
+# ============================================================================
+# Three modes: sqlite (default), postgresql (recommended), external
+# SQLite: Good for hobbyists and < 100 devices
+# PostgreSQL: For when you're serious about uptime and have 200+ devices
+# External: You already have a database cluster because you're that person
+# ============================================================================
+database:
+  # Database type: sqlite, postgresql, or external
+  type: sqlite
+
+  # PostgreSQL StatefulSet (when type=postgresql)
+  postgresql:
+    enabled: false
+    image:
+      repository: postgres
+      tag: "16-alpine"
+      pullPolicy: IfNotPresent
+
+    # PostgreSQL authentication
+    auth:
+      # Database name
+      database: homeassistant
+      # Username
+      username: homeassistant
+      # Password (will be stored in a Secret)
+      # CHANGE THIS IN PRODUCTION OR SUFFER THE CONSEQUENCES
+      password: "changeme-seriously-do-it-now"
+      # Existing secret (optional, overrides password above)
+      existingSecret: ""
+      secretKey: "postgresql-password"
+
+    # PostgreSQL storage
+    persistence:
+      enabled: true
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      existingClaim: ""
+
+    # PostgreSQL resources
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+    # PostgreSQL configuration
+    config:
+      # Max connections
+      maxConnections: 100
+      # Shared buffers (25% of memory is a good start)
+      sharedBuffers: "256MB"
+      # Effective cache size
+      effectiveCacheSize: "1GB"
+
+  # External Database Configuration (when type=external)
+  external:
+    # Database type: postgresql, mysql, or mariadb
+    dbType: postgresql
+    # Hostname or IP
+    host: "postgres.example.com"
+    # Port
+    port: 5432
+    # Database name
+    database: "homeassistant"
+    # Username
+    username: "homeassistant"
+    # Password secret reference
+    passwordSecret: "ha-external-db-password"
+    passwordKey: "password"
+
+# ============================================================================
+# SERVICE CONFIGURATION
+# ============================================================================
+service:
+  # Main Home Assistant service
+  main:
+    type: ClusterIP  # Options: ClusterIP, NodePort, LoadBalancer
+    port: 8123
+    targetPort: 8123
+    # NodePort (if type=NodePort)
+    # nodePort: 30123
+    # LoadBalancer IP (if you have MetalLB or cloud LB)
+    loadBalancerIP: ""
+    annotations: {}
+      # Example for MetalLB:
+      # metallb.universe.tf/address-pool: default
+
+  # Headless service for StatefulSet stable network identity
+  headless:
+    enabled: true
+
+# ============================================================================
+# INGRESS CONFIGURATION
+# ============================================================================
+ingress:
+  enabled: false
+  className: "nginx"  # nginx, traefik, etc.
+  annotations: {}
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  hosts:
+    - host: homeassistant.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: homeassistant-tls
+    #   hosts:
+    #     - homeassistant.example.com
+
+# ============================================================================
+# ADD-ON COMPONENTS
+# ============================================================================
+# These are the sidekick containers that make Home Assistant actually useful
+# Deploy as sidecars or set enabled: false to deploy separately
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# MQTT Broker (Mosquitto)
+# ----------------------------------------------------------------------------
+# The message bus for all your IoT devices to gossip about your habits
+# ----------------------------------------------------------------------------
+mqtt:
+  enabled: true
+  # Deploy as sidecar in the same pod, or separate deployment
+  deployment: sidecar  # Options: sidecar, separate
+
+  image:
+    repository: eclipse-mosquitto
+    tag: "2.0"
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  # MQTT ports
+  ports:
+    mqtt: 1883
+    websocket: 9001
+
+  # Persistence for MQTT data
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    existingClaim: ""
+
+  # MQTT Configuration
+  config:
+    # Allow anonymous access (CHANGE IN PRODUCTION)
+    allowAnonymous: false
+    # Username/password (if allowAnonymous: false)
+    username: "mqtt"
+    password: "changeme-mqtt-password"
+    # Existing secret for credentials
+    existingSecret: ""
+
+# ----------------------------------------------------------------------------
+# Node-RED
+# ----------------------------------------------------------------------------
+# Visual programming for people who think YAML is too mainstream
+# ----------------------------------------------------------------------------
+nodered:
+  enabled: true
+  deployment: sidecar  # Options: sidecar, separate
+
+  image:
+    repository: nodered/node-red
+    tag: "3.1"
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Node-RED UI port
+  port: 1880
+
+  # Persistence for Node-RED flows
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    existingClaim: ""
+
+  # Security settings
+  security:
+    # Enable authentication
+    enabled: false
+    # Admin username
+    username: "admin"
+    # Admin password (bcrypt hash)
+    # Generate with: node -e "console.log(require('bcryptjs').hashSync('yourpassword', 8));"
+    passwordHash: ""
+    # Existing secret
+    existingSecret: ""
+
+# ----------------------------------------------------------------------------
+# ESPHome
+# ----------------------------------------------------------------------------
+# For managing your army of ESP32/ESP8266 devices
+# Because buying pre-made IoT devices is for quitters
+# ----------------------------------------------------------------------------
+esphome:
+  enabled: true
+  deployment: sidecar
+
+  image:
+    repository: ghcr.io/esphome/esphome
+    tag: "2024.11"
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  # ESPHome dashboard port
+  port: 6052
+
+  # Persistence for ESPHome configs
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 2Gi
+    existingClaim: ""
+
+# ----------------------------------------------------------------------------
+# Zigbee2MQTT
+# ----------------------------------------------------------------------------
+# Bridge for Zigbee devices because WiFi is too mainstream for lightbulbs
+# ----------------------------------------------------------------------------
+zigbee2mqtt:
+  enabled: false  # Requires USB Zigbee coordinator
+  deployment: sidecar
+
+  image:
+    repository: koenkk/zigbee2mqtt
+    tag: "1.35"
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  # Zigbee2MQTT web UI port
+  port: 8080
+
+  # Persistence for Zigbee2MQTT data
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    existingClaim: ""
+
+  # USB device path for Zigbee coordinator
+  # Example: /dev/ttyUSB0, /dev/ttyACM0
+  usbDevice: "/dev/ttyACM0"
+
+  # MQTT connection (uses the mqtt section above)
+  mqtt:
+    server: "mqtt://localhost:1883"
+    # Will use mqtt.config credentials if not specified
+    username: ""
+    password: ""
+
+# ============================================================================
+# ADVANCED CONFIGURATION
+# ============================================================================
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Update strategy
+updateStrategy:
+  type: RollingUpdate
+
+# Probes configuration
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    httpGet:
+      path: /
+      port: 8123
+
+  readiness:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    httpGet:
+      path: /
+      port: 8123
+
+  startup:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 30
+    httpGet:
+      path: /
+      port: 8123
+
+# Additional volumes
+extraVolumes: []
+  # - name: usb-device
+  #   hostPath:
+  #     path: /dev/ttyACM0
+
+# Additional volume mounts
+extraVolumeMounts: []
+  # - name: usb-device
+  #   mountPath: /dev/ttyACM0
+
+# Init containers (for pre-deployment tasks)
+initContainers: []
+  # - name: init-config
+  #   image: busybox
+  #   command: ['sh', '-c', 'echo "Initializing..."']
+
+# Sidecar containers (additional containers in the pod)
+# Note: Add-ons above are added automatically if deployment: sidecar
+sidecars: []
+
+# ============================================================================
+# BACKUP CONFIGURATION
+# ============================================================================
+backups:
+  # Automated backup CronJob
+  enabled: false
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  image:
+    repository: alpine
+    tag: "3.19"
+  # Retention policy (number of backups to keep)
+  retention: 7
+  # Storage location (uses persistence.backups)
+
+# ============================================================================
+# NETWORK POLICIES
+# ============================================================================
+networkPolicy:
+  enabled: false
+  # Ingress rules
+  ingress:
+    - from:
+      - namespaceSelector: {}
+  # Egress rules
+  egress:
+    - to:
+      - namespaceSelector: {}
+
+# ============================================================================
+# MONITORING & OBSERVABILITY
+# ============================================================================
+# For when you want to obsess over metrics at 3 AM
+# ============================================================================
+monitoring:
+  # Prometheus ServiceMonitor (requires prometheus-operator)
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+
+  # Grafana dashboard ConfigMap
+  grafanaDashboard:
+    enabled: false
+    labels:
+      grafana_dashboard: "1"
+
+# ============================================================================
+# INDUSTRIAL IOT INTEGRATIONS
+# ============================================================================
+# For actual industrial automation, not just smart lightbulbs
+# ============================================================================
+industrial:
+  # OPC-UA Client Integration
+  opcua:
+    enabled: false
+    servers: []
+      # - name: plc1
+      #   url: "opc.tcp://192.168.1.10:4840"
+      #   username: ""
+      #   password: ""
+  
+  # Modbus TCP/RTU Support
+  modbus:
+    enabled: false
+    devices: []
+      # - name: energy_meter
+      #   type: tcp
+      #   host: 192.168.1.20
+      #   port: 502
+      # - name: plc_rtu
+      #   type: serial
+      #   port: /dev/ttyUSB2
+      #   baudrate: 9600
+  
+  # InfluxDB Metrics Export
+  influxdb:
+    enabled: false
+    url: "http://influxdb:8086"
+    token: ""
+    org: "home-assistant"
+    bucket: "homeassistant"
+  
+  # SNMP Monitoring
+  snmp:
+    enabled: false
+    devices: []
+      # - name: network_switch
+      #   host: 192.168.1.1
+      #   community: public
+      #   version: "2c"
+
+# ============================================================================
+# RBAC CONFIGURATION
+# ============================================================================
+# Role-Based Access Control for device access
+# ============================================================================
+rbac:
+  # Create RBAC resources
+  create: true
+  # Additional rules for device access
+  rules: []
+    # - apiGroups: [""]
+    #   resources: ["persistentvolumes"]
+    #   verbs: ["get", "list"]
+
+# ============================================================================
+# SECURITY CONFIGURATION
+# ============================================================================
+security:
+  # Pod Security Policy
+  podSecurityPolicy:
+    enabled: false
+  
+  # Security Context
+  podSecurityContext:
+    fsGroup: 1000
+  
+  # Container Security Context
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: false
+    runAsUser: 0
+
+# ============================================================================
+# AUTOSCALING (Not recommended for Home Assistant)
+# ============================================================================
+# Note: Home Assistant Core does NOT support horizontal scaling
+# This is here for completeness, but seriously, don't enable it
+# ============================================================================
+autoscaling:
+  enabled: false  # DO NOT ENABLE - Home Assistant is not stateless
+  minReplicas: 1
+  maxReplicas: 1  # MUST be 1
+
+# ============================================================================
+# CUSTOM CONFIGURATION
+# ============================================================================
+# Advanced customization options
+# ============================================================================
+customConfig:
+  # Enable custom configuration injection
+  enabled: false
+  # Custom configuration.yaml content
+  configurationYaml: |
+    # Add custom Home Assistant configuration here
+  # Custom automations.yaml content
+  automationsYaml: |
+    # Add custom automations here
+  # Custom scripts.yaml content
+  scriptsYaml: |
+    # Add custom scripts here

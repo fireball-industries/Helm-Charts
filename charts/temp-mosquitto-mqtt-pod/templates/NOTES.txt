@@ -1,0 +1,237 @@
+🦟 MOSQUITTO MQTT BROKER DEPLOYED 🦟
+
+Congratulations! Your Eclipse Mosquitto MQTT broker is now running.
+Because your factory floor deserves better than a sketchy WiFi network.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📍 CONNECTION INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{{- $fullName := include "mosquitto.fullname" . }}
+{{- $namespace := include "mosquitto.namespace" . }}
+{{- $mqttPort := .Values.mqtt.ports.mqtt.port }}
+{{- $mqttsPort := .Values.mqtt.ports.mqtts.port }}
+{{- $wsPort := .Values.mqtt.ports.websockets.port }}
+
+Release Name:   {{ .Release.Name }}
+Namespace:      {{ $namespace }}
+Resource Preset: {{ .Values.resourcePreset }}
+
+{{- if .Values.mqtt.ports.mqtt.enabled }}
+
+MQTT (Plain):
+  Internal:  mqtt://{{ $fullName }}.{{ $namespace }}.svc.cluster.local:{{ $mqttPort }}
+  Service:   mqtt://{{ $fullName }}:{{ $mqttPort }}
+{{- end }}
+
+{{- if .Values.mqtt.ports.mqtts.enabled }}
+
+MQTTS (TLS):
+  Internal:  mqtts://{{ $fullName }}.{{ $namespace }}.svc.cluster.local:{{ $mqttsPort }}
+  Service:   mqtts://{{ $fullName }}:{{ $mqttsPort }}
+{{- end }}
+
+{{- if .Values.mqtt.ports.websockets.enabled }}
+
+WebSocket:
+  Internal:  ws://{{ $fullName }}.{{ $namespace }}.svc.cluster.local:{{ $wsPort }}
+  Service:   ws://{{ $fullName }}:{{ $wsPort }}
+{{- end }}
+
+{{- if .Values.monitoring.enabled }}
+
+Prometheus Metrics:
+  Endpoint:  http://{{ $fullName }}:{{ .Values.monitoring.port }}/metrics
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔐 AUTHENTICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{{- if .Values.mqtt.authentication.enabled }}
+Authentication:  ✅ ENABLED
+Password File:   Configured
+
+{{- if .Values.mqtt.authentication.passwordFile.enabled }}
+Configured Users:
+{{- range .Values.mqtt.authentication.passwordFile.users }}
+  - {{ .username }}
+{{- end }}
+{{- end }}
+
+To add more users:
+  kubectl exec -it {{ $fullName }}-0 -n {{ $namespace }} -- \
+    mosquitto_passwd -b /mosquitto/config/passwd <username> <password>
+
+{{- else }}
+⚠️  Authentication: DISABLED
+⚠️  Anonymous Access: {{ if .Values.mqtt.authentication.allowAnonymous }}ENABLED{{ else }}DISABLED{{ end }}
+
+🚨 WARNING: Anonymous access is enabled! This is fine for development,
+   but for production you should:
+   
+   1. Create user accounts:
+      kubectl exec -it {{ $fullName }}-0 -n {{ $namespace }} -- \
+        mosquitto_passwd -c /mosquitto/config/passwd admin
+
+   2. Update values.yaml:
+      mqtt.authentication.enabled: true
+      mqtt.authentication.allowAnonymous: false
+
+   3. Upgrade the release:
+      helm upgrade {{ .Release.Name }} fireball/mosquitto-mqtt
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 TEST YOUR CONNECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+From inside the cluster:
+
+  # Subscribe to test topic
+  kubectl run -it --rm mqtt-sub --image=eclipse-mosquitto:2.0 --restart=Never -- \
+    mosquitto_sub -h {{ $fullName }} -p {{ $mqttPort }} -t 'test/#' -v
+
+  # Publish test message
+  kubectl run -it --rm mqtt-pub --image=eclipse-mosquitto:2.0 --restart=Never -- \
+    mosquitto_pub -h {{ $fullName }} -p {{ $mqttPort }} -t 'test/topic' -m 'Hello MQTT!'
+
+From your local machine (requires port-forward):
+
+  # Port forward
+  kubectl port-forward -n {{ $namespace }} svc/{{ $fullName }} {{ $mqttPort }}:{{ $mqttPort }}
+
+  # Subscribe
+  mosquitto_sub -h localhost -p {{ $mqttPort }} -t 'test/#' -v
+
+  # Publish
+  mosquitto_pub -h localhost -p {{ $mqttPort }} -t 'test/topic' -m 'Hello from local!'
+
+{{- if .Values.mqtt.sparkplug.enabled }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌟 SPARKPLUG B QUICK START
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Sparkplug B is ENABLED with namespace: {{ .Values.mqtt.sparkplug.namespace }}
+
+Topic Structure:
+  {{ .Values.mqtt.sparkplug.namespace }}/<group_id>/<message_type>/<edge_node_id>[/<device_id>]
+
+Message Types:
+  NBIRTH  - Edge Node birth certificate
+  NDEATH  - Edge Node death certificate
+  DBIRTH  - Device birth certificate
+  DDEATH  - Device death certificate
+  NDATA   - Edge Node data
+  DDATA   - Device data
+  NCMD    - Node command
+  DCMD    - Device command
+
+Example Topics:
+  {{ .Values.mqtt.sparkplug.namespace }}/Factory/NBIRTH/Edge-01
+  {{ .Values.mqtt.sparkplug.namespace }}/Factory/DDATA/Edge-01/Sensor-01
+  {{ .Values.mqtt.sparkplug.namespace }}/Warehouse/DCMD/Edge-02/Pump-03
+
+Subscribe to all Sparkplug messages:
+  mosquitto_sub -h {{ $fullName }} -p {{ $mqttPort }} -t '{{ .Values.mqtt.sparkplug.namespace }}/#' -v
+
+See SPARKPLUG.md for detailed setup instructions.
+{{- end }}
+
+{{- if .Values.monitoring.enabled }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📈 PROMETHEUS METRICS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Metrics Exporter: ✅ ENABLED
+Endpoint:         http://{{ $fullName }}:{{ .Values.monitoring.port }}/metrics
+
+Key Metrics Available:
+  - mosquitto_connected_clients          Current connected clients
+  - mosquitto_total_clients              Total clients ever connected
+  - mosquitto_messages_sent              Total messages sent
+  - mosquitto_messages_received          Total messages received
+  - mosquitto_publish_messages_sent      PUBLISH messages sent
+  - mosquitto_publish_messages_received  PUBLISH messages received
+  - mosquitto_retained_messages_count    Retained messages in store
+  - mosquitto_store_messages_count       Total stored messages
+  - mosquitto_subscriptions_count        Active subscriptions
+  - mosquitto_uptime_seconds             Broker uptime
+
+Test metrics endpoint:
+  kubectl port-forward -n {{ $namespace }} svc/{{ $fullName }} {{ .Values.monitoring.port }}:{{ .Values.monitoring.port }}
+  curl http://localhost:{{ .Values.monitoring.port }}/metrics
+
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+ServiceMonitor:   ✅ ENABLED (Prometheus Operator will auto-discover)
+{{- end }}
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚡ QUICK ACTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+View broker logs:
+  kubectl logs -f {{ $fullName }}-0 -n {{ $namespace }} -c mosquitto
+
+{{- if .Values.monitoring.enabled }}
+View exporter logs:
+  kubectl logs -f {{ $fullName }}-0 -n {{ $namespace }} -c exporter
+{{- end }}
+
+Exec into broker pod:
+  kubectl exec -it {{ $fullName }}-0 -n {{ $namespace }} -- /bin/sh
+
+Check broker status:
+  kubectl get statefulset {{ $fullName }} -n {{ $namespace }}
+
+View service:
+  kubectl get svc {{ $fullName }} -n {{ $namespace }}
+
+{{- if .Values.mqtt.persistence.enabled }}
+View persistence:
+  kubectl get pvc -n {{ $namespace }} | grep {{ $fullName }}
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For detailed guides, see the chart repository:
+  - README.md       Complete setup and configuration guide
+  - SECURITY.md     Authentication, TLS, and ACL configuration
+  - SPARKPLUG.md    Sparkplug B protocol implementation
+  - BRIDGES.md      Cloud broker integration (AWS IoT, Azure IoT Hub)
+  - QUICK_REFERENCE.md  Common commands and snippets
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🐛 TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Broker won't start?
+  1. Check logs: kubectl logs {{ $fullName }}-0 -n {{ $namespace }}
+  2. Verify config: kubectl get configmap {{ $fullName }} -n {{ $namespace }} -o yaml
+  3. Check PVC: kubectl get pvc -n {{ $namespace }}
+
+Can't connect?
+  1. Verify service: kubectl get svc {{ $fullName }} -n {{ $namespace }}
+  2. Test from pod: kubectl run -it --rm mqtt-test --image=eclipse-mosquitto:2.0 --restart=Never -- mosquitto_sub -h {{ $fullName }} -p {{ $mqttPort }} -t test
+  3. Check NetworkPolicy (if enabled)
+  4. Verify authentication settings
+
+High memory usage?
+  1. Check connected clients: curl http://{{ $fullName }}:{{ .Values.monitoring.port }}/metrics | grep mosquitto_connected_clients
+  2. Review max_connections setting
+  3. Check retained messages: grep mosquitto_retained_messages
+  4. Consider resource limits
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 Happy MQTT messaging! May your QoS always be 2 and your messages never get lost.
+
+   - Patrick Ryan, Fireball Industries
+   "At least it's more reliable than Modbus over WiFi"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

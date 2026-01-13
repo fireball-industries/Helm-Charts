@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ignition-edge.fullname" . }}
+  labels:
+    {{- include "ignition-edge.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if .Values.service.sessionAffinity }}
+  sessionAffinity: {{ .Values.service.sessionAffinity }}
+  {{- if .Values.service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+    {{- toYaml .Values.service.sessionAffinityConfig | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  ports:
+    {{- if .Values.service.http.enabled }}
+    - port: {{ .Values.service.http.port }}
+      targetPort: {{ .Values.service.http.targetPort }}
+      protocol: TCP
+      name: http
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.http.nodePort }}
+      nodePort: {{ .Values.service.http.nodePort }}
+      {{- end }}
+    {{- end }}
+    
+    {{- if .Values.service.https.enabled }}
+    - port: {{ .Values.service.https.port }}
+      targetPort: {{ .Values.service.https.targetPort }}
+      protocol: TCP
+      name: https
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.https.nodePort }}
+      nodePort: {{ .Values.service.https.nodePort }}
+      {{- end }}
+    {{- end }}
+    
+    {{- if .Values.service.opcua.enabled }}
+    - port: {{ .Values.service.opcua.port }}
+      targetPort: {{ .Values.service.opcua.targetPort }}
+      protocol: TCP
+      name: opcua
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.opcua.nodePort }}
+      nodePort: {{ .Values.service.opcua.nodePort }}
+      {{- end }}
+    {{- end }}
+    
+    {{- if .Values.service.mqtt.enabled }}
+    - port: {{ .Values.service.mqtt.port }}
+      targetPort: {{ .Values.service.mqtt.targetPort }}
+      protocol: TCP
+      name: mqtt
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.mqtt.nodePort }}
+      nodePort: {{ .Values.service.mqtt.nodePort }}
+      {{- end }}
+    {{- end }}
+    
+    {{- if .Values.service.mqtts.enabled }}
+    - port: {{ .Values.service.mqtts.port }}
+      targetPort: {{ .Values.service.mqtts.targetPort }}
+      protocol: TCP
+      name: mqtts
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.mqtts.nodePort }}
+      nodePort: {{ .Values.service.mqtts.nodePort }}
+      {{- end }}
+    {{- end }}
+    
+    {{- if .Values.service.gatewayNetwork.enabled }}
+    - port: {{ .Values.service.gatewayNetwork.port }}
+      targetPort: {{ .Values.service.gatewayNetwork.targetPort }}
+      protocol: TCP
+      name: gateway-net
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.gatewayNetwork.nodePort }}
+      nodePort: {{ .Values.service.gatewayNetwork.nodePort }}
+      {{- end }}
+    {{- end }}
+    
+    {{- if .Values.jmxExporter.enabled }}
+    - port: {{ .Values.jmxExporter.port }}
+      targetPort: {{ .Values.jmxExporter.port }}
+      protocol: TCP
+      name: metrics
+    {{- end }}
+  
+  selector:
+    {{- include "ignition-edge.selectorLabels" . | nindent 4 }}

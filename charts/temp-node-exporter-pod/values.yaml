@@ -1,0 +1,512 @@
+# ============================================================================
+# Fireball Node Exporter - Production Configuration
+# ============================================================================
+# Comprehensive node-level monitoring for Kubernetes/K3s environments.
+# Optimized for industrial edge computing where hardware actually matters.
+#
+# Deployment Modes:
+#   - daemonset (default): Runs on every node - recommended for production
+#   - deployment: Single instance - good for testing
+#   - statefulset: Persistent identity - rarely needed
+#
+# Resource Presets:
+#   - edge-minimal: IoT/Raspberry Pi (50m CPU, 30Mi RAM)
+#   - edge-standard: Industrial edge (100m CPU, 50Mi RAM) [DEFAULT]
+#   - server: Server/VM nodes (200m CPU, 100Mi RAM)
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Deployment Configuration
+# ----------------------------------------------------------------------------
+deploymentMode: daemonset  # daemonset | deployment | statefulset
+replicaCount: 1  # Only used when deploymentMode is deployment or statefulset
+
+# Update strategy for DaemonSet
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1  # Update one node at a time
+
+# Update strategy for Deployment
+deploymentStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 0
+
+# ----------------------------------------------------------------------------
+# Image Configuration
+# ----------------------------------------------------------------------------
+image:
+  registry: quay.io
+  repository: prometheus/node-exporter
+  tag: "v1.7.0"
+  digest: ""  # Optional: Use digest for immutable deployments
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+# - name: regcred
+
+# ----------------------------------------------------------------------------
+# Service Account & RBAC
+# ----------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""  # Auto-generated if not specified
+  automountServiceAccountToken: true
+
+rbac:
+  create: true
+  pspEnabled: false  # PodSecurityPolicy deprecated in K8s 1.25+
+
+# ----------------------------------------------------------------------------
+# Resource Presets
+# ----------------------------------------------------------------------------
+# Select a preset or use custom resources below
+resourcePreset: edge-standard  # edge-minimal | edge-standard | server | custom
+
+# Preset definitions (applied when resourcePreset != "custom")
+resourcePresets:
+  edge-minimal:
+    requests:
+      cpu: 50m
+      memory: 30Mi
+    limits:
+      cpu: 100m
+      memory: 50Mi
+    collectors:
+      - cpu
+      - cpufreq
+      - diskstats
+      - filesystem
+      - loadavg
+      - meminfo
+      - netdev
+      - stat
+      - time
+      - uname
+  
+  edge-standard:
+    requests:
+      cpu: 100m
+      memory: 50Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi
+    collectors:
+      - cpu
+      - cpufreq
+      - diskstats
+      - filesystem
+      - hwmon
+      - loadavg
+      - meminfo
+      - netdev
+      - netstat
+      - stat
+      - time
+      - uname
+      - vmstat
+  
+  server:
+    requests:
+      cpu: 200m
+      memory: 100Mi
+    limits:
+      cpu: 500m
+      memory: 200Mi
+    collectors:
+      - cpu
+      - cpufreq
+      - diskstats
+      - filesystem
+      - hwmon
+      - loadavg
+      - meminfo
+      - netdev
+      - netstat
+      - stat
+      - time
+      - uname
+      - vmstat
+      - systemd
+      - processes
+
+# Custom resources (only used when resourcePreset = "custom")
+resources:
+  requests:
+    cpu: 100m
+    memory: 50Mi
+  limits:
+    cpu: 200m
+    memory: 100Mi
+
+# ----------------------------------------------------------------------------
+# Collectors Configuration
+# ----------------------------------------------------------------------------
+# Enabled collectors when resourcePreset = "custom"
+# Otherwise, collectors are determined by the preset above
+collectors:
+  enabled:
+    - cpu
+    - cpufreq
+    - diskstats
+    - filesystem
+    - hwmon
+    - loadavg
+    - meminfo
+    - netdev
+    - netstat
+    - stat
+    - time
+    - uname
+    - vmstat
+  
+  # Optional collectors (disabled by default)
+  optional:
+    systemd: false        # Systemd service monitoring
+    processes: false      # Per-process metrics
+    textfile: true        # Custom metrics from files
+    ntp: false           # NTP time sync monitoring
+    tcpstat: false       # TCP connection state metrics
+    interrupts: false    # Interrupt statistics
+    thermal_zone: true   # Temperature sensors (important for edge!)
+    ethtool: false       # NIC statistics (requires elevated permissions)
+    wifi: false          # Wireless interface metrics
+    rapl: false          # Power consumption (Intel RAPL)
+    supervisord: false   # Supervisord process manager
+    
+  # Collector-specific arguments
+  collectorArgs:
+    filesystem:
+      mount-points-exclude: "^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)"
+      fs-types-exclude: "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$"
+    netclass:
+      ignored-devices: "^(veth.*|docker.*|br-.*|lo)$"
+    netdev:
+      device-exclude: "^(veth.*|docker.*|br-.*|lo)$"
+    diskstats:
+      device-exclude: "^(ram|loop|fd|(h|s|v|xv)d[a-z]|nvme\\d+n\\d+p)\\d+$"
+    textfile:
+      directory: "/var/lib/node_exporter/textfile_collector"
+
+# ----------------------------------------------------------------------------
+# Host Network & Namespaces
+# ----------------------------------------------------------------------------
+# Node Exporter requires host network for accurate metrics
+hostNetwork: true
+hostPID: true  # Required for process metrics
+hostIPC: false
+
+# DNS policy when using hostNetwork
+dnsPolicy: ClusterFirstWithHostNet
+
+# ----------------------------------------------------------------------------
+# Security Context
+# ----------------------------------------------------------------------------
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534  # nobody
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - SYS_TIME  # Required for time metrics
+
+# ----------------------------------------------------------------------------
+# Service Configuration
+# ----------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  port: 9100
+  targetPort: 9100
+  nodePort: null  # Set if service.type is NodePort
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9100"
+    prometheus.io/path: "/metrics"
+  labels: {}
+
+# Headless service for DaemonSet (per-pod endpoints)
+headlessService:
+  enabled: true  # Recommended for DaemonSets
+
+# ----------------------------------------------------------------------------
+# ServiceMonitor (Prometheus Operator)
+# ----------------------------------------------------------------------------
+serviceMonitor:
+  enabled: true
+  namespace: ""  # Defaults to release namespace
+  interval: 30s
+  scrapeTimeout: 10s
+  honorLabels: true
+  
+  # Additional labels for ServiceMonitor (used by Prometheus selector)
+  additionalLabels:
+    prometheus: kube-prometheus
+  
+  # Relabeling configuration
+  relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
+  
+  # Metric relabeling
+  metricRelabelings: []
+
+# ----------------------------------------------------------------------------
+# Prometheus Rules (Alert Manager)
+# ----------------------------------------------------------------------------
+prometheusRule:
+  enabled: false
+  namespace: ""
+  additionalLabels:
+    prometheus: kube-prometheus
+  
+  # See alerts/ directory for complete rule sets
+  rules: []
+  # - alert: NodeHighCPU
+  #   expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+  #   for: 5m
+  #   labels:
+  #     severity: warning
+  #   annotations:
+  #     summary: "High CPU usage on {{ $labels.instance }}"
+
+# ----------------------------------------------------------------------------
+# Network Policy
+# ----------------------------------------------------------------------------
+networkPolicy:
+  enabled: false  # Enable for network isolation
+  
+  # Ingress rules
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: monitoring
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: prometheus
+      ports:
+      - protocol: TCP
+        port: 9100
+
+# ----------------------------------------------------------------------------
+# Node Selection
+# ----------------------------------------------------------------------------
+# Run on specific nodes
+nodeSelector: {}
+# kubernetes.io/role: worker
+
+# Tolerations for control-plane/master nodes
+tolerations:
+  - effect: NoSchedule
+    operator: Exists
+
+# Pod affinity/anti-affinity
+affinity: {}
+
+# Priority class for pod scheduling
+priorityClassName: ""
+
+# ----------------------------------------------------------------------------
+# Volume Mounts
+# ----------------------------------------------------------------------------
+# Host paths required for metrics collection
+hostVolumeMounts:
+  - name: proc
+    hostPath: /proc
+    mountPath: /host/proc
+    readOnly: true
+  
+  - name: sys
+    hostPath: /sys
+    mountPath: /host/sys
+    readOnly: true
+  
+  - name: root
+    hostPath: /
+    mountPath: /host/root
+    readOnly: true
+    mountPropagation: HostToContainer
+
+# Additional volume mounts
+extraVolumeMounts: []
+# - name: textfile-collector
+#   mountPath: /var/lib/node_exporter/textfile_collector
+#   readOnly: true
+
+extraVolumes: []
+# - name: textfile-collector
+#   hostPath:
+#     path: /var/lib/node_exporter/textfile_collector
+#     type: DirectoryOrCreate
+
+# ----------------------------------------------------------------------------
+# Textfile Collector
+# ----------------------------------------------------------------------------
+textfileCollector:
+  enabled: true
+  hostPath: /var/lib/node_exporter/textfile_collector
+  
+  # Init container to create directory on nodes
+  initContainer:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: busybox
+      tag: "1.36"
+      pullPolicy: IfNotPresent
+
+# ----------------------------------------------------------------------------
+# Pod Configuration
+# ----------------------------------------------------------------------------
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9100"
+
+podLabels: {}
+
+# Liveness probe
+livenessProbe:
+  httpGet:
+    path: /
+    port: 9100
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Readiness probe
+readinessProbe:
+  httpGet:
+    path: /
+    port: 9100
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# ----------------------------------------------------------------------------
+# Extra Configuration
+# ----------------------------------------------------------------------------
+# Extra environment variables
+extraEnvVars: []
+# - name: GOMAXPROCS
+#   value: "2"
+
+# Extra command-line arguments
+extraArgs: []
+# - --log.level=debug
+# - --web.max-requests=40
+
+# Extra containers (sidecars)
+extraContainers: []
+
+# Extra init containers
+extraInitContainers: []
+
+# ----------------------------------------------------------------------------
+# TLS Configuration
+# ----------------------------------------------------------------------------
+tls:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  # Secret containing tls.crt and tls.key
+  secretName: ""
+
+# ----------------------------------------------------------------------------
+# Basic Authentication
+# ----------------------------------------------------------------------------
+basicAuth:
+  enabled: false
+  username: ""
+  password: ""
+  # Secret containing auth credentials
+  secretName: ""
+
+# ----------------------------------------------------------------------------
+# Lifecycle Hooks
+# ----------------------------------------------------------------------------
+lifecycle: {}
+# preStop:
+#   exec:
+#     command: ["/bin/sh", "-c", "sleep 15"]
+
+# ----------------------------------------------------------------------------
+# Monitoring & Debugging
+# ----------------------------------------------------------------------------
+# Enable debug logging
+debug: false
+
+# Metrics path
+metricsPath: /metrics
+
+# Web listen address
+listenAddress: 0.0.0.0:9100
+
+# ----------------------------------------------------------------------------
+# Industrial Edge Optimizations
+# ----------------------------------------------------------------------------
+# These settings are particularly important for edge deployments
+edge:
+  # Temperature monitoring (critical for enclosures!)
+  temperatureMonitoring: true
+  
+  # Disk wear monitoring for SSDs
+  diskWearMonitoring: true
+  
+  # Minimal resource mode for constrained devices
+  minimalMode: false
+  
+  # Custom metrics for industrial use cases
+  customMetrics:
+    enabled: true
+    scripts: []
+    # - name: backup-status
+    #   schedule: "0 */6 * * *"
+
+# ----------------------------------------------------------------------------
+# Labels & Annotations
+# ----------------------------------------------------------------------------
+commonLabels: {}
+# environment: production
+# team: platform
+
+commonAnnotations: {}
+# managed-by: flux
+
+# ----------------------------------------------------------------------------
+# Name Overrides
+# ----------------------------------------------------------------------------
+nameOverride: ""
+fullnameOverride: ""
+
+# ----------------------------------------------------------------------------
+# Namespace
+# ----------------------------------------------------------------------------
+namespaceOverride: ""
+
+# ----------------------------------------------------------------------------
+# Test Configuration
+# ----------------------------------------------------------------------------
+test:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: curlimages/curl
+    tag: "8.5.0"
+    pullPolicy: IfNotPresent

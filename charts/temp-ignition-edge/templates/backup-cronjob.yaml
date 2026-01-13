@@ -1,0 +1,149 @@
+{{- if .Values.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "ignition-edge.fullname" . }}-backup
+  labels:
+    {{- include "ignition-edge.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "ignition-edge.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: {{ include "ignition-edge.serviceAccountName" . }}
+          
+          containers:
+            - name: backup
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["/bin/bash"]
+              args:
+                - -c
+                - |
+                  #!/bin/bash
+                  # ================================================================
+                  # Ignition Gateway Backup Script
+                  # Because losing your SCADA config is a career-limiting move
+                  # ================================================================
+                  
+                  set -e
+                  
+                  BACKUP_DIR="{{ include "ignition-edge.backupPath" . }}"
+                  TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+                  BACKUP_FILE="${BACKUP_DIR}/ignition-backup-${TIMESTAMP}.gwbk"
+                  RETENTION_DAYS={{ .Values.backup.retention }}
+                  
+                  echo "=========================================="
+                  echo "Ignition Gateway Backup"
+                  echo "Timestamp: ${TIMESTAMP}"
+                  echo "=========================================="
+                  
+                  {{- if .Values.backup.preBackup.enabled }}
+                  # Pre-backup hook
+                  echo "Running pre-backup hook..."
+                  {{- range .Values.backup.preBackup.command }}
+                  {{ . }}
+                  {{- end }}
+                  echo "✓ Pre-backup hook completed"
+                  {{- end }}
+                  
+                  # Create backup directory
+                  mkdir -p "${BACKUP_DIR}"
+                  
+                  # Execute gateway backup using gwcmd
+                  echo "Creating gateway backup..."
+                  echo "Destination: ${BACKUP_FILE}"
+                  
+                  # Use Ignition's gwcmd (gateway command-line tool)
+                  /usr/local/bin/ignition/gwcmd.sh \
+                    --backup \
+                    --file "${BACKUP_FILE}" \
+                    --username {{ .Values.gateway.admin.username }} \
+                    --password "${GATEWAY_ADMIN_PASSWORD}"
+                  
+                  if [ -f "${BACKUP_FILE}" ]; then
+                    BACKUP_SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
+                    echo "✓ Backup created successfully: ${BACKUP_SIZE}"
+                  else
+                    echo "✗ Backup failed - file not created"
+                    exit 1
+                  fi
+                  
+                  {{- if .Values.backup.verify.enabled }}
+                  # Verify backup integrity
+                  echo "Verifying backup integrity..."
+                  if unzip -t "${BACKUP_FILE}" > /dev/null 2>&1; then
+                    echo "✓ Backup verification passed"
+                  else
+                    echo "✗ Backup verification failed"
+                    exit 1
+                  fi
+                  {{- end }}
+                  
+                  {{- if .Values.backup.postBackup.enabled }}
+                  # Post-backup hook
+                  echo "Running post-backup hook..."
+                  {{- range .Values.backup.postBackup.command }}
+                  {{ . }}
+                  {{- end }}
+                  echo "✓ Post-backup hook completed"
+                  {{- end }}
+                  
+                  # Clean up old backups
+                  echo "Cleaning up backups older than ${RETENTION_DAYS} days..."
+                  find "${BACKUP_DIR}" -name "ignition-backup-*.gwbk" -mtime +${RETENTION_DAYS} -delete
+                  
+                  REMAINING_BACKUPS=$(find "${BACKUP_DIR}" -name "ignition-backup-*.gwbk" | wc -l)
+                  echo "✓ Cleanup complete. ${REMAINING_BACKUPS} backups retained."
+                  
+                  # Summary
+                  echo "=========================================="
+                  echo "Backup Summary:"
+                  echo "  File: ${BACKUP_FILE}"
+                  echo "  Size: ${BACKUP_SIZE}"
+                  echo "  Status: SUCCESS"
+                  echo "=========================================="
+                  echo "Your config is safe. Sleep well tonight."
+              
+              env:
+                - name: GATEWAY_ADMIN_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.gateway.admin.existingSecret | default (printf "%s-secret" (include "ignition-edge.fullname" .)) }}
+                      key: {{ .Values.gateway.admin.passwordKey }}
+              
+              volumeMounts:
+                - name: gateway-data
+                  mountPath: /usr/local/bin/ignition/data
+                  readOnly: true
+                
+                - name: backup-volume
+                  mountPath: {{ include "ignition-edge.backupPath" . }}
+          
+          volumes:
+            - name: gateway-data
+              persistentVolumeClaim:
+                claimName: {{ .Values.persistence.data.existingClaim | default (printf "%s-data" (include "ignition-edge.fullname" .)) }}
+            
+            - name: backup-volume
+              {{- if eq .Values.backup.destination.type "pvc" }}
+              persistentVolumeClaim:
+                claimName: {{ include "ignition-edge.fullname" . }}-backup
+              {{- else if eq .Values.backup.destination.type "nfs" }}
+              nfs:
+                server: {{ .Values.backup.destination.nfs.server }}
+                path: {{ .Values.backup.destination.nfs.path }}
+              {{- else }}
+              emptyDir: {}
+              {{- end }}
+{{- end }}

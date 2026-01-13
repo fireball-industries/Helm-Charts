@@ -1,0 +1,265 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║                                                                          ║
+║  🔥 TimescaleDB - Because Your Industrial Data Deserves Better 🔥      ║
+║                                                                          ║
+║  Successfully deployed! Your time-series data is now safe from          ║
+║  the horrors of Excel spreadsheets and CSV files on network shares.    ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+📊 DEPLOYMENT INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Release Name:    {{ .Release.Name }}
+  Namespace:       {{ .Release.Namespace }}
+  Deployment Mode: {{ .Values.mode }}
+  Resource Preset: {{ .Values.preset }}
+  
+{{- if eq .Values.mode "ha" }}
+  Replicas:        {{ .Values.replicaCount }} (High Availability)
+{{- else }}
+  Replicas:        1 (Standalone)
+{{- end }}
+
+🔌 CONNECTION DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Database:  {{ .Values.postgresql.database }}
+  Username:  {{ .Values.postgresql.username }}
+  Port:      {{ .Values.service.port }}
+  
+{{- if .Values.sidecars.pgbouncer.enabled }}
+  PgBouncer: {{ .Values.sidecars.pgbouncer.port }} (connection pooling)
+{{- end }}
+
+  📡 Internal Service:
+  
+    Service Name: {{ include "timescaledb.fullname" . }}
+    
+    Connection String (from within Kubernetes):
+    postgresql://{{ .Values.postgresql.username }}:<password>@{{ include "timescaledb.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}/{{ .Values.postgresql.database }}
+
+{{- if eq .Values.mode "ha" }}
+    
+    Headless Service: {{ include "timescaledb.fullname" . }}-headless
+    
+    Individual Pod Access:
+    {{ include "timescaledb.fullname" . }}-0.{{ include "timescaledb.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local
+    {{ include "timescaledb.fullname" . }}-1.{{ include "timescaledb.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local
+    {{ include "timescaledb.fullname" . }}-2.{{ include "timescaledb.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+
+  🌐 External Access (Ingress):
+{{- range .Values.ingress.hosts }}
+    {{ .host }}
+{{- end }}
+{{- end }}
+
+{{- if eq .Values.service.type "LoadBalancer" }}
+
+  ☁️  LoadBalancer Service:
+    
+    Get external IP with:
+    kubectl get svc {{ include "timescaledb.fullname" . }} -n {{ .Release.Namespace }}
+{{- end }}
+
+{{- if eq .Values.service.type "NodePort" }}
+
+  🔗 NodePort Service:
+    
+    Get node port with:
+    kubectl get svc {{ include "timescaledb.fullname" . }} -n {{ .Release.Namespace }}
+{{- end }}
+
+🔑 RETRIEVE YOUR PASSWORD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PowerShell:
+  $password = kubectl get secret {{ include "timescaledb.fullname" . }}-secret -n {{ .Release.Namespace }} -o jsonpath="{.data.password}" | ForEach-Object { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
+  Write-Host "Password: $password"
+
+  Bash:
+  kubectl get secret {{ include "timescaledb.fullname" . }}-secret -n {{ .Release.Namespace }} -o jsonpath="{.data.password}" | base64 --decode
+
+🚀 CONNECT TO YOUR DATABASE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Option 1: Port Forward (for development/testing)
+  
+    kubectl port-forward svc/{{ include "timescaledb.fullname" . }} -n {{ .Release.Namespace }} 5432:{{ .Values.service.port }}
+    
+    Then connect locally:
+    psql -h localhost -p 5432 -U {{ .Values.postgresql.username }} -d {{ .Values.postgresql.database }}
+
+  Option 2: Exec into Pod
+  
+{{- if eq .Values.mode "ha" }}
+    kubectl exec -it {{ include "timescaledb.fullname" . }}-0 -n {{ .Release.Namespace }} -- psql -U {{ .Values.postgresql.username }} -d {{ .Values.postgresql.database }}
+{{- else }}
+    kubectl exec -it deployment/{{ include "timescaledb.fullname" . }} -n {{ .Release.Namespace }} -- psql -U {{ .Values.postgresql.username }} -d {{ .Values.postgresql.database }}
+{{- end }}
+
+  Option 3: PowerShell Management Script (recommended)
+  
+    .\scripts\manage-timescaledb.ps1 -Action health-check -ReleaseName {{ .Release.Name }} -Namespace {{ .Release.Namespace }}
+
+📈 TIMESCALEDB FEATURES ENABLED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{{- if .Values.timescaledb.enabled }}
+  ✅ TimescaleDB Extension
+{{- end }}
+
+{{- if .Values.timescaledb.compression.enabled }}
+  ✅ Data Compression (compress after {{ .Values.timescaledb.compression.compressAfter }})
+{{- end }}
+
+{{- if .Values.timescaledb.retention.enabled }}
+  ✅ Automated Data Retention
+     • Raw Data: {{ .Values.timescaledb.retention.rawData }}
+     • Hourly Aggregates: {{ .Values.timescaledb.retention.hourlyAggregates }}
+     • Daily Aggregates: {{ .Values.timescaledb.retention.dailyAggregates }}
+{{- end }}
+
+{{- if .Values.timescaledb.continuousAggregates.enabled }}
+  ✅ Continuous Aggregates (auto-refresh every {{ .Values.timescaledb.continuousAggregates.refreshInterval }})
+{{- end }}
+
+  Pre-configured Hypertables:
+{{- range $key, $value := .Values.timescaledb.hypertables }}
+{{- if $value.enabled }}
+  • {{ $value.schema }}.{{ $value.name }} (chunks: {{ $value.chunkTimeInterval }})
+{{- end }}
+{{- end }}
+
+{{- if .Values.backup.enabled }}
+
+💾 BACKUP CONFIGURATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ✅ Automated Backups Enabled
+  
+  Schedule:    {{ .Values.backup.schedule }}
+  Destination: {{ .Values.backup.destination.type }}
+  Retention:   {{ .Values.backup.retention }} backups
+  Compression: {{ .Values.backup.compression }}
+  
+  Trigger manual backup:
+  kubectl create job {{ include "timescaledb.fullname" . }}-backup-manual --from=cronjob/{{ include "timescaledb.fullname" . }}-backup -n {{ .Release.Namespace }}
+{{- end }}
+
+{{- if .Values.sidecars.postgresExporter.enabled }}
+
+📊 MONITORING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ✅ Prometheus postgres_exporter enabled
+  
+  Metrics endpoint: http://{{ include "timescaledb.fullname" . }}:{{ .Values.sidecars.postgresExporter.port }}/metrics
+  
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+  ✅ ServiceMonitor created for Prometheus Operator
+{{- end }}
+
+{{- if .Values.monitoring.grafana.enabled }}
+  ✅ Grafana dashboards available (ConfigMaps)
+     • PostgreSQL Overview (Dashboard ID: 455)
+     • TimescaleDB Metrics (Dashboard ID: 12776)
+{{- end }}
+{{- end }}
+
+⚙️  PERFORMANCE SETTINGS ({{ .Values.preset }} preset)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Max Connections:        {{ .Values.postgresql.maxConnections }}
+  Shared Buffers:         {{ .Values.postgresql.sharedBuffers }}
+  Effective Cache Size:   {{ .Values.postgresql.effectiveCacheSize }}
+  Maintenance Work Mem:   {{ .Values.postgresql.maintenanceWorkMem }}
+  Max Background Workers: {{ .Values.timescaledb.maxBackgroundWorkers }}
+  Chunk Time Interval:    {{ .Values.timescaledb.chunk.defaultTimeInterval }}
+
+{{- if .Values.persistence.enabled }}
+
+💿 STORAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Data Volume:   {{ .Values.persistence.size }}
+{{- if .Values.walVolume.enabled }}
+  WAL Volume:    {{ .Values.walVolume.size }}
+{{- end }}
+  Storage Class: {{ .Values.persistence.storageClass | default "default" }}
+{{- end }}
+
+📚 NEXT STEPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Verify deployment:
+     kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "timescaledb.name" . }}
+
+  2. Check logs:
+     kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "timescaledb.name" . }} --tail=50
+
+  3. Review TimescaleDB status:
+     kubectl exec -it {{ if eq .Values.mode "ha" }}{{ include "timescaledb.fullname" . }}-0{{ else }}deployment/{{ include "timescaledb.fullname" . }}{{ end }} -n {{ .Release.Namespace }} -- psql -U {{ .Values.postgresql.username }} -d {{ .Values.postgresql.database }} -c "SELECT * FROM timescaledb_information.hypertables;"
+
+  4. Check compression stats:
+     .\scripts\manage-timescaledb.ps1 -Action compression-status -ReleaseName {{ .Release.Name }} -Namespace {{ .Release.Namespace }}
+
+  5. Explore example queries:
+     See scripts/sql/sample-queries.sql for industrial IoT examples
+
+{{- if .Values.compliance.fda21CFRPart11.enabled }}
+
+⚖️  COMPLIANCE NOTICE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  FDA 21 CFR Part 11 features are ENABLED.
+  
+  ⚠️  IMPORTANT: Compliance configuration is active, but full regulatory
+  compliance requires additional operational procedures, validation, and
+  documentation. Consult with your quality/compliance team.
+  
+  See SECURITY.md for detailed compliance checklists.
+{{- end }}
+
+{{- if eq .Values.preset "edge" }}
+
+⚠️  EDGE DEPLOYMENT NOTICE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  You're running the EDGE preset (optimized for Raspberry Pi / IoT Gateway).
+  
+  This configuration is designed for:
+  • Low-power edge devices
+  • Limited network bandwidth
+  • Store-and-forward to central historian
+  
+  NOT suitable for:
+  • High-frequency data (>1 Hz per tag)
+  • Large tag counts (>1000 tags)
+  • Long-term data retention
+  
+  If you're seeing performance issues, consider upgrading to "small" preset
+  or forwarding data to a larger central instance.
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📖 Documentation: https://github.com/fireball-industries/timescaledb-helm
+🐛 Issues: https://github.com/fireball-industries/timescaledb-helm/issues
+💬 Discussions: https://github.com/fireball-industries/timescaledb-helm/discussions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Pro tip: Your data is now in a proper time-series database instead of a
+CSV file that someone keeps editing in Excel while it's open on a network
+share. Your future self thanks you. 🎉
+
+Need help? Check out the PowerShell management scripts in the scripts/
+directory, or dive into the SQL examples for common industrial IoT queries.
+
+Happy time-series-ing! 🚀📊
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

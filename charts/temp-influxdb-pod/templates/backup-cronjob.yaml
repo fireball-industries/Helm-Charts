@@ -1,0 +1,101 @@
+{{- if .Values.backup.enabled -}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "influxdb-pod.fullname" . }}-backup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "influxdb-pod.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "influxdb-pod.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: {{ include "influxdb-pod.serviceAccountName" . }}
+          securityContext:
+            {{- include "influxdb-pod.securityContext" . | nindent 12 }}
+          containers:
+            - name: backup
+              image: {{ include "influxdb-pod.image" . }}
+              imagePullPolicy: {{ .Values.influxdb.image.pullPolicy }}
+              securityContext:
+                {{- include "influxdb-pod.containerSecurityContext" . | nindent 16 }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  echo "🔥 Fireball Industries - InfluxDB Backup"
+                  echo "Starting backup at $(date)"
+                  
+                  # Create backup directory
+                  BACKUP_DIR="/backup/influxdb-backup-$(date +%Y%m%d-%H%M%S)"
+                  mkdir -p "$BACKUP_DIR"
+                  
+                  # Backup using influx CLI
+                  influx backup "$BACKUP_DIR" \
+                    --host http://{{ include "influxdb-pod.fullname" . }}:{{ .Values.service.port }} \
+                    --token "$INFLUX_TOKEN"
+                  
+                  echo "✅ Backup completed: $BACKUP_DIR"
+                  
+                  # Cleanup old backups (keep last N backups)
+                  echo "Cleaning up old backups (keeping {{ .Values.backup.retention }})"
+                  cd /backup
+                  ls -t | tail -n +{{ add .Values.backup.retention 1 }} | xargs -r rm -rf
+                  
+                  echo "Backup process completed at $(date)"
+              env:
+                - name: INFLUX_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "influxdb-pod.fullname" . }}-auth
+                      key: admin-token
+              resources:
+                {{- toYaml .Values.backup.resources | nindent 16 }}
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              {{- if eq .Values.backup.destination.type "pvc" }}
+              persistentVolumeClaim:
+                claimName: {{ include "influxdb-pod.fullname" . }}-backup
+              {{- else if eq .Values.backup.destination.type "nfs" }}
+              nfs:
+                server: {{ .Values.backup.destination.nfs.server }}
+                path: {{ .Values.backup.destination.nfs.path }}
+              {{- else }}
+              emptyDir: {}
+              {{- end }}
+---
+{{- if eq .Values.backup.destination.type "pvc" }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "influxdb-pod.fullname" . }}-backup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "influxdb-pod.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.backup.destination.pvc.storageClass }}
+  storageClassName: {{ .Values.backup.destination.pvc.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backup.destination.pvc.size }}
+{{- end }}
+{{- end }}
