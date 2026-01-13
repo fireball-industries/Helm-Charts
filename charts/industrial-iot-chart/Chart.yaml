@@ -39,18 +39,3 @@ annotations:
   catalog.cattle.io/categories: "Forge Industrial,IoT,Automation"
   catalog.cattle.io/os: "linux"
   catalog.cattle.io/type: "automation"
-  
-  # Rancher-specific annotations
-  catalog.cattle.io/certified: partner
-  catalog.cattle.io/display-name: "Home Assistant Pod"
-  catalog.cattle.io/release-name: home-assistant-pod
-  catalog.cattle.io/type: cluster-tool
-  catalog.cattle.io/namespace: home-assistant
-  catalog.cattle.io/auto-install: "false"
-  catalog.cattle.io/provides-gvr: "homeassistant.io/v1/homeassistant"
-  catalog.cattle.io/requests-cpu: 500m
-  catalog.cattle.io/requests-memory: 1Gi
-  catalog.cattle.io/scope: namespace
-  catalog.cattle.io/os: linux
-  catalog.cattle.io/kube-version: ">=1.20.0-0"
-  catalog.cattle.io/rancher-version: ">=2.6.0-0"
