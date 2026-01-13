@@ -39,10 +39,8 @@ annotations:
   catalog.cattle.io/display-name: "Ignition Edge SCADA"
   catalog.cattle.io/release-name: "ignition-edge"
   catalog.cattle.io/certified: "partner"
-  catalog.cattle.io/categories: "Forge Industrial,SCADA,Factory Automation"
+  catalog.cattle.io/categories: "Forge Industrial,SCADA,Factory Automation,Automation,Manufacturing"
   catalog.cattle.io/namespace: "ignition"
-  - automation
-  - manufacturing
 maintainers:
   - name: Patrick Ryan
     email: patrick@fireball-industries.com

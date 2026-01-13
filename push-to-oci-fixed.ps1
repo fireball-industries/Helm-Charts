@@ -30,12 +30,12 @@ try {
     # Extract version from output (works for both v3 and v4)
     if ($helmVersionOutput -match 'Version:"v?([0-9]+\.[0-9]+\.[0-9]+[^"]*)"') {
         $helmVersion = $matches[1]
-        Write-Host "✓ Helm v$helmVersion detected" -ForegroundColor Green
+        Write-Host "Helm v$helmVersion detected" -ForegroundColor Green
     } else {
-        Write-Host "✓ Helm found (version detection skipped)" -ForegroundColor Green
+        Write-Host "Helm found (version detection skipped)" -ForegroundColor Green
     }
 } catch {
-    Write-Host "✗ ERROR: Helm is not installed or not in PATH" -ForegroundColor Red
+    Write-Host "ERROR: Helm is not installed or not in PATH" -ForegroundColor Red
     Write-Host "`nInstall Helm: https://helm.sh/docs/intro/install/" -ForegroundColor Yellow
     exit 1
 }
@@ -49,9 +49,9 @@ if ($Username -and $Password) {
         if ($LASTEXITCODE -ne 0) {
             throw "Login command failed"
         }
-        Write-Host "✓ Authenticated to $Registry" -ForegroundColor Green
+        Write-Host "Authenticated to $Registry" -ForegroundColor Green
     } catch {
-        Write-Host "✗ Registry login failed: $_" -ForegroundColor Red
+        Write-Host "Registry login failed: $_" -ForegroundColor Red
         exit 1
     }
 } else {
@@ -70,7 +70,7 @@ $distPath = Join-Path $scriptDir "dist"
 
 # Verify charts directory exists
 if (-not (Test-Path $chartsDir)) {
-    Write-Host "✗ ERROR: charts/ directory not found at: $chartsDir" -ForegroundColor Red
+    Write-Host "ERROR: charts/ directory not found at: $chartsDir" -ForegroundColor Red
     Write-Host "Current directory: $(Get-Location)" -ForegroundColor Gray
     exit 1
 }
@@ -90,28 +90,36 @@ $successCount = 0
 $failCount = 0
 
 foreach ($chart in $charts) {
-    $chartName = $chart.Name
     $chartYamlPath = Join-Path $chart.FullName "Chart.yaml"
     
     # Verify Chart.yaml exists (Helm v4 is stricter about this)
     if (-not (Test-Path $chartYamlPath)) {
-        Write-Host "`n[$chartName] ✗ SKIP - Chart.yaml not found at $chartYamlPath" -ForegroundColor Red
+        Write-Host "`n[$($chart.Name)] SKIP - Chart.yaml not found at $chartYamlPath" -ForegroundColor Red
         $failCount++
         continue
     }
     
-    # Extract version from Chart.yaml
+    # Extract name and version from Chart.yaml
     try {
         $chartYaml = Get-Content $chartYamlPath -Raw -ErrorAction Stop
+        # Extract chart name
+        if ($chartYaml -match '(?m)^name:\s*(.+)') {
+            $chartName = $matches[1].Trim()
+        } else {
+            Write-Host "`n[$($chart.Name)] SKIP - No name found in Chart.yaml" -ForegroundColor Red
+            $failCount++
+            continue
+        }
+        # Extract version
         if ($chartYaml -match '(?m)^version:\s*(.+)') {
             $version = $matches[1].Trim()
         } else {
-            Write-Host "`n[$chartName] ✗ SKIP - No version found in Chart.yaml" -ForegroundColor Red
+            Write-Host "`n[$chartName] SKIP - No version found in Chart.yaml" -ForegroundColor Red
             $failCount++
             continue
         }
     } catch {
-        Write-Host "`n[$chartName] ✗ SKIP - Failed to read Chart.yaml: $_" -ForegroundColor Red
+        Write-Host "`n[$chartName] SKIP - Failed to read Chart.yaml: $_" -ForegroundColor Red
         $failCount++
         continue
     }
@@ -135,10 +143,10 @@ foreach ($chart in $charts) {
         if ($packageExitCode -ne 0) {
             throw "Packaging failed (exit code $packageExitCode): $packageOutput"
         }
-        Write-Host " ✓" -ForegroundColor Green
+        Write-Host " Done" -ForegroundColor Green
     } catch {
         Pop-Location -ErrorAction SilentlyContinue
-        Write-Host " ✗ FAILED" -ForegroundColor Red
+        Write-Host " FAILED" -ForegroundColor Red
         Write-Host "    Error: $_" -ForegroundColor Red
         $failCount++
         continue
@@ -149,28 +157,28 @@ foreach ($chart in $charts) {
     $packageFile = Join-Path $distPath "$chartName-$version.tgz"
     
     if (-not (Test-Path $packageFile)) {
-        Write-Host "  - Push... ✗ Package file not found: $packageFile" -ForegroundColor Red
+        Write-Host "  - Push... Package file not found: $packageFile" -ForegroundColor Red
         $failCount++
         continue
     }
     
     Write-Host "  - Pushing to OCI..." -NoNewline
-    try {
-        $pushOutput = helm push "$packageFile" "oci://$Registry" 2>&1 | Out-String
-        $pushExitCode = $LASTEXITCODE
-        
-        if ($pushExitCode -ne 0) {
-            throw "Push failed (exit code $pushExitCode): $pushOutput"
-        }
-        Write-Host " ✓" -ForegroundColor Green
-        Write-Host "    → oci://$Registry/$chartName:$version" -ForegroundColor Gray
+    
+    # Use -ErrorAction SilentlyContinue to prevent PowerShell from treating stderr as error
+    $pushOutput = & helm push "$packageFile" "oci://$Registry" 2>&1 | Out-String
+    $pushExitCode = $LASTEXITCODE
+    
+    # Check if push succeeded (exit code 0 OR output contains success indicators)
+    if ($pushExitCode -eq 0 -or $pushOutput -match "Pushed:" -or $pushOutput -match "Digest:") {
+        Write-Host " Done" -ForegroundColor Green
+        Write-Host "    oci://$Registry/$chartName`:$version" -ForegroundColor Gray
         $successCount++
         
         # Clean up package after successful push
         Remove-Item $packageFile -Force -ErrorAction SilentlyContinue
-    } catch {
-        Write-Host " ✗ FAILED" -ForegroundColor Red
-        Write-Host "    Error: $_" -ForegroundColor Red
+    } else {
+        Write-Host " FAILED" -ForegroundColor Red
+        Write-Host "    Error: $pushOutput" -ForegroundColor Red
         $failCount++
     }
 }
@@ -181,8 +189,8 @@ Remove-Item $distPath -Recurse -Force -ErrorAction SilentlyContinue
 # Summary
 Write-Host "`n" + ("=" * 80) -ForegroundColor Gray
 Write-Host "SUMMARY:" -ForegroundColor Cyan
-Write-Host "  ✓ Success: $successCount charts" -ForegroundColor Green
-Write-Host "  ✗ Failed:  $failCount charts" -ForegroundColor $(if ($failCount -gt 0) { "Red" } else { "Gray" })
+Write-Host "  Success: $successCount charts" -ForegroundColor Green
+Write-Host "  Failed:  $failCount charts" -ForegroundColor $(if ($failCount -gt 0) { "Red" } else { "Gray" })
 Write-Host ("=" * 80) -ForegroundColor Gray
 
 if ($successCount -gt 0) {
@@ -190,13 +198,13 @@ if ($successCount -gt 0) {
     Write-Host "`nInstall a chart:" -ForegroundColor Cyan
     Write-Host "  helm install my-release oci://$Registry/CHART_NAME --version VERSION" -ForegroundColor White
     Write-Host "`nAdd to Rancher:" -ForegroundColor Cyan
-    Write-Host "  Cluster → Apps → Repositories → Create" -ForegroundColor White
+    Write-Host "  Cluster -> Apps -> Repositories -> Create" -ForegroundColor White
     Write-Host "  Type: OCI" -ForegroundColor White
     Write-Host "  URL: oci://$Registry" -ForegroundColor White
 }
 
 if ($failCount -gt 0) {
-    Write-Host "`n⚠ Some charts failed to push. Review errors above." -ForegroundColor Yellow
+    Write-Host "`nSome charts failed to push. Review errors above." -ForegroundColor Yellow
     exit 1
 }
 
